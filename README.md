@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Resume Intelligence — AI Resume & Career Assistant
 
 Analyzes resumes, recommends suitable roles, compares resumes against job descriptions and
@@ -85,3 +86,6 @@ builds and Trivy container scans.
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production deployment, configuration, backup/restore, operations runbook |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Operational dependencies and known limitations |
 | [docs/openapi.json](docs/openapi.json) | OpenAPI 3 contract (also served live at `/api/openapi.json`) |
+=======
+# semantic-resume-analysis-using-NLP
+>>>>>>> 08129bcb166809e375617badadf2f38f5bdf995d

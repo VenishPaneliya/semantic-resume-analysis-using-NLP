@@ -103,6 +103,8 @@ class Settings(BaseSettings):
     file_retention_days: int = 365
     analysis_retention_days: int = 365
     unverified_account_retention_days: int = 30
+    bulk_upload_retention_days: int = 90  # recruiter-uploaded candidates without an account
+    bulk_upload_max_files: int = 25
 
     # --- observability ---
     log_level: str = "INFO"

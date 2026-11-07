@@ -82,7 +82,7 @@ def retention_sweep(db: Session) -> dict:
     s = get_settings()
     now = utcnow()
     storage = get_storage()
-    removed = {"resumes": 0, "exports": 0, "analyses": 0}
+    removed = {"resumes": 0, "exports": 0, "analyses": 0, "uploaded_candidates": 0}
     from app.models import Analysis, JDMatch, RoleRecommendation
     from app.services.account import delete_resume
 
@@ -99,5 +99,12 @@ def retention_sweep(db: Session) -> dict:
             storage.delete(e.file_key)
         db.delete(e)
         removed["exports"] += 1
+    from app.models import OpeningApplication
+
+    for a in db.scalars(select(OpeningApplication).where(OpeningApplication.source == "uploaded",
+                                                         OpeningApplication.expires_at.is_not(None),
+                                                         OpeningApplication.expires_at < now)):
+        db.delete(a)
+        removed["uploaded_candidates"] += 1
     db.commit()
     return removed

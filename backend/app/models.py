@@ -374,20 +374,46 @@ class JobOpening(TimestampMixin, Base):
 
 
 class OpeningApplication(TimestampMixin, Base):
-    """A candidate's application to an opening. The score is recomputed whenever the candidate
-    re-applies with a new version or the recruiter edits the opening."""
+    """A candidate in an opening's pipeline.
+
+    source=applied  — a registered candidate applied with one of their resume versions (user_id,
+                      version_id set). Counts toward "where I stand".
+    source=uploaded — a recruiter bulk-uploaded the resume after attesting the person agreed to be
+                      considered. No account; extracted content is stored encrypted and the row is
+                      deleted at expires_at (default 90 days). Never counts toward candidates' standing.
+    Scores are recomputed when the candidate re-applies or the recruiter edits the opening."""
 
     __tablename__ = "opening_applications"
     __table_args__ = (UniqueConstraint("opening_id", "user_id"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     opening_id: Mapped[str] = mapped_column(ForeignKey("job_openings.id", ondelete="CASCADE"), index=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    version_id: Mapped[str] = mapped_column(ForeignKey("resume_versions.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    version_id: Mapped[str | None] = mapped_column(ForeignKey("resume_versions.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(16), default="applied", nullable=False)  # applied | uploaded
+    candidate_name: Mapped[str | None] = mapped_column(EncryptedText)
+    candidate_email: Mapped[str | None] = mapped_column(EncryptedText)
+    content_enc: Mapped[str | None] = mapped_column(EncryptedText)  # JSON resume content for uploaded rows
+    original_filename: Mapped[str | None] = mapped_column(String(255))
+    uploaded_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    consent_attested_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    expires_at: Mapped[datetime | None] = mapped_column(TZDateTime, index=True)
     score: Mapped[float] = mapped_column(Float)
     result: Mapped[dict] = mapped_column(JSONType, default=dict)
     matcher_version: Mapped[str] = mapped_column(String(32))
-    # submitted | shortlisted | rejected  (set by recruiter)
+    # submitted | shortlisted | interview | offer | hired | rejected  (set by recruiter)
     stage: Mapped[str] = mapped_column(String(16), default="submitted")
+    stage_changed_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+
+
+class ApplicationNote(Base):
+    """Private recruiter note on a candidate. Never shown to the candidate."""
+
+    __tablename__ = "application_notes"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    application_id: Mapped[str] = mapped_column(ForeignKey("opening_applications.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    text: Mapped[str] = mapped_column(EncryptedText)
+    created_at: Mapped[datetime] = mapped_column(TZDateTime, default=utcnow)
 
 
 # ---------------------------------------------------------------- ops

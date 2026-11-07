@@ -1,0 +1,379 @@
+"""Recruiter (HR staff) API: openings, ranked pipelines with filters, side-by-side comparison,
+private notes, pipeline stages, and consent-attested bulk upload."""
+
+from __future__ import annotations
+
+import json
+from typing import Literal
+
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.api.deps import err, recruiter_user
+from app.api.openings import opening_out
+from app.config import get_settings
+from app.db import get_db
+from app.models import ApplicationNote, JobOpening, OpeningApplication, User, utcnow
+from app.services.audit import audit
+from app.services.ml.leaderboard import tier_for
+from app.services.openings import (
+    STAGES,
+    application_content,
+    candidate_facts,
+    extract_opening,
+    parse_uploaded_resume,
+    rescore_opening,
+    score_application,
+    upload_expiry,
+)
+from app.services.parsing.parsers import ParseError
+from app.services.taxonomy import get_taxonomy
+from app.services.upload_validation import UploadRejected, validate_upload
+
+router = APIRouter(prefix="/api/recruiter", tags=["recruiter"])
+
+Arrangement = Literal["onsite", "hybrid", "remote"]
+EmploymentType = Literal["full_time", "part_time", "contract", "internship"]
+Stage = Literal["submitted", "shortlisted", "interview", "offer", "hired", "rejected"]
+FAIRNESS_NOTE = ("Ranked by a compatibility indicator built from skills, requirements and wording. It does not use names, "
+                 "contact details, employers, schools or protected attributes. Use it to prioritise reading, not to reject "
+                 "people automatically.")
+
+
+# ---------------------------------------------------------------- openings
+
+
+class OpeningIn(BaseModel):
+    title: str = Field(min_length=2, max_length=200)
+    company: str = Field(min_length=1, max_length=200)
+    location: str | None = Field(default=None, max_length=200)
+    work_arrangement: Arrangement | None = None
+    employment_type: EmploymentType | None = None
+    description: str = Field(min_length=80, max_length=30000)
+
+
+class OpeningPatch(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=200)
+    company: str | None = Field(default=None, min_length=1, max_length=200)
+    location: str | None = Field(default=None, max_length=200)
+    work_arrangement: Arrangement | None = None
+    employment_type: EmploymentType | None = None
+    description: str | None = Field(default=None, min_length=80, max_length=30000)
+    status: Literal["open", "closed"] | None = None
+
+
+def _opening(db: Session, opening_id: str) -> JobOpening:
+    o = db.get(JobOpening, opening_id)
+    if not o:
+        raise err(404, "not_found", "Opening not found.")
+    return o
+
+
+def _app(db: Session, application_id: str) -> OpeningApplication:
+    a = db.get(OpeningApplication, application_id)
+    if not a:
+        raise err(404, "not_found", "Candidate not found.")
+    return a
+
+
+def _pipeline(db: Session, opening_id: str) -> list[OpeningApplication]:
+    return list(db.scalars(select(OpeningApplication).where(OpeningApplication.opening_id == opening_id)))
+
+
+@router.get("/openings")
+def r_list(user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    out = []
+    for o in db.scalars(select(JobOpening).order_by(JobOpening.created_at.desc())):
+        apps = _pipeline(db, o.id)
+        stages = {s: sum(1 for a in apps if a.stage == s) for s in STAGES}
+        out.append({**opening_out(o), "applicants": len(apps), "top_score": max((a.score for a in apps), default=None),
+                    "stages": stages})
+    return out
+
+
+@router.post("/openings", status_code=201)
+def r_create(body: OpeningIn, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    o = JobOpening(posted_by=user.id, **body.model_dump())
+    extract_opening(o)
+    db.add(o)
+    db.flush()
+    audit(db, "opening.created", user.id, "opening", o.id)
+    db.commit()
+    from app.services.alerts import queue_opening_alerts
+
+    queue_opening_alerts(db, o)
+    return {**opening_out(o, include_description=True), "warnings": o.extracted.get("warnings", [])}
+
+
+@router.get("/openings/{opening_id}")
+def r_get(opening_id: str, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    o = _opening(db, opening_id)
+    return {**opening_out(o, include_description=True), "applicants": len(_pipeline(db, o.id))}
+
+
+@router.patch("/openings/{opening_id}")
+def r_update(opening_id: str, body: OpeningPatch, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    o = _opening(db, opening_id)
+    data = body.model_dump(exclude_unset=True)
+    reopened = data.get("status") == "open" and o.status != "open"
+    for k, val in data.items():
+        setattr(o, k, val)
+    rescored = 0
+    if {"title", "description"} & data.keys():
+        extract_opening(o)
+        rescored = rescore_opening(db, o)
+    audit(db, "opening.updated", user.id, "opening", o.id, fields=sorted(data))
+    db.commit()
+    if reopened:
+        from app.services.alerts import queue_opening_alerts
+
+        queue_opening_alerts(db, o)
+    return {**opening_out(o, include_description=True), "rescored_applications": rescored}
+
+
+@router.delete("/openings/{opening_id}", status_code=204)
+def r_delete(opening_id: str, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    o = _opening(db, opening_id)
+    db.delete(o)
+    audit(db, "opening.deleted", user.id, "opening", opening_id)
+    db.commit()
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------- pipeline, filters
+
+
+def _identity(db: Session, a: OpeningApplication) -> tuple[str, str | None]:
+    if a.user_id:
+        cand = db.get(User, a.user_id)
+        if cand:
+            return cand.display_name or cand.email.split("@")[0], cand.email
+    return a.candidate_name or (a.original_filename or "Uploaded candidate"), a.candidate_email
+
+
+def _row(db: Session, a: OpeningApplication, rank: int, facts: dict | None) -> dict:
+    name, email = _identity(db, a)
+    r = a.result or {}
+    return {"rank": rank, "application_id": a.id, "name": name, "email": email, "source": a.source,
+            "score": a.score, "tier": tier_for(a.score), "stage": a.stage,
+            "counts": r.get("counts", {}), "keywords_matched": r.get("keywords", {}).get("present", []),
+            "keywords_missing": r.get("keywords", {}).get("absent", []),
+            "years": facts["years"] if facts else None,
+            "notes": db.scalar(select(func.count(ApplicationNote.id)).where(ApplicationNote.application_id == a.id)) or 0,
+            "applied_at": a.created_at.isoformat(), "updated_at": a.updated_at.isoformat(),
+            "stage_changed_at": a.stage_changed_at.isoformat() if a.stage_changed_at else None,
+            "expires_at": a.expires_at.isoformat() if a.expires_at else None}
+
+
+@router.get("/openings/{opening_id}/candidates")
+def r_candidates(
+    opening_id: str,
+    must_have: list[str] = Query(default=[], max_length=10, description="Skills that must appear (taxonomy names)"),
+    min_years: float | None = Query(default=None, ge=0, le=50),
+    min_score: float | None = Query(default=None, ge=0, le=100),
+    stage: list[Stage] = Query(default=[]),
+    source: Literal["applied", "uploaded"] | None = None,
+    user: User = Depends(recruiter_user),
+    db: Session = Depends(get_db),
+):
+    """Ranked pipeline for one opening, with shortlisting filters. Only people who applied (and consented)
+    or were uploaded with recruiter-attested consent appear."""
+    o = _opening(db, opening_id)
+    tax = get_taxonomy()
+    wanted = []
+    for s in must_have:
+        canon = tax.canonical(s) or (s if s in tax.skills else None)
+        if not canon:
+            raise err(422, "unknown_skill", f"Unknown skill: {s}")
+        wanted.append(canon)
+    apps = sorted(_pipeline(db, o.id), key=lambda a: (-a.score, a.created_at))
+    rows, total = [], len(apps)
+    for i, a in enumerate(apps, 1):
+        need_facts = bool(wanted) or min_years is not None
+        facts = None
+        if need_facts or True:
+            content = application_content(db, a)
+            facts = candidate_facts(content) if content else None
+        if min_score is not None and a.score < min_score:
+            continue
+        if stage and a.stage not in stage:
+            continue
+        if source and a.source != source:
+            continue
+        if wanted and (not facts or not set(wanted) <= set(facts["skills"])):
+            continue
+        if min_years is not None and (not facts or facts["years"] < min_years):
+            continue
+        rows.append(_row(db, a, i, facts))
+    return {"opening": opening_out(o), "candidates": rows, "total": total,
+            "filters": {"must_have": wanted, "min_years": min_years, "min_score": min_score, "stage": stage, "source": source},
+            "stages": list(STAGES), "note": FAIRNESS_NOTE}
+
+
+@router.get("/openings/{opening_id}/compare")
+def r_compare(opening_id: str, ids: list[str] = Query(min_length=2, max_length=4), user: User = Depends(recruiter_user),
+              db: Session = Depends(get_db)):
+    """Side-by-side: each requirement of the opening with every candidate's status and evidence."""
+    o = _opening(db, opening_id)
+    apps = []
+    for aid in dict.fromkeys(ids):
+        a = _app(db, aid)
+        if a.opening_id != o.id:
+            raise err(404, "not_found", "Candidate not found for this opening.")
+        apps.append(a)
+    cands = []
+    for a in apps:
+        name, _ = _identity(db, a)
+        content = application_content(db, a)
+        cands.append({"application_id": a.id, "name": name, "score": a.score, "tier": tier_for(a.score), "stage": a.stage,
+                      "years": candidate_facts(content)["years"] if content else None, "counts": (a.result or {}).get("counts", {})})
+    reqs = []
+    for i, r in enumerate(o.extracted.get("requirements", [])):
+        cells = []
+        for a in apps:
+            rows = (a.result or {}).get("requirements", [])
+            row = rows[i] if i < len(rows) and rows[i].get("text") == r["text"] else next(
+                (x for x in rows if x.get("text") == r["text"]), None)
+            cells.append({"application_id": a.id, "status": row["status"] if row else "unknown",
+                          "explanation": row.get("explanation") if row else None,
+                          "evidence": (row.get("evidence") or [])[:1] if row else []})
+        reqs.append({"text": r["text"], "importance": r["importance"], "kind": r["kind"], "cells": cells})
+    audit(db, "recruiter.compared", user.id, "opening", o.id, count=len(apps))
+    db.commit()
+    return {"opening": opening_out(o), "candidates": cands, "requirements": reqs, "note": FAIRNESS_NOTE}
+
+
+@router.get("/applications/{application_id}")
+def r_application(application_id: str, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    a = _app(db, application_id)
+    name, email = _identity(db, a)
+    content = application_content(db, a)
+    audit(db, "recruiter.viewed_application", user.id, "application", a.id)
+    db.commit()
+    return {"id": a.id, "opening_id": a.opening_id, "name": name, "email": email, "source": a.source,
+            "score": a.score, "tier": tier_for(a.score), "stage": a.stage, "match": a.result, "resume": content,
+            "facts": candidate_facts(content) if content else None, "applied_at": a.created_at.isoformat(),
+            "expires_at": a.expires_at.isoformat() if a.expires_at else None, "notes": _notes(db, a.id)}
+
+
+class StageIn(BaseModel):
+    stage: Stage
+
+
+@router.patch("/applications/{application_id}")
+def r_stage(application_id: str, body: StageIn, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    a = _app(db, application_id)
+    if a.stage != body.stage:
+        a.stage, a.stage_changed_at = body.stage, utcnow()
+    audit(db, "recruiter.stage_changed", user.id, "application", a.id, stage=body.stage)
+    db.commit()
+    return {"id": a.id, "stage": a.stage, "stage_changed_at": a.stage_changed_at.isoformat() if a.stage_changed_at else None}
+
+
+@router.delete("/applications/{application_id}", status_code=204)
+def r_remove(application_id: str, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    """Remove an uploaded candidate (and their stored resume) before the automatic expiry."""
+    a = _app(db, application_id)
+    if a.source != "uploaded":
+        raise err(409, "applied_candidate", "Candidates who applied themselves can only be moved to 'rejected', not deleted.")
+    db.delete(a)
+    audit(db, "recruiter.upload_removed", user.id, "application", application_id)
+    db.commit()
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------- notes
+
+
+def _notes(db: Session, application_id: str) -> list[dict]:
+    out = []
+    for n in db.scalars(select(ApplicationNote).where(ApplicationNote.application_id == application_id)
+                        .order_by(ApplicationNote.created_at)):
+        author = db.get(User, n.author_id) if n.author_id else None
+        out.append({"id": n.id, "text": n.text, "author": (author.display_name or author.email) if author else "Former staff",
+                    "author_id": n.author_id, "created_at": n.created_at.isoformat()})
+    return out
+
+
+class NoteIn(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
+@router.get("/applications/{application_id}/notes")
+def list_notes(application_id: str, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    return _notes(db, _app(db, application_id).id)
+
+
+@router.post("/applications/{application_id}/notes", status_code=201)
+def add_note(application_id: str, body: NoteIn, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    a = _app(db, application_id)
+    n = ApplicationNote(application_id=a.id, author_id=user.id, text=body.text.strip())
+    db.add(n)
+    db.flush()
+    audit(db, "recruiter.note_added", user.id, "application", a.id)
+    db.commit()
+    return next(x for x in _notes(db, a.id) if x["id"] == n.id)
+
+
+@router.delete("/notes/{note_id}", status_code=204)
+def delete_note(note_id: str, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    n = db.get(ApplicationNote, note_id)
+    if not n:
+        raise err(404, "not_found", "Note not found.")
+    if n.author_id != user.id and user.role != "admin":
+        raise err(403, "forbidden", "You can only delete your own notes.")
+    db.delete(n)
+    db.commit()
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------- bulk upload
+
+
+@router.post("/openings/{opening_id}/bulk-upload", status_code=201)
+def bulk_upload(
+    opening_id: str,
+    files: list[UploadFile] = File(...),
+    consent_attested: bool = Form(...),
+    user: User = Depends(recruiter_user),
+    db: Session = Depends(get_db),
+):
+    """Add resumes of people who did not sign up themselves. The recruiter must attest that each person
+    agreed to be considered. Files are parsed in the sandbox; only extracted content is kept (encrypted),
+    and the candidate is deleted automatically after BULK_UPLOAD_RETENTION_DAYS."""
+    s = get_settings()
+    if not consent_attested:
+        raise err(422, "consent_required", "Confirm that these candidates agreed to be considered for this opening.")
+    if len(files) > s.bulk_upload_max_files:
+        raise err(422, "too_many_files", f"Upload at most {s.bulk_upload_max_files} files at a time.")
+    o = _opening(db, opening_id)
+    now = utcnow()
+    added, failed = [], []
+    for f in files:
+        name = f.filename or "resume"
+        data = f.file.read(s.max_upload_bytes + 1)
+        try:
+            v = validate_upload(name, f.content_type, data)
+            content, contact = parse_uploaded_resume(v.kind, data)
+        except UploadRejected as exc:
+            failed.append({"file": name, "code": exc.code, "message": exc.message})
+            continue
+        except ParseError as exc:
+            failed.append({"file": name, "code": exc.code, "message": exc.message})
+            continue
+        a = OpeningApplication(opening_id=o.id, source="uploaded", candidate_name=contact["name"], candidate_email=contact["email"],
+                               content_enc=json.dumps(content), original_filename=name[:255], uploaded_by=user.id,
+                               consent_attested_at=now, expires_at=upload_expiry(), stage="submitted", score=0.0,
+                               result={}, matcher_version="")
+        score_application(a, content, o)
+        db.add(a)
+        db.flush()
+        added.append({"application_id": a.id, "file": name, "name": contact["name"] or name, "score": a.score,
+                      "tier": tier_for(a.score)})
+    audit(db, "recruiter.bulk_upload", user.id, "opening", o.id, added=len(added), failed=len(failed))
+    db.commit()
+    return {"added": added, "failed": failed, "retention_days": s.bulk_upload_retention_days,
+            "note": "Uploaded candidates are visible only to HR staff and are deleted automatically after "
+                    f"{s.bulk_upload_retention_days} days."}
