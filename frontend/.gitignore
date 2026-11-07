@@ -1,0 +1,8 @@
+node_modules
+.next
+out
+e2e/screenshots
+next-env.d.ts
+*.tsbuildinfo
+e2e/*.log
+e2e/screenshots/*.pdf

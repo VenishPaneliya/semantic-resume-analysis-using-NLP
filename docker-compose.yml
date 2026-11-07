@@ -1,0 +1,136 @@
+# Local development stack: PostgreSQL, Redis, SeaweedFS (private S3), Mailpit (SMTP catcher),
+# API, Celery worker + beat, and the Next.js frontend.
+#   cp .env.example .env && docker compose up --build
+#   App: http://localhost:3000   API docs: http://localhost:8000/api/docs   Mail: http://localhost:8025
+name: resume-intelligence
+
+x-backend-env: &backend-env
+  ENV: development
+  DATABASE_URL: postgresql+psycopg://ri:${POSTGRES_PASSWORD:-ri-dev-password}@postgres:5432/ri
+  REDIS_URL: redis://redis:6379/0
+  TASK_ALWAYS_EAGER: "false"
+  RATE_LIMIT_BACKEND: redis
+  STORAGE_BACKEND: s3
+  S3_ENDPOINT_URL: http://s3:8333
+  S3_BUCKET: resume-intelligence-private
+  S3_ACCESS_KEY_ID: ri-s3-dev
+  S3_SECRET_ACCESS_KEY: ri-s3-dev-secret-change-me
+  S3_SSE: ""
+  EMAIL_BACKEND: smtp
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  SMTP_STARTTLS: "false"
+  PUBLIC_BASE_URL: http://localhost:3000
+  API_BASE_URL: http://localhost:8000
+  CORS_ORIGINS: http://localhost:3000
+  SECRET_KEY: ${SECRET_KEY:-dev-insecure-change-me-dev-insecure-change-me}
+  ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-}
+  LLM_PROVIDER: ${LLM_PROVIDER:-fixture}
+  LLM_MODEL: ${LLM_MODEL:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-auto}
+  OCR_ENABLED: ${OCR_ENABLED:-false}
+  ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+  RECRUITER_EMAILS: ${RECRUITER_EMAILS:-}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  LOG_JSON: "true"
+  # requests reach the API through the Next.js proxy, which appends X-Forwarded-For
+  TRUSTED_PROXIES: "1"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ri
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ri-dev-password}
+      POSTGRES_DB: ri
+    volumes: [pgdata:/var/lib/postgresql/data]
+    # not published on the host; use `docker compose exec postgres psql -U ri ri`
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ri -d ri"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  s3:
+    # SeaweedFS S3 gateway (Apache-2.0). Any S3-compatible store works; MinIO community
+    # images are no longer published. Anonymous access is disabled by the identities file.
+    image: chrislusf/seaweedfs:3.80
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-s3.config=/etc/seaweedfs/s3.json", "-master.volumeSizeLimitMB=256"]
+    volumes:
+      - s3data:/data
+      - ./deploy/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8333"]
+      interval: 5s
+      retries: 30
+
+  s3-init:
+    image: amazon/aws-cli:2.22.0
+    depends_on: { s3: { condition: service_healthy } }
+    environment:
+      AWS_ACCESS_KEY_ID: ri-s3-dev
+      AWS_SECRET_ACCESS_KEY: ri-s3-dev-secret-change-me
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["sh", "-c", "aws --endpoint-url http://s3:8333 s3api head-bucket --bucket resume-intelligence-private 2>/dev/null || aws --endpoint-url http://s3:8333 s3 mb s3://resume-intelligence-private"]
+
+  mailpit:
+    image: axllent/mailpit:v1.24
+    ports: ["127.0.0.1:8025:8025"]
+
+  api:
+    build:
+      context: ./backend
+      args: { INSTALL_ML: "${INSTALL_ML:-true}", INSTALL_OCR: "${OCR_ENABLED:-false}" }
+    image: resume-intelligence-backend:dev
+    environment: *backend-env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      s3-init: { condition: service_completed_successfully }
+    ports: ["127.0.0.1:8000:8000"]
+
+  worker:
+    image: resume-intelligence-backend:dev
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2", "-O", "fair"]
+    environment: *backend-env
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 || exit 1"]
+      interval: 30s
+      retries: 3
+    depends_on:
+      api: { condition: service_healthy }
+
+  beat:
+    image: resume-intelligence-backend:dev
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=INFO", "--schedule", "/tmp/celerybeat-schedule"]
+    healthcheck: { disable: true }
+    environment: *backend-env
+    depends_on:
+      api: { condition: service_healthy }
+
+  frontend:
+    build:
+      context: ./frontend
+      args: { BACKEND_URL: "http://api:8000" }
+    environment:
+      BACKEND_URL: http://api:8000
+    depends_on:
+      api: { condition: service_healthy }
+    ports: ["127.0.0.1:3000:3000"]
+
+volumes:
+  pgdata:
+  redisdata:
+  s3data:

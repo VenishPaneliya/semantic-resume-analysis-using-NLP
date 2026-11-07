@@ -1,0 +1,139 @@
+{
+ "notice": "SYNTHETIC, hand-written candidate rewrites with hand-labelled unsupported claims. Used to measure the grounding verifier (detection recall and false-positive rate), independent of any model.",
+ "cases": [
+  {
+   "persona": "p02",
+   "source": "Designed REST APIs with FastAPI serving 200 internal users.",
+   "rewrite": "Built FastAPI REST APIs used by 200 internal users.",
+   "unsupported": []
+  },
+  {
+   "persona": "p02",
+   "source": "Designed REST APIs with FastAPI serving 200 internal users.",
+   "rewrite": "Built FastAPI REST APIs used by 2,000 internal users.",
+   "unsupported": [
+    "2,000"
+   ]
+  },
+  {
+   "persona": "p02",
+   "source": "Designed REST APIs with FastAPI serving 200 internal users.",
+   "rewrite": "Built FastAPI and GraphQL APIs used by 200 internal users.",
+   "unsupported": [
+    "GraphQL"
+   ]
+  },
+  {
+   "persona": "p02",
+   "source": "Containerised services with Docker.",
+   "rewrite": "Containerised services with Docker and deployed them on Kubernetes at Netflix.",
+   "unsupported": [
+    "Kubernetes",
+    "Netflix"
+   ]
+  },
+  {
+   "persona": "p02",
+   "source": "Containerised services with Docker.",
+   "rewrite": "Containerised backend services with Docker [ADD: number of services].",
+   "unsupported": []
+  },
+  {
+   "persona": "p02",
+   "source": "Wrote unit tests with pytest and set up GitHub Actions CI.",
+   "rewrite": "Added pytest unit tests and a GitHub Actions CI pipeline, raising coverage to 95%.",
+   "unsupported": [
+    "95%"
+   ]
+  },
+  {
+   "persona": "p03",
+   "source": "Set up model monitoring for drift and cut false positives by 18%.",
+   "rewrite": "Introduced drift monitoring that reduced false positives by 18%.",
+   "unsupported": []
+  },
+  {
+   "persona": "p03",
+   "source": "Set up model monitoring for drift and cut false positives by 18%.",
+   "rewrite": "Introduced drift monitoring that reduced false positives by 18% and saved $2M annually.",
+   "unsupported": [
+    "$2M"
+   ]
+  },
+  {
+   "persona": "p03",
+   "source": "Trained gradient boosting models with XGBoost and scikit-learn to flag fraudulent transactions.",
+   "rewrite": "Trained XGBoost and scikit-learn fraud models as a certified AWS architect.",
+   "unsupported": [
+    "certified"
+   ]
+  },
+  {
+   "persona": "p03",
+   "source": "Built churn prediction models and presented results to product stakeholders.",
+   "rewrite": "Built churn prediction models and presented findings to product stakeholders.",
+   "unsupported": []
+  },
+  {
+   "persona": "p01",
+   "source": "Built a Power BI dashboard tracking weekly revenue for 15 stores.",
+   "rewrite": "Created a Power BI dashboard tracking weekly revenue across 15 stores.",
+   "unsupported": []
+  },
+  {
+   "persona": "p01",
+   "source": "Built a Power BI dashboard tracking weekly revenue for 15 stores.",
+   "rewrite": "Created a Tableau dashboard tracking weekly revenue across 15 stores.",
+   "unsupported": [
+    "Tableau"
+   ]
+  },
+  {
+   "persona": "p01",
+   "source": "Wrote SQL queries to analyse 2 years of store sales data for the regional team.",
+   "rewrite": "Wrote SQL queries analysing two years of store sales for the regional team.",
+   "unsupported": [],
+   "note": "Faithful paraphrase (2 -> two); may be flagged (false positive)."
+  },
+  {
+   "persona": "p01",
+   "source": "Wrote SQL queries to analyse 2 years of store sales data for the regional team.",
+   "rewrite": "Wrote SQL queries analysing 5 years of sales data while completing a Master's degree.",
+   "unsupported": [
+    "5",
+    "Master's"
+   ]
+  },
+  {
+   "persona": "p06",
+   "source": "Migrated the marketing site to Next.js and Tailwind CSS.",
+   "rewrite": "Migrated the marketing site to Next.js and Tailwind CSS in 2019.",
+   "unsupported": [
+    "2019"
+   ],
+   "note": "Fabricated date: the migration happened in the 2021+ role, but 2019 appears elsewhere in the resume, so presence-based checks cannot catch it."
+  },
+  {
+   "persona": "p06",
+   "source": "Migrated the marketing site to Next.js and Tailwind CSS.",
+   "rewrite": "Migrated the marketing site to Next.js and Tailwind CSS in 2017, cutting load time by 40%.",
+   "unsupported": [
+    "2017",
+    "40%"
+   ]
+  },
+  {
+   "persona": "p04",
+   "source": "Mentored 4 junior engineers.",
+   "rewrite": "Mentored four junior engineers.",
+   "unsupported": [],
+   "note": "Faithful paraphrase (4 -> four); a strict verifier may flag it (false positive)."
+  },
+  {
+   "persona": "p04",
+   "source": "Mentored 4 junior engineers.",
+   "rewrite": "Mentored 4 junior engineers on Kubernetes and Terraform practices.",
+   "unsupported": []
+  }
+ ]
+}

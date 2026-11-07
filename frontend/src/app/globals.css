@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+/* Clean professional palette: cool neutrals, a teal for confirmed content and amber reserved
+   exclusively for AI suggestions so the two are never confused. */
+@theme {
+  --color-paper: #f6f8fa;
+  --color-paper-2: #eef1f5;
+  --color-card: #ffffff;
+  --color-ink: #0f172a;
+  --color-ink-2: #334155;
+  --color-muted: #64748b;
+  --color-line: #e2e8f0;
+  --color-line-strong: #cbd5e1;
+  --color-teal: #0f766e;
+  --color-teal-2: #115e59;
+  --color-teal-soft: #e6f4f2;
+  --color-ai: #9a5b00;
+  --color-ai-soft: #fdf5e3;
+  --color-ai-line: #ecd08f;
+  --color-ok: #15803d;
+  --color-ok-soft: #e8f5ec;
+  --color-warn: #a16207;
+  --color-warn-soft: #fdf3dc;
+  --color-bad: #b42318;
+  --color-bad-soft: #fdecea;
+  --color-info-soft: #eaf1fb;
+  --color-info: #1e4a8a;
+
+  --font-display: var(--font-inter), "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--font-inter), "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    background: var(--color-paper);
+    min-height: 100vh;
+    /* never let one wide element create a page-level horizontal scrollbar */
+    overflow-x: clip;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+  }
+  /* file names like "Jane_Doe_Resume_Final.pdf" have no spaces; let them wrap anywhere */
+  h1, h2, h3, dd {
+    overflow-wrap: anywhere;
+  }
+  /* Grid/flex items default to min-width:auto, so a long unbreakable line (an evidence quote,
+     a URL, a truncated label) widens its track past the viewport. Let tracks shrink instead. */
+  .grid > * {
+    min-width: 0;
+  }
+  /* browsers give <fieldset> min-inline-size: min-content, so wide forms inside it can't shrink */
+  fieldset {
+    min-inline-size: 0;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-teal);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: #cdeae5;
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px #0f172a0a, 0 4px 16px -8px #0f172a14;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 7px;
+    padding: 0.5rem 0.9rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--color-teal);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-teal-2);
+  }
+  .btn-secondary {
+    background: var(--color-card);
+    border-color: var(--color-line-strong);
+    color: var(--color-ink);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-paper-2);
+  }
+  .btn-ghost {
+    color: var(--color-ink-2);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--color-paper-2);
+  }
+  .btn-danger {
+    background: var(--color-bad);
+    color: #fff;
+  }
+  .btn-ai {
+    background: var(--color-ai-soft);
+    border-color: var(--color-ai-line);
+    color: var(--color-ai);
+  }
+  .btn-ai:hover:not(:disabled) {
+    background: #fbe9c0;
+  }
+  .btn-sm {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  .input {
+    width: 100%;
+    border: 1px solid var(--color-line-strong);
+    background: #fff;
+    border-radius: 7px;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.9rem;
+    color: var(--color-ink);
+  }
+  .input:focus {
+    outline: 3px solid #0f5c5533;
+    border-color: var(--color-teal);
+  }
+  .label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-ink-2);
+    margin-bottom: 0.3rem;
+  }
+  .eyebrow {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .ai-surface {
+    background: repeating-linear-gradient(135deg, var(--color-ai-soft) 0 12px, #fcefd2 12px 13px);
+    border: 1px dashed var(--color-ai-line);
+    border-radius: 10px;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.rise { animation: rise 0.5s cubic-bezier(.2,.7,.2,1) both; }
+.rise-1 { animation-delay: 0.06s; }
+.rise-2 { animation-delay: 0.12s; }
+.rise-3 { animation-delay: 0.18s; }
+.rise-4 { animation-delay: 0.24s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
+  * { transition: none !important; }
+}

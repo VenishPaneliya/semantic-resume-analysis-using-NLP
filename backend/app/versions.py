@@ -1,0 +1,11 @@
+"""Single source of truth for engine versions recorded on every derived result."""
+
+PARSER_VERSION = "parser-1.0.0"
+EXTRACTOR_VERSION = "extractor-1.0.0"
+RUBRIC_VERSION = "rubric-1.0.0"
+RECOMMENDER_VERSION = "hybrid-recommender-1.0.0"
+JD_MATCHER_VERSION = "jd-matcher-1.0.0"
+PROMPT_VERSION = "prompts-1.0.0"
+GROUNDING_VERSION = "grounding-1.0.0"
+EXPORT_VERSION = "export-1.0.0"
+LEADERBOARD_VERSION = "leaderboard-1.0.0"

@@ -1,0 +1,69 @@
+{
+  "note": "DEMO DATA. Fictional openings for local development and demos. Every row is stored with is_demo=true and labelled 'Sample opening' in the UI. Remove with: python scripts/seed_demo_openings.py --remove",
+  "openings": [
+    {
+      "title": "Data Analyst",
+      "company": "Northwind Retail (sample)",
+      "location": "Bengaluru",
+      "work_arrangement": "hybrid",
+      "employment_type": "full_time",
+      "description": "We are looking for a Data Analyst to turn sales and inventory data into decisions.\n\nResponsibilities:\n- Build and maintain dashboards for regional sales teams\n- Write SQL queries to answer ad-hoc business questions\n- Present findings to non-technical stakeholders\n\nRequirements:\n- 1+ years of experience in an analytics role\n- Strong SQL\n- Excel\n- Tableau or Power BI\n- Bachelor's degree in a quantitative field or equivalent experience\n\nNice to have:\n- Python for data analysis\n- Statistics"
+    },
+    {
+      "title": "Backend Developer (Python)",
+      "company": "Ledgerline Fintech (sample)",
+      "location": "Pune",
+      "work_arrangement": "onsite",
+      "employment_type": "full_time",
+      "description": "Join the payments team building reliable APIs.\n\nWhat you'll do:\n- Design and build REST APIs for payment workflows\n- Write tests and review code\n- Improve performance of database queries\n\nRequirements:\n- 2+ years of professional backend development experience\n- Python\n- Django or FastAPI\n- PostgreSQL\n- REST API design\n- Git\n\nPreferred:\n- Docker\n- Redis\n- AWS"
+    },
+    {
+      "title": "Frontend Engineer",
+      "company": "Brightpixel Studio (sample)",
+      "location": "Remote (India)",
+      "work_arrangement": "remote",
+      "employment_type": "full_time",
+      "description": "Build fast, accessible interfaces for our design tools.\n\nResponsibilities:\n- Build reusable React components\n- Work with designers to ship polished UI\n- Keep pages fast and accessible\n\nRequirements:\n- 2+ years of frontend experience\n- JavaScript\n- TypeScript\n- React\n- HTML and CSS\n\nNice to have:\n- Next.js\n- Tailwind CSS\n- Testing with Jest"
+    },
+    {
+      "title": "Machine Learning Engineer",
+      "company": "Cortexa Health AI (sample)",
+      "location": "Hyderabad",
+      "work_arrangement": "hybrid",
+      "employment_type": "full_time",
+      "description": "Help us ship models that support clinicians.\n\nWhat you will do:\n- Train and evaluate machine learning models\n- Deploy models to production and monitor them\n- Work with data engineers on feature pipelines\n\nRequirements:\n- 3+ years of experience building ML systems\n- Python\n- PyTorch or TensorFlow\n- scikit-learn\n- Machine learning fundamentals\n- SQL\n\nPreferred:\n- Docker\n- MLOps experience\n- AWS or GCP"
+    },
+    {
+      "title": "DevOps Engineer",
+      "company": "Stratus Cloudworks (sample)",
+      "location": "Chennai",
+      "work_arrangement": "onsite",
+      "employment_type": "full_time",
+      "description": "Own our CI/CD and cloud infrastructure.\n\nResponsibilities:\n- Maintain CI/CD pipelines\n- Manage Kubernetes clusters\n- Automate infrastructure with Terraform\n\nRequirements:\n- 2+ years of DevOps or SRE experience\n- Linux\n- Docker\n- Kubernetes\n- Terraform\n- AWS\n- CI/CD\n\nNice to have:\n- Python or Bash scripting\n- Prometheus and Grafana"
+    },
+    {
+      "title": "QA Automation Engineer",
+      "company": "Testwell Labs (sample)",
+      "location": "Noida",
+      "work_arrangement": "hybrid",
+      "employment_type": "full_time",
+      "description": "Keep our releases reliable through test automation.\n\nResponsibilities:\n- Write automated UI and API tests\n- Maintain the regression suite in CI\n- Report and track defects\n\nRequirements:\n- 1+ years of QA automation experience\n- Selenium or Playwright\n- Python or Java\n- API testing\n- CI/CD\n\nPreferred:\n- Cypress\n- Performance testing"
+    },
+    {
+      "title": "Data Engineer",
+      "company": "Riverflow Logistics (sample)",
+      "location": "Gurugram",
+      "work_arrangement": "hybrid",
+      "employment_type": "full_time",
+      "description": "Build the pipelines that move our shipment data.\n\nWhat you'll do:\n- Build batch and streaming data pipelines\n- Model data in the warehouse\n- Monitor data quality\n\nRequirements:\n- 2+ years of data engineering experience\n- Python\n- SQL\n- Apache Spark\n- Airflow\n- dbt\n\nNice to have:\n- Kafka\n- AWS\n- Snowflake"
+    },
+    {
+      "title": "Junior Full Stack Developer",
+      "company": "Campusly EdTech (sample)",
+      "location": "Ahmedabad",
+      "work_arrangement": "onsite",
+      "employment_type": "full_time",
+      "description": "A first or second job for developers who like both sides of the stack.\n\nResponsibilities:\n- Build features across our React frontend and Node.js backend\n- Fix bugs and write tests\n\nRequirements:\n- 0-1 years of experience (internships count)\n- JavaScript\n- React\n- Node.js\n- SQL or MongoDB\n- Git\n\nNice to have:\n- TypeScript\n- Docker"
+    }
+  ]
+}

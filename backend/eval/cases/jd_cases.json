@@ -1,0 +1,64 @@
+{
+  "notice": "SYNTHETIC, hand-labelled by the developer. Labels are the expected requirement status for the persona's ground-truth content.",
+  "jds": {
+    "jd_backend": "Backend Engineer\nRequirements\n- 2+ years of professional experience building web services\n- Python and SQL\n- Experience with Django or FastAPI\n- Docker\n- Kubernetes\n- Bachelor's degree in Computer Science or related field\n- Must be authorized to work in the US\nNice to have\n- Redis\n- GraphQL\n",
+    "jd_data": "Data Analyst\nRequirements\n- 1+ years of experience in data analysis\n- Advanced SQL\n- Tableau or Power BI\n- Statistics\n- Python or R\nPreferred\n- dbt\n- A/B testing experience\n",
+    "jd_ml": "Machine Learning Engineer\nRequirements\n- 3+ years of experience in machine learning\n- Python\n- PyTorch or TensorFlow\n- MLflow\n- AWS\n- Master's degree in a quantitative field\nNice to have\n- Kubernetes\n- Spark\n"
+  },
+  "labels": [
+    {"persona": "p02", "jd": "jd_backend", "expected": {
+      "2+ years of professional experience building web services": "matched",
+      "Python and SQL": "matched",
+      "Experience with Django or FastAPI": "matched",
+      "Docker": "matched",
+      "Kubernetes": "missing",
+      "Bachelor's degree in Computer Science or related field": "matched",
+      "Must be authorized to work in the US": "unknown",
+      "Redis": "matched",
+      "GraphQL": "missing"}},
+    {"persona": "p07", "jd": "jd_backend", "expected": {
+      "2+ years of professional experience building web services": "missing",
+      "Python and SQL": "missing",
+      "Experience with Django or FastAPI": "missing",
+      "Docker": "missing",
+      "Kubernetes": "missing",
+      "Bachelor's degree in Computer Science or related field": "matched",
+      "Must be authorized to work in the US": "unknown",
+      "Redis": "missing",
+      "GraphQL": "missing"}},
+    {"persona": "p01", "jd": "jd_data", "expected": {
+      "1+ years of experience in data analysis": "partial",
+      "Advanced SQL": "matched",
+      "Tableau or Power BI": "matched",
+      "Statistics": "matched",
+      "Python or R": "matched",
+      "dbt": "missing",
+      "A/B testing experience": "missing"}},
+    {"persona": "p11", "jd": "jd_data", "expected": {
+      "1+ years of experience in data analysis": "matched",
+      "Advanced SQL": "matched",
+      "Tableau or Power BI": "matched",
+      "Statistics": "matched",
+      "Python or R": "matched",
+      "dbt": "missing",
+      "A/B testing experience": "matched"}},
+    {"persona": "p03", "jd": "jd_ml", "expected": {
+      "3+ years of experience in machine learning": "matched",
+      "Python": "matched",
+      "PyTorch or TensorFlow": "missing",
+      "MLflow": "matched",
+      "AWS": "matched",
+      "Master's degree in a quantitative field": "matched",
+      "Kubernetes": "missing",
+      "Spark": "missing"}},
+    {"persona": "p10", "jd": "jd_ml", "expected": {
+      "3+ years of experience in machine learning": "missing",
+      "Python": "matched",
+      "PyTorch or TensorFlow": "matched",
+      "MLflow": "missing",
+      "AWS": "missing",
+      "Master's degree in a quantitative field": "matched",
+      "Kubernetes": "missing",
+      "Spark": "missing"}}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "app",
+      "credentials": [{ "accessKey": "ri-s3-dev", "secretKey": "ri-s3-dev-secret-change-me" }],
+      "actions": ["Read", "Write", "List", "Tagging", "Admin"]
+    }
+  ]
+}

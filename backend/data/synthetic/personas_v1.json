@@ -1,0 +1,955 @@
+{
+ "version": "synthetic-personas-v1",
+ "notice": "SYNTHETIC DEVELOPMENT DATA. All people, employers and schools are fictional. Labels were hand-assigned by the developer and are NOT a substitute for evaluation on consented, representative real resumes.",
+ "as_of": "2025-09",
+ "as_of_note": "Seniority labels were written relative to September 2025; evaluation pins 'present' to this date so time-dependent labels stay valid.",
+ "splits": {
+  "dev": [
+   "p01",
+   "p02",
+   "p03",
+   "p04",
+   "p05",
+   "p06",
+   "p07",
+   "p08"
+  ],
+  "test": [
+   "p09",
+   "p10",
+   "p11",
+   "p12"
+  ]
+ },
+ "personas": [
+  {
+   "id": "p01",
+   "level": "student",
+   "labels": {
+    "relevant_roles": [
+     "data_analyst",
+     "data_scientist"
+    ],
+    "seniority": "entry"
+   },
+   "content": {
+    "contact": {
+     "name": "Ananya Rao",
+     "email": "ananya.rao@example.org",
+     "phone": "+91 90000 11111",
+     "location": "Hyderabad, Telangana",
+     "links": [
+      {
+       "label": "GitHub",
+       "url": "https://github.com/ananya-rao-demo"
+      }
+     ]
+    },
+    "summary": "Final-year statistics student interested in data analysis, with coursework and projects in SQL, Python and dashboarding.",
+    "experience": [
+     {
+      "title": "Data Analytics Intern",
+      "organization": "Northwind Retail Labs",
+      "start": "2025-05",
+      "end": "2025-07",
+      "employment_type": "internship",
+      "bullets": [
+       "Wrote SQL queries to analyse 2 years of store sales data for the regional team.",
+       "Built a Power BI dashboard tracking weekly revenue for 15 stores."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "B.Sc. in Statistics",
+      "field_of_study": "Statistics",
+      "institution": "Deccan Science College",
+      "start": "2023",
+      "end": "2026",
+      "grade": "8.9/10"
+     }
+    ],
+    "projects": [
+     {
+      "name": "Hospital Wait-Time Analysis",
+      "technologies": [
+       "Python",
+       "Pandas",
+       "Statistics"
+      ],
+      "bullets": [
+       "Analysed 10,000 anonymised visit records and identified peak hours using hypothesis testing."
+      ]
+     }
+    ],
+    "skills": {
+     "technical": [
+      "SQL",
+      "Python",
+      "Pandas",
+      "Power BI",
+      "Excel",
+      "Statistics"
+     ],
+     "soft": [
+      "Communication"
+     ],
+     "other": []
+    },
+    "certifications": [],
+    "achievements": [],
+    "languages": [
+     {
+      "name": "English",
+      "proficiency": "Fluent"
+     },
+     {
+      "name": "Telugu",
+      "proficiency": "Native"
+     }
+    ]
+   }
+  },
+  {
+   "id": "p02",
+   "level": "junior",
+   "labels": {
+    "relevant_roles": [
+     "backend_developer",
+     "fullstack_developer"
+    ],
+    "seniority": "junior"
+   },
+   "content": {
+    "contact": {
+     "name": "Marcus Bell",
+     "email": "marcus.bell@example.com",
+     "phone": "+1 555 010 2233",
+     "location": "Austin, TX",
+     "links": [
+      {
+       "label": "LinkedIn",
+       "url": "https://linkedin.com/in/marcus-bell-demo"
+      }
+     ]
+    },
+    "summary": "Backend developer building REST APIs in Python and PostgreSQL.",
+    "experience": [
+     {
+      "title": "Software Engineer",
+      "organization": "Bluebonnet Logistics",
+      "start": "2023-08",
+      "end": null,
+      "current": true,
+      "employment_type": "full_time",
+      "bullets": [
+       "Designed REST APIs with FastAPI serving 200 internal users.",
+       "Reduced p95 query latency from 900 ms to 150 ms by adding PostgreSQL indexes.",
+       "Wrote unit tests with pytest and set up GitHub Actions CI.",
+       "Containerised services with Docker."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "B.S. in Computer Science",
+      "field_of_study": "Computer Science",
+      "institution": "Lone Star State University",
+      "start": "2019",
+      "end": "2023"
+     }
+    ],
+    "projects": [
+     {
+      "name": "Rate Limiter Service",
+      "technologies": [
+       "Python",
+       "Redis"
+      ],
+      "bullets": [
+       "Implemented a token-bucket rate limiter backed by Redis."
+      ]
+     }
+    ],
+    "skills": {
+     "technical": [
+      "Python",
+      "FastAPI",
+      "PostgreSQL",
+      "SQL",
+      "Docker",
+      "Redis",
+      "Git",
+      "Unit Testing",
+      "REST APIs"
+     ],
+     "soft": [],
+     "other": []
+    },
+    "certifications": [],
+    "achievements": [],
+    "languages": []
+   }
+  },
+  {
+   "id": "p03",
+   "level": "mid",
+   "labels": {
+    "relevant_roles": [
+     "ml_engineer",
+     "mlops_engineer",
+     "data_scientist"
+    ],
+    "seniority": "mid"
+   },
+   "content": {
+    "contact": {
+     "name": "Li Wen",
+     "email": "li.wen@example.net",
+     "phone": "+65 8000 1234",
+     "location": "Singapore, SG",
+     "links": []
+    },
+    "summary": "Machine learning engineer with experience training and deploying models for fraud detection.",
+    "experience": [
+     {
+      "title": "Machine Learning Engineer",
+      "organization": "Merlion Payments",
+      "start": "2022-03",
+      "end": null,
+      "current": true,
+      "employment_type": "full_time",
+      "bullets": [
+       "Trained gradient boosting models with XGBoost and scikit-learn to flag fraudulent transactions.",
+       "Deployed models as Docker containers on AWS with MLflow for experiment tracking.",
+       "Built feature pipelines in Python and SQL processing 5 million events per day.",
+       "Set up model monitoring for drift and cut false positives by 18%."
+      ]
+     },
+     {
+      "title": "Data Scientist",
+      "organization": "Harbourview Analytics",
+      "start": "2019-07",
+      "end": "2022-02",
+      "employment_type": "full_time",
+      "bullets": [
+       "Built churn prediction models and presented results to product stakeholders.",
+       "Ran A/B tests to evaluate pricing experiments."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "M.Sc. in Computer Science",
+      "field_of_study": "Computer Science",
+      "institution": "Straits Institute of Technology",
+      "start": "2017",
+      "end": "2019"
+     }
+    ],
+    "projects": [],
+    "skills": {
+     "technical": [
+      "Python",
+      "SQL",
+      "scikit-learn",
+      "XGBoost",
+      "MLflow",
+      "Docker",
+      "AWS",
+      "Machine Learning",
+      "Model Evaluation",
+      "A/B Testing"
+     ],
+     "soft": [
+      "Communication"
+     ],
+     "other": []
+    },
+    "certifications": [
+     {
+      "name": "AWS Certified Machine Learning – Specialty",
+      "issuer": "Amazon Web Services",
+      "date": "2023"
+     }
+    ],
+    "achievements": [],
+    "languages": []
+   }
+  },
+  {
+   "id": "p04",
+   "level": "senior",
+   "labels": {
+    "relevant_roles": [
+     "devops_engineer",
+     "mlops_engineer"
+    ],
+    "seniority": "senior"
+   },
+   "content": {
+    "contact": {
+     "name": "Olusegun Adeyemi",
+     "email": "segun.a@example.com",
+     "phone": "+44 7700 900123",
+     "location": "Manchester, UK",
+     "links": []
+    },
+    "summary": "Platform engineer focused on Kubernetes, Terraform and CI/CD for high-availability services.",
+    "experience": [
+     {
+      "title": "Senior Platform Engineer",
+      "organization": "Pennine Cloud Services",
+      "start": "2020-01",
+      "end": null,
+      "current": true,
+      "employment_type": "full_time",
+      "bullets": [
+       "Led migration of 40 services to Kubernetes on AWS using Terraform and Helm.",
+       "Built CI/CD pipelines in GitLab CI reducing deployment time from 2 hours to 15 minutes.",
+       "Introduced Prometheus and Grafana monitoring with on-call runbooks.",
+       "Mentored 4 junior engineers."
+      ]
+     },
+     {
+      "title": "Systems Administrator",
+      "organization": "Northern Rail IT",
+      "start": "2015-06",
+      "end": "2019-12",
+      "employment_type": "full_time",
+      "bullets": [
+       "Administered 300 Linux servers and automated patching with Bash scripts."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "B.Eng. in Electronic Engineering",
+      "field_of_study": "Electronic Engineering",
+      "institution": "Mersey University",
+      "start": "2011",
+      "end": "2015"
+     }
+    ],
+    "projects": [],
+    "skills": {
+     "technical": [
+      "Kubernetes",
+      "Terraform",
+      "AWS",
+      "CI/CD",
+      "Docker",
+      "Linux",
+      "Bash",
+      "Monitoring",
+      "Python"
+     ],
+     "soft": [
+      "Leadership"
+     ],
+     "other": []
+    },
+    "certifications": [
+     {
+      "name": "Certified Kubernetes Administrator",
+      "issuer": "CNCF",
+      "date": "2021"
+     }
+    ],
+    "achievements": [],
+    "languages": []
+   }
+  },
+  {
+   "id": "p05",
+   "level": "junior",
+   "labels": {
+    "relevant_roles": [
+     "qa_automation_engineer"
+    ],
+    "seniority": "junior"
+   },
+   "content": {
+    "contact": {
+     "name": "Sofia Marquez",
+     "email": "sofia.marquez@example.org",
+     "phone": "+34 600 123 456",
+     "location": "Valencia, Spain",
+     "links": []
+    },
+    "summary": "QA engineer automating web and API tests.",
+    "experience": [
+     {
+      "title": "QA Automation Engineer",
+      "organization": "Turia Software",
+      "start": "2023-02",
+      "end": null,
+      "current": true,
+      "employment_type": "full_time",
+      "bullets": [
+       "Automated 350 regression test cases with Selenium WebDriver and Java.",
+       "Wrote API tests in Postman and integrated them into Jenkins pipelines.",
+       "Wrote test plans and logged defects in Jira."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "B.Sc. in Software Engineering",
+      "field_of_study": "Software Engineering",
+      "institution": "Levante Polytechnic",
+      "start": "2018",
+      "end": "2022"
+     }
+    ],
+    "projects": [],
+    "skills": {
+     "technical": [
+      "Selenium",
+      "Java",
+      "API Testing",
+      "Test Automation",
+      "Manual Testing",
+      "CI/CD",
+      "SQL",
+      "Agile"
+     ],
+     "soft": [],
+     "other": []
+    },
+    "certifications": [
+     {
+      "name": "ISTQB Foundation Level",
+      "issuer": "ISTQB",
+      "date": "2022"
+     }
+    ],
+    "achievements": [],
+    "languages": [
+     {
+      "name": "Spanish",
+      "proficiency": "Native"
+     },
+     {
+      "name": "English",
+      "proficiency": "Professional"
+     }
+    ]
+   }
+  },
+  {
+   "id": "p06",
+   "level": "mid",
+   "labels": {
+    "relevant_roles": [
+     "frontend_developer",
+     "fullstack_developer"
+    ],
+    "seniority": "mid"
+   },
+   "content": {
+    "contact": {
+     "name": "Hannah Kowalski",
+     "email": "hannah.k@example.com",
+     "phone": "+48 500 600 700",
+     "location": "Krakow, Poland",
+     "links": [
+      {
+       "label": "Website",
+       "url": "https://hannah-demo.dev"
+      }
+     ]
+    },
+    "summary": "Frontend developer building accessible React and TypeScript interfaces.",
+    "experience": [
+     {
+      "title": "Frontend Developer",
+      "organization": "Vistula Media",
+      "start": "2021-04",
+      "end": null,
+      "current": true,
+      "employment_type": "full_time",
+      "bullets": [
+       "Built a component library in React and TypeScript used by 6 product teams.",
+       "Improved Lighthouse accessibility scores from 72 to 98 by fixing WCAG issues.",
+       "Migrated the marketing site to Next.js and Tailwind CSS."
+      ]
+     },
+     {
+      "title": "Junior Web Developer",
+      "organization": "Wawel Digital",
+      "start": "2019-09",
+      "end": "2021-03",
+      "employment_type": "full_time",
+      "bullets": [
+       "Implemented responsive pages in HTML, CSS and JavaScript."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "B.A. in Media Design",
+      "field_of_study": "Media Design",
+      "institution": "Krakow Academy of Arts",
+      "start": "2015",
+      "end": "2019"
+     }
+    ],
+    "projects": [],
+    "skills": {
+     "technical": [
+      "React",
+      "TypeScript",
+      "JavaScript",
+      "HTML",
+      "CSS",
+      "Next.js",
+      "Tailwind CSS",
+      "Accessibility",
+      "Git"
+     ],
+     "soft": [],
+     "other": []
+    },
+    "certifications": [],
+    "achievements": [],
+    "languages": []
+   }
+  },
+  {
+   "id": "p07",
+   "level": "student",
+   "labels": {
+    "relevant_roles": [
+     "fullstack_developer",
+     "frontend_developer",
+     "backend_developer"
+    ],
+    "seniority": "entry"
+   },
+   "content": {
+    "contact": {
+     "name": "Kwame Mensah",
+     "email": "kwame.mensah@example.edu",
+     "phone": "+233 20 000 0000",
+     "location": "Accra, Ghana",
+     "links": [
+      {
+       "label": "GitHub",
+       "url": "https://github.com/kwame-demo"
+      }
+     ]
+    },
+    "summary": "Computer science student who builds full-stack web apps.",
+    "experience": [],
+    "education": [
+     {
+      "degree": "B.Sc. in Computer Science",
+      "field_of_study": "Computer Science",
+      "institution": "Gold Coast University",
+      "start": "2022",
+      "end": "2026"
+     }
+    ],
+    "projects": [
+     {
+      "name": "Campus Marketplace",
+      "technologies": [
+       "React",
+       "Node.js",
+       "MongoDB"
+      ],
+      "bullets": [
+       "Built a marketplace web app where 120 students listed used books.",
+       "Implemented REST APIs with Express and JWT authentication."
+      ]
+     },
+     {
+      "name": "Weather Dashboard",
+      "technologies": [
+       "JavaScript",
+       "HTML",
+       "CSS"
+      ],
+      "bullets": [
+       "Built a responsive dashboard consuming a public weather API."
+      ]
+     }
+    ],
+    "skills": {
+     "technical": [
+      "JavaScript",
+      "React",
+      "Node.js",
+      "Express",
+      "MongoDB",
+      "HTML",
+      "CSS",
+      "Git",
+      "REST APIs"
+     ],
+     "soft": [
+      "Collaboration"
+     ],
+     "other": []
+    },
+    "certifications": [],
+    "achievements": [
+     {
+      "text": "Second place, university hackathon 2024."
+     }
+    ],
+    "languages": []
+   }
+  },
+  {
+   "id": "p08",
+   "level": "sparse",
+   "labels": {
+    "relevant_roles": [],
+    "seniority": "entry",
+    "expect_insufficient": true
+   },
+   "content": {
+    "contact": {
+     "name": "Jordan Lee",
+     "email": "jordan.lee@example.com",
+     "phone": null,
+     "location": null,
+     "links": []
+    },
+    "summary": null,
+    "experience": [
+     {
+      "title": "Sales Associate",
+      "organization": "Corner Shop",
+      "start": "2024",
+      "end": "2025",
+      "employment_type": "part_time",
+      "bullets": [
+       "Helped customers."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "High School Diploma",
+      "institution": "Riverside High School",
+      "end": "2023"
+     }
+    ],
+    "projects": [],
+    "skills": {
+     "technical": [
+      "Excel"
+     ],
+     "soft": [],
+     "other": []
+    },
+    "certifications": [],
+    "achievements": [],
+    "languages": []
+   }
+  },
+  {
+   "id": "p09",
+   "level": "mid",
+   "labels": {
+    "relevant_roles": [
+     "data_engineer",
+     "backend_developer"
+    ],
+    "seniority": "mid"
+   },
+   "content": {
+    "contact": {
+     "name": "Priyanka Iyer",
+     "email": "priyanka.iyer@example.com",
+     "phone": "+91 98000 22222",
+     "location": "Chennai, Tamil Nadu",
+     "links": []
+    },
+    "summary": "Data engineer building batch and streaming pipelines.",
+    "experience": [
+     {
+      "title": "Data Engineer",
+      "organization": "Coromandel Fintech",
+      "start": "2021-06",
+      "end": null,
+      "current": true,
+      "employment_type": "full_time",
+      "bullets": [
+       "Built Airflow DAGs loading 30 source systems into a Snowflake data warehouse.",
+       "Developed Spark jobs in Python processing 2 TB of transaction data daily.",
+       "Implemented Kafka consumers for real-time payment events.",
+       "Modelled warehouse tables with dbt and added data-quality tests."
+      ]
+     },
+     {
+      "title": "ETL Developer",
+      "organization": "Marina Systems",
+      "start": "2019-01",
+      "end": "2021-05",
+      "employment_type": "full_time",
+      "bullets": [
+       "Wrote SQL ETL jobs for PostgreSQL reporting databases."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "B.Tech in Information Technology",
+      "field_of_study": "Information Technology",
+      "institution": "Kaveri Institute of Technology",
+      "start": "2014",
+      "end": "2018"
+     }
+    ],
+    "projects": [],
+    "skills": {
+     "technical": [
+      "Python",
+      "SQL",
+      "Airflow",
+      "Spark",
+      "Kafka",
+      "dbt",
+      "Data Warehousing",
+      "PostgreSQL",
+      "ETL",
+      "AWS"
+     ],
+     "soft": [],
+     "other": []
+    },
+    "certifications": [],
+    "achievements": [],
+    "languages": []
+   }
+  },
+  {
+   "id": "p10",
+   "level": "junior",
+   "labels": {
+    "relevant_roles": [
+     "nlp_llm_engineer",
+     "ml_engineer"
+    ],
+    "seniority": "junior"
+   },
+   "content": {
+    "contact": {
+     "name": "Elena Petrova",
+     "email": "elena.petrova@example.org",
+     "phone": "+49 151 0000 0000",
+     "location": "Berlin, Germany",
+     "links": [
+      {
+       "label": "GitHub",
+       "url": "https://github.com/elena-demo"
+      }
+     ]
+    },
+    "summary": "NLP engineer working on retrieval and transformer models.",
+    "experience": [
+     {
+      "title": "NLP Engineer",
+      "organization": "Spree Language Tech",
+      "start": "2024-01",
+      "end": null,
+      "current": true,
+      "employment_type": "full_time",
+      "bullets": [
+       "Fine-tuned BERT models with PyTorch and Hugging Face Transformers for document classification.",
+       "Built a retrieval augmented generation prototype using Elasticsearch.",
+       "Evaluated model quality with cross-validation and error analysis."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "M.Sc. in Computational Linguistics",
+      "field_of_study": "Computational Linguistics",
+      "institution": "Havel University",
+      "start": "2021",
+      "end": "2023"
+     }
+    ],
+    "projects": [],
+    "skills": {
+     "technical": [
+      "Python",
+      "PyTorch",
+      "Transformers",
+      "NLP",
+      "LLMs",
+      "Elasticsearch",
+      "Machine Learning",
+      "Model Evaluation"
+     ],
+     "soft": [],
+     "other": []
+    },
+    "certifications": [],
+    "achievements": [],
+    "languages": [
+     {
+      "name": "German",
+      "proficiency": "C1"
+     },
+     {
+      "name": "Russian",
+      "proficiency": "Native"
+     }
+    ]
+   }
+  },
+  {
+   "id": "p11",
+   "level": "senior",
+   "labels": {
+    "relevant_roles": [
+     "data_scientist",
+     "data_analyst"
+    ],
+    "seniority": "senior"
+   },
+   "content": {
+    "contact": {
+     "name": "Daniel Okafor",
+     "email": "daniel.okafor@example.com",
+     "phone": "+1 555 019 8877",
+     "location": "Toronto, ON",
+     "links": []
+    },
+    "summary": "Data scientist leading experimentation and forecasting for e-commerce.",
+    "experience": [
+     {
+      "title": "Lead Data Scientist",
+      "organization": "Maple Basket",
+      "start": "2019-02",
+      "end": null,
+      "current": true,
+      "employment_type": "full_time",
+      "bullets": [
+       "Led a team of 5 data scientists running A/B tests across checkout flows.",
+       "Built demand forecasting models in Python improving forecast error by 12%.",
+       "Presented experiment results to executives and defined product metrics."
+      ]
+     },
+     {
+      "title": "Data Analyst",
+      "organization": "Lakeshore Insurance",
+      "start": "2015-05",
+      "end": "2019-01",
+      "employment_type": "full_time",
+      "bullets": [
+       "Built Tableau dashboards and SQL reports for underwriting teams.",
+       "Performed statistical analysis of claims data in R."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "M.Sc. in Applied Statistics",
+      "field_of_study": "Applied Statistics",
+      "institution": "Ontario Lakes University",
+      "start": "2013",
+      "end": "2015"
+     }
+    ],
+    "projects": [],
+    "skills": {
+     "technical": [
+      "Python",
+      "R",
+      "SQL",
+      "Statistics",
+      "A/B Testing",
+      "Time Series",
+      "Tableau",
+      "Machine Learning",
+      "Pandas"
+     ],
+     "soft": [
+      "Leadership",
+      "Communication"
+     ],
+     "other": []
+    },
+    "certifications": [],
+    "achievements": [],
+    "languages": []
+   }
+  },
+  {
+   "id": "p12",
+   "level": "junior",
+   "labels": {
+    "relevant_roles": [
+     "mobile_developer"
+    ],
+    "seniority": "junior"
+   },
+   "content": {
+    "contact": {
+     "name": "Aiko Tanaka",
+     "email": "aiko.tanaka@example.jp",
+     "phone": "+81 90 0000 0000",
+     "location": "Osaka, Japan",
+     "links": []
+    },
+    "summary": "Android developer building Kotlin apps.",
+    "experience": [
+     {
+      "title": "Android Developer",
+      "organization": "Kansai Mobile Works",
+      "start": "2023-04",
+      "end": null,
+      "current": true,
+      "employment_type": "full_time",
+      "bullets": [
+       "Built Android features in Kotlin for an app with 50,000 monthly users.",
+       "Integrated REST APIs and offline caching.",
+       "Wrote unit tests with JUnit and maintained Git workflows."
+      ]
+     }
+    ],
+    "education": [
+     {
+      "degree": "B.Eng. in Information Engineering",
+      "field_of_study": "Information Engineering",
+      "institution": "Naniwa Technical University",
+      "start": "2019",
+      "end": "2023"
+     }
+    ],
+    "projects": [],
+    "skills": {
+     "technical": [
+      "Kotlin",
+      "Android",
+      "Java",
+      "REST APIs",
+      "Git",
+      "Unit Testing"
+     ],
+     "soft": [],
+     "other": []
+    },
+    "certifications": [],
+    "achievements": [],
+    "languages": [
+     {
+      "name": "Japanese",
+      "proficiency": "Native"
+     },
+     {
+      "name": "English",
+      "proficiency": "Intermediate"
+     }
+    ]
+   }
+  }
+ ]
+}

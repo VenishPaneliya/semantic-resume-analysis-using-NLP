@@ -1,0 +1,1389 @@
+{
+ "version": "skills-2026.11-v1",
+ "notes": "Canonical skill names, aliases (case-insensitive, matched on token boundaries) and related skills. 'related' powers the 'you may have this but did not list it' signal; it never counts as evidence. 'implies' means demonstrated use of the skill is also evidence for the implied skill (e.g. Tableau => Data Visualization); listed-only skills do not propagate.",
+ "skills": [
+  {
+   "name": "Python",
+   "category": "language",
+   "aliases": [
+    "python3"
+   ],
+   "related": [
+    "Pandas",
+    "NumPy"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Java",
+   "category": "language",
+   "aliases": [
+    "java 8",
+    "java 11",
+    "java 17"
+   ],
+   "related": [
+    "Spring Boot"
+   ],
+   "implies": []
+  },
+  {
+   "name": "JavaScript",
+   "category": "language",
+   "aliases": [
+    "js",
+    "ecmascript",
+    "es6"
+   ],
+   "related": [
+    "TypeScript",
+    "Node.js"
+   ],
+   "implies": []
+  },
+  {
+   "name": "TypeScript",
+   "category": "language",
+   "aliases": [],
+   "related": [
+    "JavaScript"
+   ],
+   "implies": [
+    "JavaScript"
+   ]
+  },
+  {
+   "name": "Go",
+   "category": "language",
+   "aliases": [
+    "golang"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "C++",
+   "category": "language",
+   "aliases": [
+    "cpp",
+    "c plus plus"
+   ],
+   "related": [
+    "C"
+   ],
+   "implies": []
+  },
+  {
+   "name": "C",
+   "category": "language",
+   "aliases": [
+    "ansi c"
+   ],
+   "related": [
+    "C++"
+   ],
+   "implies": []
+  },
+  {
+   "name": "C#",
+   "category": "language",
+   "aliases": [
+    "csharp",
+    "c sharp"
+   ],
+   "related": [
+    ".NET"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Rust",
+   "category": "language",
+   "aliases": [],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Kotlin",
+   "category": "language",
+   "aliases": [],
+   "related": [
+    "Java",
+    "Android"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Swift",
+   "category": "language",
+   "aliases": [],
+   "related": [
+    "iOS"
+   ],
+   "implies": []
+  },
+  {
+   "name": "R",
+   "category": "language",
+   "aliases": [
+    "r programming",
+    "rstudio"
+   ],
+   "related": [
+    "Statistics"
+   ],
+   "implies": []
+  },
+  {
+   "name": "SQL",
+   "category": "data",
+   "aliases": [
+    "structured query language",
+    "t-sql",
+    "pl/sql",
+    "tsql"
+   ],
+   "related": [
+    "PostgreSQL",
+    "MySQL"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Bash",
+   "category": "tooling",
+   "aliases": [
+    "shell scripting"
+   ],
+   "related": [
+    "Linux"
+   ],
+   "implies": []
+  },
+  {
+   "name": "HTML",
+   "category": "frontend",
+   "aliases": [
+    "html5"
+   ],
+   "related": [
+    "CSS"
+   ],
+   "implies": []
+  },
+  {
+   "name": "CSS",
+   "category": "frontend",
+   "aliases": [
+    "css3",
+    "scss",
+    "sass"
+   ],
+   "related": [
+    "HTML",
+    "Tailwind CSS"
+   ],
+   "implies": []
+  },
+  {
+   "name": "React",
+   "category": "frontend",
+   "aliases": [
+    "react.js",
+    "reactjs"
+   ],
+   "related": [
+    "Next.js",
+    "JavaScript",
+    "Redux"
+   ],
+   "implies": [
+    "JavaScript"
+   ]
+  },
+  {
+   "name": "Next.js",
+   "category": "frontend",
+   "aliases": [
+    "nextjs",
+    "next js"
+   ],
+   "related": [
+    "React"
+   ],
+   "implies": [
+    "React",
+    "JavaScript"
+   ]
+  },
+  {
+   "name": "Vue.js",
+   "category": "frontend",
+   "aliases": [
+    "vue",
+    "vuejs"
+   ],
+   "related": [
+    "JavaScript"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Angular",
+   "category": "frontend",
+   "aliases": [
+    "angularjs"
+   ],
+   "related": [
+    "TypeScript"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Redux",
+   "category": "frontend",
+   "aliases": [],
+   "related": [
+    "React"
+   ],
+   "implies": [
+    "React"
+   ]
+  },
+  {
+   "name": "Tailwind CSS",
+   "category": "frontend",
+   "aliases": [
+    "tailwind",
+    "tailwindcss"
+   ],
+   "related": [
+    "CSS"
+   ],
+   "implies": [
+    "CSS"
+   ]
+  },
+  {
+   "name": "Accessibility",
+   "category": "frontend",
+   "aliases": [
+    "a11y",
+    "wcag"
+   ],
+   "related": [
+    "HTML"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Node.js",
+   "category": "backend",
+   "aliases": [
+    "nodejs",
+    "node js"
+   ],
+   "related": [
+    "Express",
+    "JavaScript"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Express",
+   "category": "backend",
+   "aliases": [
+    "express.js",
+    "expressjs"
+   ],
+   "related": [
+    "Node.js"
+   ],
+   "implies": [
+    "Node.js"
+   ]
+  },
+  {
+   "name": "Django",
+   "category": "backend",
+   "aliases": [],
+   "related": [
+    "Python"
+   ],
+   "implies": [
+    "Python"
+   ]
+  },
+  {
+   "name": "Flask",
+   "category": "backend",
+   "aliases": [],
+   "related": [
+    "Python"
+   ],
+   "implies": [
+    "Python"
+   ]
+  },
+  {
+   "name": "FastAPI",
+   "category": "backend",
+   "aliases": [
+    "fast api"
+   ],
+   "related": [
+    "Python"
+   ],
+   "implies": [
+    "Python",
+    "REST APIs"
+   ]
+  },
+  {
+   "name": "Spring Boot",
+   "category": "backend",
+   "aliases": [
+    "spring framework"
+   ],
+   "related": [
+    "Java"
+   ],
+   "implies": [
+    "Java"
+   ]
+  },
+  {
+   "name": ".NET",
+   "category": "backend",
+   "aliases": [
+    "dotnet",
+    "asp.net",
+    ".net core"
+   ],
+   "related": [
+    "C#"
+   ],
+   "implies": []
+  },
+  {
+   "name": "REST APIs",
+   "category": "backend",
+   "aliases": [
+    "restful",
+    "rest api",
+    "restful apis",
+    "restful api"
+   ],
+   "related": [
+    "API Design"
+   ],
+   "implies": []
+  },
+  {
+   "name": "GraphQL",
+   "category": "backend",
+   "aliases": [],
+   "related": [
+    "REST APIs"
+   ],
+   "implies": []
+  },
+  {
+   "name": "gRPC",
+   "category": "backend",
+   "aliases": [],
+   "related": [
+    "Microservices"
+   ],
+   "implies": []
+  },
+  {
+   "name": "API Design",
+   "category": "backend",
+   "aliases": [
+    "api development",
+    "openapi",
+    "swagger"
+   ],
+   "related": [
+    "REST APIs"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Microservices",
+   "category": "backend",
+   "aliases": [
+    "microservice",
+    "micro-services"
+   ],
+   "related": [
+    "Docker",
+    "Kubernetes"
+   ],
+   "implies": []
+  },
+  {
+   "name": "System Design",
+   "category": "backend",
+   "aliases": [
+    "distributed systems",
+    "scalable systems"
+   ],
+   "related": [
+    "Microservices"
+   ],
+   "implies": []
+  },
+  {
+   "name": "PostgreSQL",
+   "category": "data",
+   "aliases": [
+    "postgres",
+    "psql"
+   ],
+   "related": [
+    "SQL"
+   ],
+   "implies": [
+    "SQL"
+   ]
+  },
+  {
+   "name": "MySQL",
+   "category": "data",
+   "aliases": [
+    "mariadb"
+   ],
+   "related": [
+    "SQL"
+   ],
+   "implies": [
+    "SQL"
+   ]
+  },
+  {
+   "name": "MongoDB",
+   "category": "data",
+   "aliases": [
+    "mongo"
+   ],
+   "related": [
+    "NoSQL"
+   ],
+   "implies": []
+  },
+  {
+   "name": "NoSQL",
+   "category": "data",
+   "aliases": [],
+   "related": [
+    "MongoDB"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Redis",
+   "category": "data",
+   "aliases": [],
+   "related": [
+    "Caching"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Caching",
+   "category": "backend",
+   "aliases": [],
+   "related": [
+    "Redis"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Elasticsearch",
+   "category": "data",
+   "aliases": [
+    "elastic search",
+    "opensearch"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Kafka",
+   "category": "data",
+   "aliases": [
+    "apache kafka"
+   ],
+   "related": [
+    "Stream Processing"
+   ],
+   "implies": [
+    "Stream Processing"
+   ]
+  },
+  {
+   "name": "RabbitMQ",
+   "category": "backend",
+   "aliases": [],
+   "related": [
+    "Celery"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Celery",
+   "category": "backend",
+   "aliases": [],
+   "related": [
+    "Python",
+    "RabbitMQ",
+    "Redis"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Stream Processing",
+   "category": "data",
+   "aliases": [
+    "streaming data",
+    "flink",
+    "apache flink"
+   ],
+   "related": [
+    "Kafka"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Spark",
+   "category": "data",
+   "aliases": [
+    "apache spark",
+    "pyspark"
+   ],
+   "related": [
+    "Big Data"
+   ],
+   "implies": [
+    "Big Data"
+   ]
+  },
+  {
+   "name": "Hadoop",
+   "category": "data",
+   "aliases": [
+    "hdfs"
+   ],
+   "related": [
+    "Big Data"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Big Data",
+   "category": "data",
+   "aliases": [],
+   "related": [
+    "Spark"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Airflow",
+   "category": "data",
+   "aliases": [
+    "apache airflow"
+   ],
+   "related": [
+    "ETL"
+   ],
+   "implies": [
+    "ETL"
+   ]
+  },
+  {
+   "name": "dbt",
+   "category": "data",
+   "aliases": [
+    "data build tool"
+   ],
+   "related": [
+    "SQL",
+    "Data Warehousing"
+   ],
+   "implies": [
+    "SQL"
+   ]
+  },
+  {
+   "name": "ETL",
+   "category": "data",
+   "aliases": [
+    "elt",
+    "data pipelines",
+    "data pipeline"
+   ],
+   "related": [
+    "Airflow"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Data Warehousing",
+   "category": "data",
+   "aliases": [
+    "data warehouse",
+    "snowflake",
+    "bigquery",
+    "redshift"
+   ],
+   "related": [
+    "SQL"
+   ],
+   "implies": [
+    "SQL"
+   ]
+  },
+  {
+   "name": "Pandas",
+   "category": "data",
+   "aliases": [],
+   "related": [
+    "Python",
+    "NumPy"
+   ],
+   "implies": [
+    "Python"
+   ]
+  },
+  {
+   "name": "NumPy",
+   "category": "data",
+   "aliases": [
+    "numpy"
+   ],
+   "related": [
+    "Python"
+   ],
+   "implies": [
+    "Python"
+   ]
+  },
+  {
+   "name": "Excel",
+   "category": "data",
+   "aliases": [
+    "microsoft excel",
+    "ms excel",
+    "spreadsheets",
+    "vlookup",
+    "pivot tables"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Tableau",
+   "category": "data",
+   "aliases": [],
+   "related": [
+    "Data Visualization"
+   ],
+   "implies": [
+    "Data Visualization"
+   ]
+  },
+  {
+   "name": "Power BI",
+   "category": "data",
+   "aliases": [
+    "powerbi"
+   ],
+   "related": [
+    "Data Visualization"
+   ],
+   "implies": [
+    "Data Visualization"
+   ]
+  },
+  {
+   "name": "Looker",
+   "category": "data",
+   "aliases": [],
+   "related": [
+    "Data Visualization"
+   ],
+   "implies": [
+    "Data Visualization"
+   ]
+  },
+  {
+   "name": "Data Visualization",
+   "category": "data",
+   "aliases": [
+    "dashboarding",
+    "matplotlib",
+    "seaborn",
+    "plotly"
+   ],
+   "related": [
+    "Tableau"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Statistics",
+   "category": "ml",
+   "aliases": [
+    "statistical analysis",
+    "hypothesis testing",
+    "regression analysis"
+   ],
+   "related": [
+    "A/B Testing"
+   ],
+   "implies": []
+  },
+  {
+   "name": "A/B Testing",
+   "category": "ml",
+   "aliases": [
+    "ab testing",
+    "experimentation",
+    "a/b tests"
+   ],
+   "related": [
+    "Statistics"
+   ],
+   "implies": [
+    "Statistics"
+   ]
+  },
+  {
+   "name": "Machine Learning",
+   "category": "ml",
+   "aliases": [
+    "ml",
+    "predictive modeling",
+    "predictive modelling"
+   ],
+   "related": [
+    "scikit-learn",
+    "Deep Learning"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Deep Learning",
+   "category": "ml",
+   "aliases": [
+    "neural networks"
+   ],
+   "related": [
+    "PyTorch",
+    "TensorFlow"
+   ],
+   "implies": [
+    "Machine Learning"
+   ]
+  },
+  {
+   "name": "scikit-learn",
+   "category": "ml",
+   "aliases": [
+    "sklearn",
+    "scikit learn"
+   ],
+   "related": [
+    "Machine Learning"
+   ],
+   "implies": [
+    "Machine Learning"
+   ]
+  },
+  {
+   "name": "PyTorch",
+   "category": "ml",
+   "aliases": [
+    "torch"
+   ],
+   "related": [
+    "Deep Learning"
+   ],
+   "implies": [
+    "Deep Learning",
+    "Machine Learning"
+   ]
+  },
+  {
+   "name": "TensorFlow",
+   "category": "ml",
+   "aliases": [
+    "keras"
+   ],
+   "related": [
+    "Deep Learning"
+   ],
+   "implies": [
+    "Deep Learning",
+    "Machine Learning"
+   ]
+  },
+  {
+   "name": "NLP",
+   "category": "ml",
+   "aliases": [
+    "natural language processing",
+    "text mining",
+    "spacy",
+    "nltk"
+   ],
+   "related": [
+    "Transformers"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Transformers",
+   "category": "ml",
+   "aliases": [
+    "hugging face",
+    "huggingface",
+    "bert",
+    "sentence transformers",
+    "sentence-transformers"
+   ],
+   "related": [
+    "NLP",
+    "LLMs"
+   ],
+   "implies": [
+    "NLP"
+   ]
+  },
+  {
+   "name": "LLMs",
+   "category": "ml",
+   "aliases": [
+    "large language models",
+    "llm",
+    "prompt engineering",
+    "rag",
+    "retrieval augmented generation"
+   ],
+   "related": [
+    "Transformers"
+   ],
+   "implies": [
+    "NLP"
+   ]
+  },
+  {
+   "name": "Computer Vision",
+   "category": "ml",
+   "aliases": [
+    "opencv",
+    "image classification",
+    "object detection"
+   ],
+   "related": [
+    "Deep Learning"
+   ],
+   "implies": [
+    "Deep Learning"
+   ]
+  },
+  {
+   "name": "Feature Engineering",
+   "category": "ml",
+   "aliases": [],
+   "related": [
+    "Machine Learning"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Model Evaluation",
+   "category": "ml",
+   "aliases": [
+    "cross-validation",
+    "cross validation",
+    "model validation"
+   ],
+   "related": [
+    "Machine Learning"
+   ],
+   "implies": []
+  },
+  {
+   "name": "XGBoost",
+   "category": "ml",
+   "aliases": [
+    "lightgbm",
+    "gradient boosting",
+    "catboost"
+   ],
+   "related": [
+    "Machine Learning"
+   ],
+   "implies": [
+    "Machine Learning"
+   ]
+  },
+  {
+   "name": "Time Series",
+   "category": "ml",
+   "aliases": [
+    "forecasting",
+    "time-series"
+   ],
+   "related": [
+    "Statistics"
+   ],
+   "implies": [
+    "Statistics"
+   ]
+  },
+  {
+   "name": "MLOps",
+   "category": "ml",
+   "aliases": [
+    "ml ops",
+    "model deployment",
+    "model serving"
+   ],
+   "related": [
+    "MLflow",
+    "Docker"
+   ],
+   "implies": []
+  },
+  {
+   "name": "MLflow",
+   "category": "ml",
+   "aliases": [
+    "ml flow",
+    "weights & biases",
+    "wandb"
+   ],
+   "related": [
+    "MLOps"
+   ],
+   "implies": [
+    "MLOps"
+   ]
+  },
+  {
+   "name": "Kubeflow",
+   "category": "ml",
+   "aliases": [],
+   "related": [
+    "Kubernetes",
+    "MLOps"
+   ],
+   "implies": [
+    "Kubernetes",
+    "MLOps"
+   ]
+  },
+  {
+   "name": "Docker",
+   "category": "devops",
+   "aliases": [
+    "containerization",
+    "docker compose",
+    "dockerfile"
+   ],
+   "related": [
+    "Kubernetes"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Kubernetes",
+   "category": "devops",
+   "aliases": [
+    "k8s",
+    "helm",
+    "eks",
+    "gke",
+    "aks"
+   ],
+   "related": [
+    "Docker"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Terraform",
+   "category": "devops",
+   "aliases": [
+    "infrastructure as code",
+    "iac",
+    "pulumi",
+    "cloudformation"
+   ],
+   "related": [
+    "AWS"
+   ],
+   "implies": []
+  },
+  {
+   "name": "CI/CD",
+   "category": "devops",
+   "aliases": [
+    "ci cd",
+    "continuous integration",
+    "continuous delivery",
+    "github actions",
+    "jenkins",
+    "gitlab ci",
+    "circleci"
+   ],
+   "related": [
+    "Git"
+   ],
+   "implies": []
+  },
+  {
+   "name": "AWS",
+   "category": "cloud",
+   "aliases": [
+    "amazon web services",
+    "ec2",
+    "s3",
+    "lambda",
+    "sagemaker"
+   ],
+   "related": [
+    "Cloud Computing"
+   ],
+   "implies": [
+    "Cloud Computing"
+   ]
+  },
+  {
+   "name": "GCP",
+   "category": "cloud",
+   "aliases": [
+    "google cloud",
+    "google cloud platform",
+    "vertex ai"
+   ],
+   "related": [
+    "Cloud Computing"
+   ],
+   "implies": [
+    "Cloud Computing"
+   ]
+  },
+  {
+   "name": "Azure",
+   "category": "cloud",
+   "aliases": [
+    "microsoft azure"
+   ],
+   "related": [
+    "Cloud Computing"
+   ],
+   "implies": [
+    "Cloud Computing"
+   ]
+  },
+  {
+   "name": "Cloud Computing",
+   "category": "cloud",
+   "aliases": [],
+   "related": [
+    "AWS"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Linux",
+   "category": "devops",
+   "aliases": [
+    "unix",
+    "ubuntu"
+   ],
+   "related": [
+    "Bash"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Git",
+   "category": "tooling",
+   "aliases": [
+    "github",
+    "gitlab",
+    "version control",
+    "bitbucket"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Monitoring",
+   "category": "devops",
+   "aliases": [
+    "observability",
+    "prometheus",
+    "grafana",
+    "datadog"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Unit Testing",
+   "category": "quality",
+   "aliases": [
+    "pytest",
+    "junit",
+    "jest",
+    "unit tests",
+    "tdd",
+    "test-driven development"
+   ],
+   "related": [
+    "Test Automation"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Test Automation",
+   "category": "quality",
+   "aliases": [
+    "automated testing",
+    "automation testing",
+    "test automation framework"
+   ],
+   "related": [
+    "Selenium"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Selenium",
+   "category": "quality",
+   "aliases": [
+    "selenium webdriver",
+    "webdriver"
+   ],
+   "related": [
+    "Test Automation"
+   ],
+   "implies": [
+    "Test Automation"
+   ]
+  },
+  {
+   "name": "Playwright",
+   "category": "quality",
+   "aliases": [
+    "cypress"
+   ],
+   "related": [
+    "Test Automation"
+   ],
+   "implies": [
+    "Test Automation"
+   ]
+  },
+  {
+   "name": "API Testing",
+   "category": "quality",
+   "aliases": [
+    "postman",
+    "rest assured",
+    "rest-assured"
+   ],
+   "related": [
+    "Test Automation"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Performance Testing",
+   "category": "quality",
+   "aliases": [
+    "load testing",
+    "jmeter",
+    "locust",
+    "k6"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Manual Testing",
+   "category": "quality",
+   "aliases": [
+    "test cases",
+    "test plans",
+    "regression testing",
+    "exploratory testing"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Android",
+   "category": "mobile",
+   "aliases": [
+    "android development"
+   ],
+   "related": [
+    "Kotlin"
+   ],
+   "implies": []
+  },
+  {
+   "name": "iOS",
+   "category": "mobile",
+   "aliases": [
+    "ios development",
+    "swiftui"
+   ],
+   "related": [
+    "Swift"
+   ],
+   "implies": []
+  },
+  {
+   "name": "React Native",
+   "category": "mobile",
+   "aliases": [
+    "flutter"
+   ],
+   "related": [
+    "React"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Security",
+   "category": "security",
+   "aliases": [
+    "application security",
+    "appsec",
+    "owasp",
+    "penetration testing",
+    "cybersecurity"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Agile",
+   "category": "process",
+   "aliases": [
+    "scrum",
+    "kanban",
+    "jira"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Product Analytics",
+   "category": "data",
+   "aliases": [
+    "google analytics",
+    "mixpanel",
+    "amplitude",
+    "funnel analysis"
+   ],
+   "related": [
+    "SQL"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Data Cleaning",
+   "category": "data",
+   "aliases": [
+    "data wrangling",
+    "data preprocessing",
+    "data quality"
+   ],
+   "related": [
+    "Pandas"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Communication",
+   "category": "soft",
+   "aliases": [
+    "presentations",
+    "written communication",
+    "public speaking",
+    "stakeholder communication"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Leadership",
+   "category": "soft",
+   "aliases": [
+    "led a team",
+    "team lead",
+    "mentored",
+    "mentoring",
+    "mentorship"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Collaboration",
+   "category": "soft",
+   "aliases": [
+    "teamwork",
+    "cross-functional",
+    "cross functional"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Problem Solving",
+   "category": "soft",
+   "aliases": [
+    "problem-solving",
+    "analytical thinking",
+    "troubleshooting"
+   ],
+   "related": [],
+   "implies": []
+  },
+  {
+   "name": "Stakeholder Management",
+   "category": "soft",
+   "aliases": [
+    "client management"
+   ],
+   "related": [
+    "Communication"
+   ],
+   "implies": []
+  },
+  {
+   "name": "Project Management",
+   "category": "soft",
+   "aliases": [
+    "project planning",
+    "roadmapping"
+   ],
+   "related": [
+    "Agile"
+   ],
+   "implies": []
+  }
+ ]
+}

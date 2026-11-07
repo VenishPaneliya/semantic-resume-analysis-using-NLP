@@ -1,0 +1,133 @@
+{
+  "version": "roles-2026.11-v1",
+  "notes": "Hand-authored role profiles for advisory matching. Skill names must match skills_v1.json canonical names. Seniority bands are typical expectations, not hiring rules.",
+  "seniority_bands": [
+    {"id": "entry", "label": "Entry / Graduate", "min_years": 0, "max_years": 1.5},
+    {"id": "junior", "label": "Junior", "min_years": 1, "max_years": 3},
+    {"id": "mid", "label": "Mid-level", "min_years": 2.5, "max_years": 6},
+    {"id": "senior", "label": "Senior", "min_years": 5, "max_years": 10},
+    {"id": "staff", "label": "Staff / Lead", "min_years": 8, "max_years": 40}
+  ],
+  "roles": [
+    {
+      "id": "ml_engineer",
+      "title": "Machine Learning Engineer",
+      "description": "Builds, trains, evaluates and deploys machine learning models into production systems, owning data pipelines, model serving and monitoring.",
+      "required_skills": ["Python", "Machine Learning", "scikit-learn", "Model Evaluation", "SQL"],
+      "preferred_skills": ["PyTorch", "TensorFlow", "Deep Learning", "Docker", "MLOps", "AWS", "Feature Engineering", "Git"],
+      "responsibilities": ["Train and evaluate supervised models", "Deploy models behind APIs", "Build feature pipelines", "Monitor model performance and drift", "Collaborate with data scientists and backend engineers"],
+      "related_titles": ["Applied ML Engineer", "AI Engineer", "Machine Learning Developer"],
+      "domains": ["ai", "data"]
+    },
+    {
+      "id": "data_scientist",
+      "title": "Data Scientist",
+      "description": "Uses statistics, experimentation and machine learning to answer business questions and build predictive models, communicating findings to stakeholders.",
+      "required_skills": ["Python", "Statistics", "Machine Learning", "SQL", "Pandas"],
+      "preferred_skills": ["A/B Testing", "scikit-learn", "Data Visualization", "R", "XGBoost", "Time Series", "Communication", "Feature Engineering"],
+      "responsibilities": ["Design and analyse experiments", "Build predictive models", "Explore and clean data", "Present insights to stakeholders", "Define metrics"],
+      "related_titles": ["Applied Scientist", "Decision Scientist", "Quantitative Analyst"],
+      "domains": ["data", "ai", "analytics"]
+    },
+    {
+      "id": "data_analyst",
+      "title": "Data Analyst",
+      "description": "Turns business data into reports, dashboards and recommendations using SQL, spreadsheets and BI tools.",
+      "required_skills": ["SQL", "Excel", "Data Visualization", "Statistics"],
+      "preferred_skills": ["Tableau", "Power BI", "Python", "Pandas", "Product Analytics", "Data Cleaning", "Communication", "Looker"],
+      "responsibilities": ["Write SQL to answer business questions", "Build and maintain dashboards", "Clean and validate data", "Present findings to non-technical audiences", "Track KPIs"],
+      "related_titles": ["Business Analyst", "BI Analyst", "Product Analyst", "Reporting Analyst"],
+      "domains": ["analytics", "data", "business"]
+    },
+    {
+      "id": "data_engineer",
+      "title": "Data Engineer",
+      "description": "Designs and operates reliable data pipelines, warehouses and streaming systems that other teams depend on.",
+      "required_skills": ["Python", "SQL", "ETL", "Data Warehousing"],
+      "preferred_skills": ["Spark", "Airflow", "Kafka", "dbt", "AWS", "Docker", "PostgreSQL", "Stream Processing"],
+      "responsibilities": ["Build batch and streaming pipelines", "Model warehouse tables", "Ensure data quality", "Optimise query performance", "Operate data infrastructure"],
+      "related_titles": ["Analytics Engineer", "Big Data Engineer", "ETL Developer"],
+      "domains": ["data", "infrastructure"]
+    },
+    {
+      "id": "backend_developer",
+      "title": "Backend Developer",
+      "description": "Builds server-side applications, APIs and data models with attention to correctness, performance and security.",
+      "required_skills": ["REST APIs", "SQL", "Git", "Unit Testing"],
+      "preferred_skills": ["Python", "Java", "Go", "Node.js", "PostgreSQL", "Docker", "Redis", "Microservices", "System Design", "AWS", "FastAPI", "Django", "Spring Boot"],
+      "responsibilities": ["Design and implement APIs", "Model and query relational data", "Write automated tests", "Improve reliability and performance", "Review code"],
+      "related_titles": ["Backend Engineer", "Server-side Developer", "API Developer", "Software Engineer (Backend)"],
+      "domains": ["software", "web"]
+    },
+    {
+      "id": "frontend_developer",
+      "title": "Frontend Developer",
+      "description": "Builds accessible, performant user interfaces for web applications.",
+      "required_skills": ["JavaScript", "HTML", "CSS", "React"],
+      "preferred_skills": ["TypeScript", "Next.js", "Accessibility", "Tailwind CSS", "Unit Testing", "Redux", "Git", "Playwright"],
+      "responsibilities": ["Implement UI components", "Integrate with APIs", "Ensure accessibility and responsiveness", "Optimise page performance", "Write UI tests"],
+      "related_titles": ["Frontend Engineer", "UI Engineer", "Web Developer"],
+      "domains": ["software", "web"]
+    },
+    {
+      "id": "fullstack_developer",
+      "title": "Full-Stack Developer",
+      "description": "Delivers features end to end across frontend, backend and data layers.",
+      "required_skills": ["JavaScript", "React", "REST APIs", "SQL", "Git"],
+      "preferred_skills": ["TypeScript", "Node.js", "Next.js", "Python", "PostgreSQL", "Docker", "Unit Testing", "AWS", "HTML", "CSS"],
+      "responsibilities": ["Build features across UI and API", "Design database schemas", "Deploy and monitor applications", "Write tests", "Collaborate with design and product"],
+      "related_titles": ["Full Stack Engineer", "Software Engineer", "Web Application Developer"],
+      "domains": ["software", "web"]
+    },
+    {
+      "id": "mlops_engineer",
+      "title": "MLOps Engineer",
+      "description": "Builds the platforms and automation that take ML models from experimentation to reliable production operation.",
+      "required_skills": ["Python", "Docker", "Kubernetes", "CI/CD", "MLOps"],
+      "preferred_skills": ["MLflow", "Kubeflow", "AWS", "GCP", "Terraform", "Monitoring", "Machine Learning", "Airflow", "Linux"],
+      "responsibilities": ["Automate training and deployment pipelines", "Operate model serving infrastructure", "Monitor models in production", "Manage experiment tracking and model registry", "Enforce reproducibility"],
+      "related_titles": ["ML Platform Engineer", "ML Infrastructure Engineer"],
+      "domains": ["ai", "infrastructure"]
+    },
+    {
+      "id": "devops_engineer",
+      "title": "DevOps / Cloud Engineer",
+      "description": "Automates infrastructure, deployment and operations for reliable cloud systems.",
+      "required_skills": ["Linux", "CI/CD", "Docker", "Cloud Computing"],
+      "preferred_skills": ["Kubernetes", "Terraform", "AWS", "Azure", "GCP", "Monitoring", "Bash", "Python", "Security"],
+      "responsibilities": ["Build CI/CD pipelines", "Manage infrastructure as code", "Operate container platforms", "Set up monitoring and alerting", "Respond to incidents"],
+      "related_titles": ["Site Reliability Engineer", "Platform Engineer", "Cloud Engineer"],
+      "domains": ["infrastructure"]
+    },
+    {
+      "id": "qa_automation_engineer",
+      "title": "QA Automation Engineer",
+      "description": "Designs and maintains automated test suites and quality processes for software products.",
+      "required_skills": ["Test Automation", "Manual Testing", "API Testing"],
+      "preferred_skills": ["Selenium", "Playwright", "Python", "Java", "JavaScript", "CI/CD", "Performance Testing", "Unit Testing", "SQL", "Agile"],
+      "responsibilities": ["Write and maintain automated tests", "Design test plans", "Test APIs", "Integrate tests into CI", "Report and track defects"],
+      "related_titles": ["SDET", "Test Engineer", "Quality Engineer"],
+      "domains": ["software", "quality"]
+    },
+    {
+      "id": "nlp_llm_engineer",
+      "title": "NLP / LLM Engineer",
+      "description": "Builds language-model applications: retrieval, fine-tuning, evaluation and safe deployment of NLP systems.",
+      "required_skills": ["Python", "NLP", "Transformers", "Machine Learning"],
+      "preferred_skills": ["LLMs", "PyTorch", "Model Evaluation", "REST APIs", "Docker", "Deep Learning", "Elasticsearch"],
+      "responsibilities": ["Build retrieval and generation pipelines", "Evaluate model quality and safety", "Fine-tune or adapt models", "Serve models behind APIs"],
+      "related_titles": ["NLP Engineer", "Applied Scientist (NLP)", "AI Engineer"],
+      "domains": ["ai"]
+    },
+    {
+      "id": "mobile_developer",
+      "title": "Mobile Developer",
+      "description": "Builds native or cross-platform mobile applications.",
+      "required_skills": ["Git", "REST APIs"],
+      "preferred_skills": ["Android", "iOS", "Kotlin", "Swift", "React Native", "Unit Testing", "JavaScript"],
+      "responsibilities": ["Implement mobile features", "Integrate APIs", "Publish to app stores", "Profile performance"],
+      "related_titles": ["Android Developer", "iOS Developer", "Mobile Engineer"],
+      "domains": ["software", "mobile"]
+    }
+  ]
+}
