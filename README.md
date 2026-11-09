@@ -161,7 +161,7 @@ Round 1 (2026-11-08) — text matching:
 
 ### Repository and CI
 
-- [ ] **H** Most of the current work (migration 0004, 2FA, recruiter tools, translations) is not committed or pushed.
+- [ ] **H** All work is committed on branch `fix/review-round-1` but not yet pushed or merged into `main`; CI has not run on it yet.
 - [ ] **L** No LICENSE or CONTRIBUTING file; frontend dependencies use caret ranges.
 
 ### Security and privacy
