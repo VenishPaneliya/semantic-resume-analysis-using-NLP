@@ -101,3 +101,67 @@ def test_date_ranges(text, start, current):
     assert r is not None
     assert r.start == start
     assert r.current is current
+
+
+# ---------------------------------------------------------------- job descriptions
+
+
+def _reqs(jd):
+    return {r["text"]: r for r in jd["requirements"]}
+
+
+def test_single_paragraph_jd_keeps_its_sections():
+    """A JD pasted as one paragraph used to lose every section, so nice-to-haves became required."""
+    from app.services.ml.jd import extract_jd
+
+    jd = extract_jd("Senior Backend Engineer. Requirements: 5+ years Python, FastAPI or Django, PostgreSQL, Docker. "
+                    "Nice to have: Kafka, Terraform, CI/CD. Responsibilities: design REST APIs, mentor juniors.")
+    r = _reqs(jd)
+    assert jd["title"] == "Senior Backend Engineer"
+    assert {k for k, v in r.items() if v["importance"] == "preferred"} == {"Kafka", "Terraform", "CI/CD"}
+    assert r["PostgreSQL"]["importance"] == "required"
+    assert r["FastAPI or Django"]["any_of"] is True
+    assert jd["responsibilities"] == ["design REST APIs", "mentor juniors"]
+
+
+@pytest.mark.parametrize(
+    "line, years, skill",
+    [
+        ("5+ years Python", 5, "Python"),
+        ("At least five years of Python", 5, "Python"),
+        ("Minimum 3 years in machine learning", 3, "Machine Learning"),
+        ("2-4 yrs experience with PyTorch", 2, "PyTorch"),
+        ("3 years of experience building APIs", 3, None),
+    ],
+)
+def test_years_requirements_are_recognised(line, years, skill):
+    from app.services.ml.jd import extract_jd
+
+    req = extract_jd(f"Engineer\nRequirements\n- {line}\n")["requirements"][0]
+    assert req["kind"] == "experience" and req["years_min"] == years
+    assert (skill in req["skills"]) if skill else req["skills"] == []
+
+
+@pytest.mark.parametrize(
+    "text, title",
+    [
+        ("Requirements\n- Python\n- Docker\n", None),
+        ("About us: We are a fintech, based in Pune.\nData Engineer\nRequirements: SQL", "Data Engineer"),
+        ("Job title: Platform Engineer.\nRequirements\n- Go", "Platform Engineer"),
+    ],
+)
+def test_jd_title_is_never_a_heading_bullet_or_blurb(text, title):
+    from app.services.ml.jd import extract_jd
+
+    assert extract_jd(text)["title"] == title
+
+
+def test_years_with_skill_needs_the_skill(personas):
+    """'5+ years Kotlin' is not met by five years of unrelated experience."""
+    from app.services.ml.jd import extract_jd, match
+
+    content = personas["p04"]["content"]  # senior devops persona, no Kotlin
+    rows = {r["text"]: r for r in match(content, extract_jd("Engineer\nRequirements\n- 5+ years Kotlin\n- 2+ years Docker\n"))["requirements"]}
+    assert rows["5+ years Kotlin"]["status"] == "missing"
+    assert rows["2+ years Docker"]["status"] in ("matched", "partial")
+    assert "years per skill" in rows["2+ years Docker"]["explanation"]

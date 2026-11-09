@@ -58,7 +58,7 @@ proxies) and protected attributes are excluded. A test asserts identical scores 
 No supervised classifier is shipped: there is no labelled, consented, representative dataset to train or
 validate one. See [EVALUATION.md](EVALUATION.md#what-data-would-improve-the-models) for what would be needed.
 
-## 3. Job description matching (`app/services/ml/jd.py`, `jd-matcher-1.1.0`)
+## 3. Job description matching (`app/services/ml/jd.py`, `jd-matcher-1.2.0`)
 
 Requirements are extracted per line under requirement/preferred headings and classified as
 `skill`, `experience`, `education`, `certification`, `unassessable` (work authorisation, travel, …) or `other`.

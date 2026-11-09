@@ -89,7 +89,7 @@ Verification emails print to the API console when `EMAIL_BACKEND=console`.
 ```bash
 cd backend
 ruff check app eval tests
-pytest                                                  # SQLite — 196 tests
+pytest                                                  # SQLite — 206 tests
 TEST_DATABASE_URL=postgresql+psycopg://ri:ri@localhost:<port>/ri pytest   # PostgreSQL
 python -m eval.run_eval --split all                     # synthetic evaluation report -> eval/reports/
 cd ../frontend && npm run lint && npx tsc --noEmit && npm run build
@@ -121,6 +121,17 @@ where possible, reproducing it. Severity: **H** high · **M** medium · **L** lo
 Tick items off here as they are fixed.
 
 ### Fixed
+
+Round 3 (2026-11-09) — job descriptions:
+
+- [x] **H** A job description pasted as one paragraph ("… Requirements: … Nice to have: Kafka, Terraform.
+  Responsibilities: …") lost all its sections, so every skill became "required" and the title was
+  "Untitled role". Inline headings are now recognised, and comma lists become one requirement each.
+- [x] **H** "5+ years Python", "at least five years of Python" and "minimum 3 years in machine learning" are
+  experience requirements (they showed as "not stated"). The named skill must be in the resume; years are
+  compared with overall experience, and the explanation says years per skill can't be measured.
+- [x] **L** The JD title is never a bullet, a section heading or an "About us: …" line.
+  10 regression cases; evaluation requirement accuracy unchanged (0.979). JD matcher → 1.2.0.
 
 Round 2 (2026-11-09) — repository, security and the leaderboard:
 
@@ -179,8 +190,6 @@ Round 1 (2026-11-08) — text matching:
 
 ### Scoring and backend logic
 
-- [ ] **H** JD parsing: "Nice to have: Kafka, Terraform" is treated as required, and "5+ years Python" shows
-  as "not stated". A JD saved without a title shows "Untitled role".
 - [ ] **H** The openings leaderboard re-runs the full matcher for every opening on every request
   (~17 s for 200 openings with Sentence Transformers). Cache resume embeddings and per-opening results.
   Job alerts do the same for every user.
