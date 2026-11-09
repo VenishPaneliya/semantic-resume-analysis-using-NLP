@@ -16,7 +16,12 @@ RUN npm run build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-RUN addgroup -S app && adduser -S app -G app
+# The runtime only runs `node server.js`. Removing the bundled package managers (npm, npx, corepack, yarn)
+# shrinks the attack surface and drops npm's vendored dependencies, which scanners flag.
+RUN addgroup -S app && adduser -S app -G app \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+           /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn*
 COPY --from=build --chown=app:app /app/.next/standalone ./
 COPY --from=build --chown=app:app /app/.next/static ./.next/static
 COPY --from=build --chown=app:app /app/public ./public
