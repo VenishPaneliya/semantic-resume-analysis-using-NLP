@@ -4,7 +4,7 @@
 
 | Threat | Controls |
 |---|---|
-| Account takeover | Argon2id passwords, password policy, login rate limits per IP and per email, opaque server-side sessions (SHA-256 hashed tokens) in `HttpOnly; SameSite=Lax; Secure` cookies, all sessions revoked on reset, other sessions revoked on password change, session list + revoke |
+| Account takeover | Argon2id passwords, password policy, login rate limits per IP and a per-account limit on wrong passwords (10 per 15 min, independent of IP), reset emails capped per address, opaque server-side sessions (SHA-256 hashed tokens) in `HttpOnly; SameSite=Lax; Secure` cookies, all sessions revoked on reset, other sessions revoked on password change, session list + revoke |
 | CSRF | Double-submit token (`ri_csrf` cookie ↔ `x-csrf-token` header) on every authenticated unsafe request, plus SameSite cookies and strict CORS |
 | Cross-user access (IDOR) | Every object lookup goes through `get_owned()`, which returns **404** for other users' IDs; covered by `tests/test_isolation.py` across all resource types |
 | User enumeration | Identical responses for forgot-password; constant-work password verification |
@@ -36,6 +36,43 @@
 - Uploaded resumes are **not used for model training** (`allow_training_use` defaults to false). Check
   your provider's API data-usage terms and configure zero-retention where available.
 
+## Two-factor authentication
+
+- TOTP (RFC 6238; any authenticator app) with 10 single-use recovery codes stored as keyed hashes.
+  Login becomes two steps: password → 5-minute single-use token → code. An accepted code can't be replayed
+  (`totp_last_step`). Wrong codes are counted per account wherever a code is entered (sign-in, turning 2FA off,
+  new recovery codes): after 10 in an hour further attempts are refused, and one sign-in attempt is cancelled
+  after 5 wrong codes, so the password must be entered again. Data exports never contain the 2FA secret,
+  recovery-code hashes or password hash.
+- **Staff must use it:** with `REQUIRE_MFA_FOR_STAFF=true` (default; mandatory in production) recruiter and
+  admin APIs return `403 mfa_required` until 2FA is on, because staff can read many candidates' data.
+- Google sign-in also requires the second step when 2FA is on.
+
+## Recruiter access to candidate data
+
+- Recruiters see a candidate only if the candidate applied to that opening and ticked the sharing consent,
+  or the recruiter bulk-uploaded the resume after attesting the person agreed to be considered.
+- Bulk-uploaded candidates have no account: only the extracted content is kept (encrypted, no original file)
+  and it is deleted after `BULK_UPLOAD_RETENTION_DAYS` (default 90) by the nightly sweep, or earlier by staff.
+- Uploaded candidates never affect applicants' "where I stand" figures.
+- Recruiter notes are encrypted and never shown to candidates. Viewing a candidate, comparing, changing a
+  stage, uploading and viewing fairness reports are audit-logged.
+- Candidates see only their own rank, the applicant count, the median and an anonymous histogram, and only
+  once 3+ people applied.
+
+## Voluntary self-identification (fairness monitoring)
+
+- Optional gender and age band, with explicit consent, stored encrypted in a separate table.
+- Never read by ranking, matching, tips or recruiter candidate views (a test asserts scores are identical
+  with and without it, and that it does not appear in the recruiter's candidate detail).
+- The report is **admin-only** (recruiters move candidates between stages, so they must not also see group
+  outcomes) and every view is audit-logged.
+- It is a snapshot as of the start of the current UTC day, so moving one candidate and reloading reveals
+  nothing. A breakdown appears only when at least 2 groups each have 10 or more people (one group alone would
+  reveal everyone's answer), and no counts of hidden or self-identified people are returned.
+- It applies the four-fifths rule as a prompt to investigate, not as proof of bias. Users can delete it at any time; it is included in export
+  and removed on account deletion.
+
 ## Retention & deletion
 
 - `FILE_RETENTION_DAYS` / `ANALYSIS_RETENTION_DAYS` are enforced by the nightly `retention_sweep` beat task.
@@ -45,7 +82,9 @@
 - **Account deletion** removes everything above plus JDs, applications, career artefacts, sessions,
   tokens and every object under `users/{id}/` in storage. Usage events are kept anonymised (user id
   nulled) for aggregate cost reporting; a content-free audit record of the deletion is kept.
-- **Data export** (`GET /api/account/export`) returns a ZIP of all records plus original uploads.
+- **Data export** (`GET /api/account/export`) returns a ZIP of all records plus original uploads, including
+  opening applications, learning plan, mock interviews, job alerts sent and self-identification.
+- Mock interview answers and recruiter notes are free text and are encrypted at rest.
 
 ## Audit logging
 

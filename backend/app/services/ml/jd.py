@@ -41,12 +41,18 @@ UNASSESSABLE = re.compile(
     r"on[- ]call|weekends?|driver'?s licen[cs]e|security clearance|citizenship)\b", re.I
 )
 ALTERNATIVE = re.compile(r"\b(or|one of|any of|such as|e\.g\.|similar)\b", re.I)
+# Checked in order; the first match wins. Every alternative starts at a word boundary so that
+# "Systems" is not "MS" and "time" is not "ME". Two-letter abbreviations that are also English
+# words or product names (BE, BA, BS, MS, ME) only count in capitals, and "MS Office" is not a degree.
+_MS_PRODUCT = r"(?!\s*(?:office|excel|word|sql|teams|project|access|azure|dynamics|outlook|powerpoint)\b)"
 DEGREE_LEVELS = [
-    (5, r"ph\.?\s?d|doctorate"),
-    (4, r"master|m\.?\s?s\b|m\.?\s?sc|m\.?\s?tech|mba|m\.?e\b|mca"),
-    (3, r"bachelor|b\.?\s?s\b|b\.?\s?sc|b\.?\s?tech|b\.?e\b|b\.?a\b|bca|bba|b\.?com|degree in|undergraduate"),
-    (2, r"associate|diploma"),
-    (1, r"high school|secondary"),
+    (5, r"\bph\.?\s?d\b|\bdoctorate\b|\bdoctoral\b"),
+    (4, rf"\bmaster|\bm\.\s?s\b\.?|(?-i:\bMS\b){_MS_PRODUCT}|\bm\.?\s?sc\b|\bm\.?\s?tech\b|\bmba\b|\bm\.\s?e\b\.?|(?-i:\bME\b)|\bmca\b|\bpost[- ]?graduate\b"),
+    (2, r"\bassociate'?s?\s+degree\b|\bassociate\s+of\b"),
+    (3, r"\bbachelor|\bb\.\s?s\b\.?|(?-i:\bBS\b)|\bb\.?\s?sc\b|\bb\.?\s?tech\b|\bb\.\s?e\b\.?|(?-i:\bBE\b)|\bb\.\s?a\b\.?|(?-i:\bBA\b)"
+        r"|\bbca\b|\bbba\b|\bb\.?\s?com\b|\bdegree in\b|\bundergraduate\b|\bgraduate degree\b"),
+    (1, r"\bhigh school\b|\bsecondary school\b|\bhsc\b|\bssc\b"),
+    (2, r"\bdiploma\b"),
 ]
 
 

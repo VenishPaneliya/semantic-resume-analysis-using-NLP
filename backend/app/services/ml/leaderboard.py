@@ -25,6 +25,7 @@ from app.services.ml.embeddings import get_embedder
 from app.services.ml.features import resume_skill_evidence
 from app.services.ml.recommender import recommend
 from app.services.taxonomy import get_taxonomy
+from app.services.text import clip
 from app.versions import LEADERBOARD_VERSION
 
 TIERS = [
@@ -116,7 +117,12 @@ def role_leaderboard(content: dict | ResumeContent, preferences: dict | None = N
             "keywords_weak": [w["skill"] for w in r["weak_skills"]],
             "keywords_missing": r["missing_required"] + r["missing_preferred"],
             "missing_required": r["missing_required"],
+            "possibly_unlisted": [{"skill": h["skill"], "because_you_have": h["because_you_have"]} for h in r["possibly_unlisted"]],
             "reasons": r["reasons"],
+            "next_steps": r["next_steps"],
+            # rows are ordered by score + this adjustment (target roles / domains chosen by the user)
+            "preference_adjustment": r["preference_adjustment"],
+            "preference_reasons": r["preference_reasons"],
         })
     return {**base, "status": "ok", "rows": rows}
 
@@ -280,12 +286,12 @@ def tailoring_tips(content: dict | ResumeContent, score: float | None, *, core_c
             if first_by_entry.get(entry) != path:
                 add("lead_with_relevant", "medium", f"Move this bullet to the top of “{owner}”",
                     f"This is one of your most relevant points for {t['title']}, but it's not the first thing a reader sees "
-                    f"in that entry: “{text[:140]}”", path=path)
+                    f"in that entry: “{clip(text, 140)}”", path=path)
                 break
         for path, _owner, text in top:
             if not re.search(r"\d", text):
                 add("quantify", "high", "Add a real result to a key bullet",
-                    f"One of your most relevant bullets has no measurable outcome: “{text[:140]}”. If you know the "
+                    f"One of your most relevant bullets has no measurable outcome: “{clip(text, 140)}”. If you know the "
                     "result (time saved, users, accuracy, revenue), add it. The AI editor can insert a placeholder for you to fill in.",
                     path=path, action={"type": "ai", "operation": "rewrite_bullet", "target_path": path})
                 break

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hmac
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
@@ -54,7 +56,7 @@ def metrics(authorization: str | None = Header(default=None), db: Session = Depe
     s = get_settings()
     if not s.metrics_enabled:
         raise HTTPException(404)
-    if s.metrics_token and authorization != f"Bearer {s.metrics_token}":
+    if s.metrics_token and not hmac.compare_digest((authorization or "").encode(), f"Bearer {s.metrics_token}".encode()):
         raise HTTPException(401)
     update_queue_gauge(db)
     return Response(generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)

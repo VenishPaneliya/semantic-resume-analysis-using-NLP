@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useT, type MessageKey } from "@/lib/i18n";
 import type { OpeningEmployment, OpeningFull, WorkArrangement } from "@/lib/types";
-import { ARRANGEMENT, EMPLOYMENT } from "./leaderboard";
 import { Alert, Field, Spinner } from "./ui";
+
+const ARRANGEMENT_KEY: Record<string, MessageKey> = { onsite: "ofrm.arr.onsite", hybrid: "ofrm.arr.hybrid", remote: "ofrm.arr.remote" };
+const EMPLOYMENT_KEY: Record<string, MessageKey> = {
+  full_time: "ofrm.emp.full_time",
+  part_time: "ofrm.emp.part_time",
+  contract: "ofrm.emp.contract",
+  internship: "ofrm.emp.internship",
+};
 
 export interface OpeningInput {
   title: string;
@@ -22,6 +30,7 @@ export function OpeningForm({ initial, submitLabel, onSubmit, onCancel }: {
   onSubmit: (v: OpeningInput) => Promise<void>;
   onCancel?: () => void;
 }) {
+  const t = useT();
   const [desc, setDesc] = useState(initial?.description ?? "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +41,7 @@ export function OpeningForm({ initial, submitLabel, onSubmit, onCancel }: {
     const f = new FormData(e.currentTarget);
     const description = String(f.get("description") ?? "").trim();
     if (description.length < MIN_DESC) {
-      setError(`The description needs at least ${MIN_DESC} characters so requirements can be extracted.`);
+      setError(t("ofrm.descMin", { min: MIN_DESC }));
       return;
     }
     setPending(true);
@@ -57,32 +66,32 @@ export function OpeningForm({ initial, submitLabel, onSubmit, onCancel }: {
     <form className="space-y-4" onSubmit={submit} noValidate={false}>
       {error && <Alert tone="bad">{error}</Alert>}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Job title" id={`${p}-title`}>
+        <Field label={t("ofrm.title")} id={`${p}-title`}>
           <input className="input" id={`${p}-title`} name="title" required minLength={2} maxLength={200} defaultValue={initial?.title} />
         </Field>
-        <Field label="Company" id={`${p}-company`}>
+        <Field label={t("ofrm.company")} id={`${p}-company`}>
           <input className="input" id={`${p}-company`} name="company" required maxLength={200} defaultValue={initial?.company} />
         </Field>
-        <Field label="Location (optional)" id={`${p}-location`}>
+        <Field label={t("ofrm.location")} id={`${p}-location`}>
           <input className="input" id={`${p}-location`} name="location" maxLength={200} defaultValue={initial?.location ?? ""} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Arrangement" id={`${p}-arr`}>
+        <div className="grid gap-3 min-[400px]:grid-cols-2">
+          <Field label={t("ofrm.arrangement")} id={`${p}-arr`}>
             <select className="input" id={`${p}-arr`} name="work_arrangement" defaultValue={initial?.work_arrangement ?? ""}>
-              <option value="">Not specified</option>
-              {Object.entries(ARRANGEMENT).map(([k, v]) => (
+              <option value="">{t("ofrm.notSpecified")}</option>
+              {Object.entries(ARRANGEMENT_KEY).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {v}
+                  {t(v)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Employment" id={`${p}-emp`}>
+          <Field label={t("ofrm.employment")} id={`${p}-emp`}>
             <select className="input" id={`${p}-emp`} name="employment_type" defaultValue={initial?.employment_type ?? ""}>
-              <option value="">Not specified</option>
-              {Object.entries(EMPLOYMENT).map(([k, v]) => (
+              <option value="">{t("ofrm.notSpecified")}</option>
+              {Object.entries(EMPLOYMENT_KEY).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {v}
+                  {t(v)}
                 </option>
               ))}
             </select>
@@ -90,9 +99,9 @@ export function OpeningForm({ initial, submitLabel, onSubmit, onCancel }: {
         </div>
       </div>
       <Field
-        label="Description"
+        label={t("ofrm.description")}
         id={`${p}-desc`}
-        hint={`Include requirements as a list (e.g. "Requirements" then "- Python"). ${desc.trim().length}/${MIN_DESC} characters minimum.`}
+        hint={t("ofrm.descHint", { n: desc.trim().length, min: MIN_DESC })}
       >
         <textarea
           className="input min-h-56"
@@ -107,11 +116,11 @@ export function OpeningForm({ initial, submitLabel, onSubmit, onCancel }: {
       </Field>
       <div className="flex flex-wrap gap-2">
         <button className="btn btn-primary" disabled={pending}>
-          {pending ? <Spinner label="Saving" /> : submitLabel}
+          {pending ? <Spinner label={t("common.saving")} /> : submitLabel}
         </button>
         {onCancel && (
           <button type="button" className="btn btn-ghost" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </button>
         )}
       </div>

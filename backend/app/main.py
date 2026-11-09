@@ -12,15 +12,18 @@ from fastapi.responses import JSONResponse
 import app.services.pipeline  # noqa: F401 - registers job handlers
 from app.api import (
     account,
+    account_extra,
     admin,
     applications,
     auth,
     career,
+    engagement,
     exports,
     health,
     jobdesc,
     openings,
     processing,
+    recruiter,
     resumes,
     suggestions,
     versions,
@@ -46,6 +49,7 @@ TAGS = [
     {"name": "applications", "description": "Manual job application tracker."},
     {"name": "leaderboard", "description": "Role and opening leaderboards, standing among applicants, relevance-gated tips."},
     {"name": "recruiter", "description": "HR staff: post openings and review ranked applicants."},
+    {"name": "engagement", "description": "What-if scoring, learning plan, resume history, mock interviews."},
     {"name": "admin", "description": "Restricted operational dashboard."},
 ]
 
@@ -57,8 +61,9 @@ def create_app() -> FastAPI:
         title="Resume Intelligence API",
         version="0.1.0",
         description="AI Resume Intelligence and Career Assistant. All scores are advisory indicators, not ATS scores or hiring probabilities.",
-        openapi_url="/api/openapi.json",
-        docs_url="/api/docs",
+        # the interactive docs and schema are for development; in production the contract is docs/openapi.json
+        openapi_url=None if s.env == "production" else "/api/openapi.json",
+        docs_url=None if s.env == "production" else "/api/docs",
         redoc_url=None,
         openapi_tags=TAGS,
     )
@@ -87,7 +92,8 @@ def create_app() -> FastAPI:
                 ip = client_ip(request)
                 # credential-bearing auth POSTs get their own strict bucket; reads such as /auth/me do not count
                 is_auth_post = request.url.path.startswith("/api/auth/") and request.method == "POST"
-                limit = s.login_rate_per_minute if is_auth_post else s.api_rate_per_minute * 2
+                cfg = get_settings()  # read per request, not the copy captured at startup
+                limit = cfg.login_rate_per_minute if is_auth_post else cfg.api_rate_per_minute * 2
                 enforce(f"ip:{ip}:{'auth' if is_auth_post else 'api'}", limit)
             except Exception as exc:  # HTTPException from enforce
                 return JSONResponse(status_code=429, content={"detail": exc.detail}, headers={"Retry-After": "60"})  # type: ignore[attr-defined]
@@ -132,7 +138,23 @@ def create_app() -> FastAPI:
         log.exception("unhandled", path=request.url.path, error=type(exc).__name__)
         return JSONResponse(status_code=500, content={"detail": {"code": "internal_error", "message": "Something went wrong. Please try again."}})
 
-    for r in (health, auth, account, resumes, versions, jobdesc, suggestions, exports, career, applications, openings, processing, admin):
+    if s.env != "test" and s.embedding_backend != "tfidf":
+        # load the embedding model in the background at startup, so the first user request doesn't
+        # pay the 10–30 s model load (and hit proxy timeouts)
+        import threading
+
+        def _warm() -> None:
+            try:
+                from app.services.ml.embeddings import get_embedder
+
+                get_embedder().encode(["warm up"])
+                log.info("embeddings.warmed")
+            except Exception as exc:  # noqa: BLE001 - warm-up must never break startup
+                log.warning("embeddings.warmup_failed", error=type(exc).__name__)
+
+        threading.Thread(target=_warm, name="embedding-warmup", daemon=True).start()
+
+    for r in (health, auth, account, resumes, versions, jobdesc, suggestions, exports, career, applications, openings, recruiter, engagement, account_extra, processing, admin):
         app.include_router(r.router)
     return app
 

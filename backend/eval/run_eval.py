@@ -287,6 +287,9 @@ def to_markdown(r: dict) -> str:
 
 
 def main() -> None:
+    # the report contains "→" and "·"; a Windows console (cp1252) can't print them otherwise
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="all", choices=["dev", "test", "all"])
     ap.add_argument("--embedding", default=None, choices=["tfidf", "sentence-transformers"])

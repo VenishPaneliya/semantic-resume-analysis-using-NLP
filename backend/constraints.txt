@@ -98,7 +98,7 @@ scikit-learn==1.9.1
 scipy==1.18.1
 sentence-transformers==6.2.0
 sentry-sdk==2.74.0
-setuptools==78.1.0
+setuptools==84.2.1
 shellingham==1.5.4
 six==1.17.0
 SQLAlchemy==2.1.8

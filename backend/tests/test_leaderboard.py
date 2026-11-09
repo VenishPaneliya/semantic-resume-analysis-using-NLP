@@ -243,3 +243,18 @@ def test_demo_seed_is_labelled_and_idempotent():
     assert len(rows) == len({(o.title, o.company) for o in rows})
     db.close()
     subprocess.run([sys.executable, "scripts/seed_demo_openings.py", "--remove"], check=True, capture_output=True)
+
+
+def test_role_leaderboard_shows_preference_adjustment_and_seniority(make_user, pdf_bytes):
+    """The leaderboard replaced the Roles tab: it must carry seniority and show any preference boost openly."""
+    api = make_user()
+    _, vid = confirmed_version(api, pdf_bytes)
+    base = {r["role_id"]: r for r in api.get(f"/api/versions/{vid}/leaderboard/roles").json()["rows"]}
+    target = next(rid for rid, r in base.items() if r["preference_adjustment"] == 0)
+    assert api.patch("/api/account/settings", json={"career_prefs": {"target_roles": [target]}}).status_code == 200
+    lb = api.get(f"/api/versions/{vid}/leaderboard/roles").json()
+    assert lb["seniority"]["label"]
+    row = next(r for r in lb["rows"] if r["role_id"] == target)
+    assert row["preference_adjustment"] > 0 and row["preference_reasons"]
+    assert row["score"] == base[target]["score"]  # preferences reorder; they never change the score
+    assert all("sentence-transformers" not in x and "tfidf" not in x for r in lb["rows"] for x in r["reasons"])

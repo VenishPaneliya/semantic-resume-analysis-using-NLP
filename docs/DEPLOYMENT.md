@@ -31,9 +31,11 @@ For multiple api replicas, run migrations as a one-off release job instead of in
 - `DATABASE_URL` is PostgreSQL; `STORAGE_BACKEND=s3`
 - `LLM_PROVIDER` is `anthropic`, `openai` or `disabled` (never `fixture`)
 
-Also set: `PUBLIC_BASE_URL`, `API_BASE_URL`, `CORS_ORIGINS`, `TRUSTED_PROXIES` (number of proxies in front — the
-Next.js server counts as one, so behind a load balancer use 2; per-IP rate limits otherwise see every user as the proxy's IP;
-never set it higher than the real number of proxies or clients can spoof `X-Forwarded-For`),
+Also set: `PUBLIC_BASE_URL`, `API_BASE_URL`, `CORS_ORIGINS`, `TRUSTED_PROXIES=1`. **The edge proxy
+(load balancer / Caddy / nginx) must overwrite `X-Forwarded-For` with the connecting client's address**, not append to a
+value the client sent (nginx: `proxy_set_header X-Forwarded-For $remote_addr;`). Next.js passes an existing
+`X-Forwarded-For` through unchanged, so without that rule a visitor can choose the IP that per-IP rate limits see.
+Per-account limits (wrong passwords, wrong 2FA codes, reset emails) do not depend on the IP and hold either way.
 `RATE_LIMIT_BACKEND=redis`, `EMAIL_BACKEND=smtp` + SMTP settings, `METRICS_TOKEN`, `SENTRY_DSN` (optional),
 `ADMIN_EMAILS`. Keep secrets in your platform's secret manager (AWS Secrets Manager, GCP Secret Manager,
 Vault, Kubernetes Secrets with encryption at rest) — never bake them into images.
@@ -53,7 +55,8 @@ lifecycle rule expiring noncurrent versions after 30 days (so deletions become p
 ## Observability
 
 - **Logs:** JSON to stdout with `request_id`; content-like keys are redacted. Ship to your log platform.
-- **Metrics** (`GET /api/metrics`, bearer `METRICS_TOKEN`): `ri_http_requests_total`, `ri_http_request_seconds`,
+- **Metrics** (`GET /api/metrics` on the API container, bearer `METRICS_TOKEN`, required in production; the
+  website does not forward this path, so scrape the API on the internal network): `ri_http_requests_total`, `ri_http_request_seconds`,
   `ri_job_seconds`, `ri_job_failures_total`, `ri_queue_depth`, `ri_llm_calls_total`, `ri_llm_cost_usd_total`,
   `ri_llm_seconds`. Note: Prometheus counters are per process; scrape each api/worker replica.
 - **Suggested alerts:** 5xx rate > 2% for 5 min; p95 latency > 2 s; `ri_queue_depth{status="queued"}` > 50

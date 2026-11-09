@@ -38,3 +38,14 @@ def retention_task() -> dict:
         return retention_sweep(db)
     finally:
         db.close()
+
+
+@celery_app.task(name="ri.opening_alerts")
+def opening_alerts_task(opening_id: str) -> dict:
+    from app.services.alerts import send_opening_alerts
+
+    db = SessionLocal()
+    try:
+        return send_opening_alerts(db, opening_id)
+    finally:
+        db.close()

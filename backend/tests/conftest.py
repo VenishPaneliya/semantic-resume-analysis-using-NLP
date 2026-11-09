@@ -21,6 +21,8 @@ os.environ.update({
     "LOG_JSON": "true",
     "LOG_LEVEL": "WARNING",
     "ADMIN_EMAILS": "admin@example.com",
+    # staff 2FA is enforced by default; tests that exercise it switch it back on (test_new_features.py)
+    "REQUIRE_MFA_FOR_STAFF": "false",
 })
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 

@@ -13,6 +13,7 @@
   "dependencies": {
     "lucide-react": "^0.460.0",
     "next": "^15.5.0",
+    "qrcode": "1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
@@ -20,6 +21,7 @@
     "@eslint/eslintrc": "^3.2.0",
     "@tailwindcss/postcss": "^4.1.0",
     "@types/node": "^22.10.0",
+    "@types/qrcode": "1.5.5",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "eslint": "^9.17.0",
@@ -27,5 +29,8 @@
     "playwright": "^1.49.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "postcss": "8.5.32"
   }
 }

@@ -4,6 +4,8 @@ private notes, pipeline stages, and consent-attested bulk upload."""
 from __future__ import annotations
 
 import json
+from collections import Counter
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
@@ -11,14 +13,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import err, recruiter_user
+from app.api.deps import admin_user, err, recruiter_user
 from app.api.openings import opening_out
 from app.config import get_settings
 from app.db import get_db
-from app.models import ApplicationNote, JobOpening, OpeningApplication, User, utcnow
+from app.models import ApplicationNote, DemographicSelfId, JobOpening, OpeningApplication, User, utcnow
 from app.services.audit import audit
 from app.services.ml.leaderboard import tier_for
 from app.services.openings import (
+    ADVANCED_STAGES,
     STAGES,
     application_content,
     candidate_facts,
@@ -191,11 +194,8 @@ def r_candidates(
     apps = sorted(_pipeline(db, o.id), key=lambda a: (-a.score, a.created_at))
     rows, total = [], len(apps)
     for i, a in enumerate(apps, 1):
-        need_facts = bool(wanted) or min_years is not None
-        facts = None
-        if need_facts or True:
-            content = application_content(db, a)
-            facts = candidate_facts(content) if content else None
+        content = application_content(db, a)
+        facts = candidate_facts(content) if content else None
         if min_score is not None and a.score < min_score:
             continue
         if stage and a.stage not in stage:
@@ -377,3 +377,132 @@ def bulk_upload(
     return {"added": added, "failed": failed, "retention_days": s.bulk_upload_retention_days,
             "note": "Uploaded candidates are visible only to HR staff and are deleted automatically after "
                     f"{s.bulk_upload_retention_days} days."}
+
+
+# ---------------------------------------------------------------- analytics
+
+
+def _median(xs: list[float]) -> float | None:
+    if not xs:
+        return None
+    s = sorted(xs)
+    m = len(s) // 2
+    return round(s[m] if len(s) % 2 else (s[m - 1] + s[m]) / 2, 1)
+
+
+@router.get("/analytics")
+def analytics(include_demo: bool = False, user: User = Depends(recruiter_user), db: Session = Depends(get_db)):
+    """Firm-level pipeline analytics. Aggregates only; no candidate identities."""
+    now = utcnow()
+    q = select(JobOpening)
+    if not include_demo:
+        q = q.where(JobOpening.is_demo.is_(False))
+    openings = list(db.scalars(q))
+    missing: Counter[str] = Counter()
+    per_opening, all_apps = [], []
+    for o in openings:
+        apps = _pipeline(db, o.id)
+        all_apps += apps
+        for a in apps:
+            missing.update(set((a.result or {}).get("keywords", {}).get("absent", [])))
+        strong = sum(1 for a in apps if a.score >= 60)
+        days_to_advance = [(a.stage_changed_at - a.created_at).total_seconds() / 86400 for a in apps
+                           if a.stage in ADVANCED_STAGES and a.stage_changed_at]
+        age_days = (now - o.created_at).days
+        per_opening.append({
+            **opening_out(o), "applicants": len(apps), "strong_matches": strong,
+            "median_score": _median([a.score for a in apps]),
+            "advanced": sum(1 for a in apps if a.stage in ADVANCED_STAGES),
+            "median_days_to_advance": _median(days_to_advance), "age_days": age_days,
+            "hard_to_fill": o.status == "open" and age_days >= 14 and strong < 3,
+        })
+    n = len(all_apps)
+    return {
+        "totals": {"openings_open": sum(1 for o in openings if o.status == "open"),
+                   "openings_closed": sum(1 for o in openings if o.status == "closed"),
+                   "candidates": n, "applied": sum(1 for a in all_apps if a.source == "applied"),
+                   "uploaded": sum(1 for a in all_apps if a.source == "uploaded"),
+                   "stages": {s: sum(1 for a in all_apps if a.stage == s) for s in STAGES},
+                   "median_score": _median([a.score for a in all_apps])},
+        "most_missing_skills": [{"skill": s, "candidates": c, "share": round(c / n, 3)} for s, c in missing.most_common(10)] if n else [],
+        "openings": sorted(per_opening, key=lambda r: (not r["hard_to_fill"], -r["applicants"])),
+        "include_demo": include_demo,
+        "notes": ["'Strong match' means a compatibility indicator of 60 or more.",
+                  "'Hard to fill' = open for 14+ days with fewer than 3 strong matches.",
+                  "Most-missing skills show where candidates may need training, and where requirements may be unusually strict."],
+    }
+
+
+# ---------------------------------------------------------------- fairness monitoring
+
+FAIRNESS_MIN_GROUP = 10
+FAIRNESS_MIN_GROUPS_SHOWN = 2
+
+
+def fairness_cutoff() -> datetime:
+    """The report is a snapshot as of the start of the current UTC day.
+
+    A live report would let someone move one candidate's stage, reload, and see which group's rate
+    changed, revealing that person's self-identification. With a daily snapshot, changes made today
+    don't show until tomorrow, and every view is audited."""
+    now = utcnow()
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+@router.get("/fairness")
+def fairness(opening_id: str | None = None, user: User = Depends(admin_user), db: Session = Depends(get_db)):
+    """Group outcomes from VOLUNTARY self-identification, for admins only.
+
+    Privacy rules: data as of the start of today (see fairness_cutoff); a dimension is shown only when
+    at least FAIRNESS_MIN_GROUPS_SHOWN groups each have FAIRNESS_MIN_GROUP or more people (one group
+    alone would reveal everyone's answer); no counts of hidden or self-identified people are returned.
+    Self-ID is never used for ranking; this report exists only to detect unequal outcomes."""
+    cutoff = fairness_cutoff()
+    q = select(OpeningApplication).where(OpeningApplication.source == "applied", OpeningApplication.created_at < cutoff)
+    if opening_id:
+        _opening(db, opening_id)
+        q = q.where(OpeningApplication.opening_id == opening_id)
+    apps = list(db.scalars(q))
+    ids = {a.user_id for a in apps if a.user_id}
+    selfid = {r.user_id: r for r in db.scalars(select(DemographicSelfId).where(DemographicSelfId.user_id.in_(ids)))} if ids else {}
+
+    def advanced(a: OpeningApplication) -> bool:
+        # stage decisions made today are not counted yet
+        return a.stage in ADVANCED_STAGES and (a.stage_changed_at is None or a.stage_changed_at < cutoff)
+
+    dims = {}
+    for dim in ("gender", "age_band"):
+        groups: dict[str, list[OpeningApplication]] = {}
+        for a in apps:
+            r = selfid.get(a.user_id)
+            val = getattr(r, dim) if r else None
+            if val and val != "prefer_not":
+                groups.setdefault(val, []).append(a)
+        shown = []
+        for g, rows in sorted(groups.items()):
+            if len(rows) < FAIRNESS_MIN_GROUP:
+                continue
+            shown.append({"group": g, "n": len(rows), "mean_score": round(sum(a.score for a in rows) / len(rows), 1),
+                          "strong_rate": round(sum(1 for a in rows if a.score >= 60) / len(rows), 3),
+                          "selection_rate": round(sum(1 for a in rows if advanced(a)) / len(rows), 3),
+                          "flags": []})
+        if len(shown) < FAIRNESS_MIN_GROUPS_SHOWN:
+            shown = []
+        for key in ("strong_rate", "selection_rate"):
+            top = max((g[key] for g in shown), default=0)
+            for g in shown:
+                ratio = round(g[key] / top, 3) if top else None
+                g[f"{key}_impact_ratio"] = ratio
+                if ratio is not None and ratio < 0.8:
+                    g["flags"].append(f"{key.replace('_', ' ')} is below 80% of the highest group (four-fifths rule)")
+        dims[dim] = {"groups": shown}
+    audit(db, "admin.fairness_viewed", user.id, "opening", opening_id)
+    db.commit()
+    return {"opening_id": opening_id, "applicants": len(apps), "as_of": cutoff.isoformat(),
+            "min_group_size": FAIRNESS_MIN_GROUP, "min_groups_shown": FAIRNESS_MIN_GROUPS_SHOWN, "dimensions": dims,
+            "notes": ["Based only on candidates who chose to self-identify; it may not represent everyone.",
+                      "Data as of the start of today (UTC); changes made today appear tomorrow.",
+                      f"A breakdown is shown only when at least {FAIRNESS_MIN_GROUPS_SHOWN} groups each have "
+                      f"{FAIRNESS_MIN_GROUP} or more people, so no individual's answer can be inferred.",
+                      "A flag is a prompt to investigate (requirements, wording, sourcing), not proof of bias.",
+                      "Self-identification is never used for ranking, matching or tips."]}

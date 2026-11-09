@@ -4,19 +4,30 @@ import { ArrowDown, ArrowUp, CopyPlus, Download, GitCompareArrows, History, Rota
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ContentForm, SECTION_LABEL } from "@/components/content-form";
+import { ContentForm, SECTION_LABEL_KEY } from "@/components/content-form";
 import { DiffView, ResumePreview } from "@/components/preview";
 import { SuggestionCard } from "@/components/suggestion-card";
-import { Alert, Badge, Empty, ErrorState, Field, fmtDate, LiveRegion, LoadingBlock, Spinner } from "@/components/ui";
+import { WhatIfPanel } from "@/components/what-if";
+import { Alert, Badge, Empty, EnglishNote, ErrorState, Field, fmtDate, LiveRegion, LoadingBlock, Spinner } from "@/components/ui";
 import { api, ApiError, downloadSigned, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
+import { useT, type MessageKey } from "@/lib/i18n";
 import type { Bullet, Compare, ExportRow, JD, ResumeContent, Role, Suggestion, Template, Version } from "@/lib/types";
 import { useResume } from "../context";
 
 type Panel = "preview" | "suggestions" | "history" | "export";
 type Op = "rewrite_bullet" | "grammar" | "shorten" | "tone" | "tailor" | "improve_summary";
+type Tone = "confident" | "formal" | "concise" | "friendly";
+const TONES: Tone[] = ["confident", "formal", "concise", "friendly"];
+const SOURCE_KEY: Record<string, MessageKey> = {
+  extracted: "editor.source.extracted",
+  user_edit: "editor.source.user_edit",
+  ai_accepted: "editor.source.ai_accepted",
+  restore: "editor.source.restore",
+};
 
 export default function EditorPage() {
+  const t = useT();
   const { resume, versionId, reload } = useResume();
   const [version, setVersion] = useState<Version | null>(null);
   const [draft, setDraft] = useState<ResumeContent | null>(null);
@@ -27,7 +38,7 @@ export default function EditorPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [busyPath, setBusyPath] = useState<string | null>(null);
   const [aiErr, setAiErr] = useState<{ code: string; message: string } | null>(null);
-  const [tone, setTone] = useState<"confident" | "formal" | "concise" | "friendly">("confident");
+  const [tone, setTone] = useState<Tone>("confident");
   const [tailor, setTailor] = useState<{ kind: "role" | "jd"; id: string }>({ kind: "role", id: resume.target_role ?? "" });
   const [template, setTemplate] = useState("professional");
   const [live, setLive] = useState("");
@@ -61,9 +72,9 @@ export default function EditorPage() {
     return () => window.removeEventListener("beforeunload", h);
   }, [dirty]);
 
-  if (!versionId) return <Empty title="Confirm the extraction first" />;
+  if (!versionId) return <Empty title={t("resume.confirmFirst")} />;
   if (loadErr) return <ErrorState message={loadErr} onRetry={() => loadVersion(versionId)} />;
-  if (!version || !draft) return <LoadingBlock label="Loading editor…" />;
+  if (!version || !draft) return <LoadingBlock label={t("editor.loading")} />;
 
   async function save() {
     if (!version || !draft) return;
@@ -73,10 +84,10 @@ export default function EditorPage() {
       const v = await api<Version>(`/api/resumes/${resume.id}/versions`, { body: { base_version_id: version.id, content: draft, label: "Manual edit" } });
       setVersion(v);
       setDraft(v.content);
-      setLive(`Saved as version ${v.number}.`);
+      setLive(t("editor.savedAs", { n: v.number }));
       await reload();
     } catch (e) {
-      setSaveErr(e instanceof ApiError && e.code === "stale_version" ? `${e.message} Your unsaved edits are still on screen; copy anything you need first.` : errMsg(e));
+      setSaveErr(e instanceof ApiError && e.code === "stale_version" ? `${e.message} ${t("editor.staleHint")}` : errMsg(e));
     } finally {
       setSaving(false);
     }
@@ -84,14 +95,14 @@ export default function EditorPage() {
 
   async function suggest(op: Op, path: string) {
     if (dirty) {
-      setAiErr({ code: "unsaved", message: "Save your manual edits first — AI suggestions are made against a saved version." });
+      setAiErr({ code: "unsaved", message: t("editor.saveFirst") });
       return;
     }
     const body: Record<string, unknown> = { operation: op, target_path: path };
     if (op === "tone") body.tone = tone;
     if (op === "tailor") {
       if (!tailor.id) {
-        setAiErr({ code: "missing_target", message: "Choose a role or job description to tailor to (toolbar above)." });
+        setAiErr({ code: "missing_target", message: t("editor.chooseTailor") });
         return;
       }
       if (tailor.kind === "role") body.target_role = tailor.id;
@@ -99,16 +110,16 @@ export default function EditorPage() {
     }
     setBusyPath(path + op);
     setAiErr(null);
-    setLive("Generating AI suggestion…");
+    setLive(t("editor.generating"));
     try {
       const s = await api<Suggestion>(`/api/versions/${version!.id}/suggestions`, { body });
       setSuggestions((prev) => [s, ...prev.filter((x) => x.id !== s.id)]);
       setPanel("suggestions");
-      setLive("AI suggestion ready for review. It has not been applied.");
+      setLive(t("editor.readyLive"));
     } catch (e) {
       const err = e instanceof ApiError ? { code: e.code, message: e.message } : { code: "error", message: errMsg(e) };
       setAiErr(err);
-      setLive("AI suggestion failed.");
+      setLive(t("editor.failedLive"));
     } finally {
       setBusyPath(null);
     }
@@ -117,14 +128,14 @@ export default function EditorPage() {
   const pendingPaths = new Set(suggestions.flatMap((s) => (s.target_path.includes("/bullets/") || s.target_path === "summary" ? [s.target_path] : s.items.map((i) => `${s.target_path}/${i.target_id}`))));
 
   const bulletActions = (path: string, b: Bullet) => (
-    <div className="flex flex-wrap items-center gap-1" role="group" aria-label="AI tools for this bullet">
+    <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t("editor.aiTools")}>
       {(
         [
-          ["rewrite_bullet", "Rewrite"],
-          ["grammar", "Grammar"],
-          ["shorten", "Shorten"],
-          ["tone", `Tone: ${tone}`],
-          ["tailor", "Tailor"],
+          ["rewrite_bullet", t("editor.op.rewrite")],
+          ["grammar", t("editor.op.grammar")],
+          ["shorten", t("editor.op.shorten")],
+          ["tone", t("editor.op.tone", { tone: t(`editor.tone.${tone}` as const) })],
+          ["tailor", t("editor.op.tailor")],
         ] as [Op, string][]
       ).map(([op, label]) => (
         <button
@@ -138,23 +149,23 @@ export default function EditorPage() {
           {label}
         </button>
       ))}
-      {pendingPaths.has(path) && <Badge tone="ai">suggestion pending</Badge>}
+      {pendingPaths.has(path) && <Badge tone="ai">{t("editor.pending")}</Badge>}
     </div>
   );
 
   const summaryActions = (
     <div className="mt-2 flex flex-wrap gap-1">
       <button type="button" className="btn btn-ai btn-sm" disabled={!!busyPath} onClick={() => suggest("improve_summary", "summary")}>
-        <Sparkles className="h-3.5 w-3.5" aria-hidden /> {draft.summary ? "Improve summary" : "Draft a summary from my facts"}
+        <Sparkles className="h-3.5 w-3.5" aria-hidden /> {draft.summary ? t("editor.improveSummary") : t("editor.draftSummary")}
       </button>
       {draft.summary && (
         <button type="button" className="btn btn-ai btn-sm" disabled={!!busyPath} onClick={() => suggest("grammar", "summary")}>
-          Grammar
+          {t("editor.op.grammar")}
         </button>
       )}
       {draft.summary && (
         <button type="button" className="btn btn-ai btn-sm" disabled={!!busyPath} onClick={() => suggest("shorten", "summary")}>
-          Shorten
+          {t("editor.op.shorten")}
         </button>
       )}
     </div>
@@ -172,24 +183,24 @@ export default function EditorPage() {
     <div>
       <LiveRegion message={live} />
       <div className="card sticky top-16 z-20 mb-5 flex flex-wrap items-center gap-3 p-3">
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
           <Badge tone="teal">v{version.number}</Badge>
-          <span className="text-muted">{version.label ?? version.source}</span>
-          {dirty && <Badge tone="warn">Unsaved changes</Badge>}
+          <span className="min-w-0 truncate text-muted">{version.label ?? (SOURCE_KEY[version.source] ? t(SOURCE_KEY[version.source]) : version.source)}</span>
+          {dirty && <Badge tone="warn">{t("editor.unsaved")}</Badge>}
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
           <label htmlFor="tone" className="sr-only">
-            Tone
+            {t("editor.toneLabel")}
           </label>
-          <select id="tone" className="input w-auto !py-1 text-xs" value={tone} onChange={(e) => setTone(e.target.value as typeof tone)}>
-            {["confident", "formal", "concise", "friendly"].map((t) => (
-              <option key={t} value={t}>
-                Tone: {t}
+          <select id="tone" className="input w-auto max-w-full !py-1 text-xs" value={tone} onChange={(e) => setTone(e.target.value as Tone)}>
+            {TONES.map((x) => (
+              <option key={x} value={x}>
+                {t("editor.op.tone", { tone: t(`editor.tone.${x}` as const) })}
               </option>
             ))}
           </select>
           <label htmlFor="tailor" className="sr-only">
-            Tailor to
+            {t("editor.tailorTo")}
           </label>
           <select
             id="tailor"
@@ -200,8 +211,8 @@ export default function EditorPage() {
               setTailor({ kind: kind as "role" | "jd", id: rest.join(":") });
             }}
           >
-            <option value="role:">Tailor to… (choose)</option>
-            <optgroup label="Roles">
+            <option value="role:">{t("editor.tailorChoose")}</option>
+            <optgroup label={t("editor.rolesGroup")}>
               {roles.data?.roles.map((r) => (
                 <option key={r.id} value={`role:${r.id}`}>
                   {r.title}
@@ -209,7 +220,7 @@ export default function EditorPage() {
               ))}
             </optgroup>
             {jds.data && jds.data.length > 0 && (
-              <optgroup label="Job descriptions">
+              <optgroup label={t("editor.jdGroup")}>
                 {jds.data.map((j) => (
                   <option key={j.id} value={`jd:${j.id}`}>
                     {j.title}
@@ -219,45 +230,46 @@ export default function EditorPage() {
             )}
           </select>
           <button className="btn btn-secondary btn-sm" disabled={!dirty || saving} onClick={() => setDraft(version.content)}>
-            Discard
+            {t("editor.discard")}
           </button>
           <button className="btn btn-primary btn-sm" disabled={!dirty || saving} onClick={save}>
-            {saving ? <Spinner label="Saving" /> : (<><Save className="h-4 w-4" aria-hidden /> Save version</>)}
+            {saving ? <Spinner label={t("common.saving")} /> : (<><Save className="h-4 w-4" aria-hidden /> {t("editor.saveVersion")}</>)}
           </button>
         </div>
       </div>
 
-      {saveErr && <div className="mb-4"><Alert tone="bad" title="Not saved">{saveErr}</Alert></div>}
+      {saveErr && <div className="mb-4"><Alert tone="bad" title={t("editor.notSaved")}>{saveErr}</Alert></div>}
       {aiErr && (
         <div className="mb-4">
-          <Alert tone={aiErr.code === "ai_consent_required" ? "warn" : "bad"} title="AI suggestion unavailable" action={<button className="btn btn-ghost btn-sm" onClick={() => setAiErr(null)}>Dismiss</button>}>
+          <Alert tone={aiErr.code === "ai_consent_required" ? "warn" : "bad"} title={t("editor.aiUnavailable")} action={<button className="btn btn-ghost btn-sm" onClick={() => setAiErr(null)}>{t("common.dismiss")}</button>}>
             {aiErr.message}{" "}
-            {aiErr.code === "ai_consent_required" && <Link href="/settings#privacy">Review AI privacy settings</Link>}
-            {["provider_busy", "provider_unreachable", "invalid_ai_output"].includes(aiErr.code) && " Your resume and analysis are unaffected — try again shortly."}
+            {aiErr.code === "ai_consent_required" && <Link href="/settings#privacy">{t("editor.reviewPrivacy")}</Link>}
+            {["provider_busy", "provider_unreachable", "invalid_ai_output"].includes(aiErr.code) && ` ${t("editor.tryShortly")}`}
           </Alert>
         </div>
       )}
 
+      <WhatIfPanel versionId={version.id} draft={draft} dirty={dirty} />
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
         <div>
           <p className="mb-3 text-xs text-muted">
-            Your confirmed content is shown in plain fields. AI suggestions appear separately in{" "}
-            <span className="rounded bg-ai-soft px-1 text-ai">amber</span> and change nothing until you accept them.
+            {t.rich("editor.intro", { amber: (c) => <span className="rounded bg-ai-soft px-1 text-ai">{c}</span> })}
           </p>
           <ContentForm value={draft} onChange={setDraft} bulletActions={bulletActions} summaryActions={summaryActions} highlight={(p) => pendingPaths.has(p)} idPrefix="ed" />
         </div>
 
         <div className="xl:sticky xl:top-36 xl:self-start">
-          <div role="tablist" aria-label="Editor panels" className="mb-3 flex gap-1 rounded-md bg-paper-2 p-1">
+          <div role="tablist" aria-label={t("editor.panels")} className="mb-3 flex flex-wrap gap-1 rounded-md bg-paper-2 p-1">
             {(
               [
-                ["preview", "Preview"],
-                ["suggestions", `AI (${suggestions.length})`],
-                ["history", "History"],
-                ["export", "Export"],
+                ["preview", t("editor.tab.preview")],
+                ["suggestions", t("editor.tab.ai", { count: suggestions.length })],
+                ["history", t("editor.tab.history")],
+                ["export", t("editor.tab.export")],
               ] as [Panel, string][]
             ).map(([p, l]) => (
-              <button key={p} role="tab" aria-selected={panel === p} aria-controls={`panel-${p}`} className="flex-1 rounded px-2 py-1.5 text-sm font-medium aria-selected:bg-card aria-selected:shadow-sm" onClick={() => setPanel(p)}>
+              <button key={p} role="tab" aria-selected={panel === p} aria-controls={`panel-${p}`} className="flex-1 whitespace-nowrap rounded px-2 py-1.5 text-sm font-medium aria-selected:bg-card aria-selected:shadow-sm" onClick={() => setPanel(p)}>
                 {l}
               </button>
             ))}
@@ -266,19 +278,19 @@ export default function EditorPage() {
             {panel === "preview" && (
               <div className="space-y-4">
                 <div className="card p-4">
-                  <p className="label">Section order</p>
+                  <p className="label">{t("editor.sectionOrder")}</p>
                   <ol className="space-y-1">
                     {draft.section_order.map((k, i) => (
                       <li key={k} className="flex items-center justify-between rounded border border-line bg-paper px-2 py-1 text-sm">
                         <span>
                           <span className="num mr-2 text-xs text-muted">{i + 1}</span>
-                          {SECTION_LABEL[k]}
+                          {t(SECTION_LABEL_KEY[k])}
                         </span>
-                        <span>
-                          <button className="btn btn-ghost btn-sm !p-1" aria-label={`Move ${SECTION_LABEL[k]} up`} disabled={i === 0} onClick={() => moveSection(i, -1)}>
+                        <span className="shrink-0">
+                          <button className="btn btn-ghost btn-sm !p-1" aria-label={t("form.moveUp", { name: t(SECTION_LABEL_KEY[k]) })} disabled={i === 0} onClick={() => moveSection(i, -1)}>
                             <ArrowUp className="h-3.5 w-3.5" aria-hidden />
                           </button>
-                          <button className="btn btn-ghost btn-sm !p-1" aria-label={`Move ${SECTION_LABEL[k]} down`} disabled={i === draft.section_order.length - 1} onClick={() => moveSection(i, 1)}>
+                          <button className="btn btn-ghost btn-sm !p-1" aria-label={t("form.moveDown", { name: t(SECTION_LABEL_KEY[k]) })} disabled={i === draft.section_order.length - 1} onClick={() => moveSection(i, 1)}>
                             <ArrowDown className="h-3.5 w-3.5" aria-hidden />
                           </button>
                         </span>
@@ -287,15 +299,16 @@ export default function EditorPage() {
                   </ol>
                   <div className="mt-3">
                     <label className="label" htmlFor="prev-tpl">
-                      Preview template
+                      {t("editor.previewTemplate")}
                     </label>
                     <select id="prev-tpl" className="input" value={template} onChange={(e) => setTemplate(e.target.value)}>
-                      <option value="student">Fresher / Student</option>
-                      <option value="professional">Experienced Professional</option>
-                      <option value="technical">Technical Specialist</option>
+                      <option value="student">{t("editor.tpl.student")}</option>
+                      <option value="professional">{t("editor.tpl.professional")}</option>
+                      <option value="technical">{t("editor.tpl.technical")}</option>
                     </select>
                   </div>
                 </div>
+                <EnglishNote kind="resume" />
                 <div className="rounded-lg bg-paper-2 p-3">
                   <ResumePreview c={draft} template={template} />
                 </div>
@@ -304,25 +317,27 @@ export default function EditorPage() {
             {panel === "suggestions" && (
               <div className="space-y-3">
                 {suggestions.length === 0 ? (
-                  <Empty icon={<Sparkles className="h-7 w-7" />} title="No pending suggestions">
-                    Use the amber buttons under a bullet or the summary. Suggestions are checked against your confirmed facts and never applied
-                    automatically.
+                  <Empty icon={<Sparkles className="h-7 w-7" />} title={t("editor.noPending")}>
+                    {t("editor.noPendingBody")}
                   </Empty>
                 ) : (
-                  suggestions.map((s) => (
+                  <>
+                  <EnglishNote kind="generic" />
+                  {suggestions.map((s) => (
                     <SuggestionCard
                       key={s.id}
                       s={s}
                       onResolved={async (r) => {
                         setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
                         if (r.accepted && r.versionId) {
-                          setLive("Suggestion accepted and saved as a new version.");
+                          setLive(t("editor.acceptedLive"));
                           await reload();
                           await loadVersion(r.versionId);
-                        } else setLive("Suggestion rejected.");
+                        } else setLive(t("editor.rejectedLive"));
                       }}
                     />
-                  ))
+                  ))}
+                  </>
                 )}
               </div>
             )}
@@ -336,6 +351,7 @@ export default function EditorPage() {
 }
 
 function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; current: Version; onRestored: (vid: string) => Promise<void> }) {
+  const t = useT();
   const router = useRouter();
   const { data, error, loading, reload } = useApi<Version[]>(`/api/resumes/${resumeId}/versions`, [current.id]);
   const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles");
@@ -346,7 +362,7 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
   const [variant, setVariant] = useState({ title: "", role: "" });
 
   async function restore(v: Version) {
-    if (!window.confirm(`Restore version ${v.number}? This creates a new version with its content; nothing is deleted.`)) return;
+    if (!window.confirm(t("editor.restoreConfirm", { n: v.number }))) return;
     setBusy(v.id);
     try {
       const nv = await api<Version>(`/api/versions/${v.id}/restore`, { method: "POST" });
@@ -389,37 +405,37 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
     <div className="space-y-4">
       {err && <Alert tone="bad">{err}</Alert>}
       <div className="card p-4">
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 font-semibold">
-            <History className="h-4 w-4" aria-hidden /> Versions
+            <History className="h-4 w-4" aria-hidden /> {t("editor.versions")}
           </p>
           <button className="btn btn-secondary btn-sm" disabled={sel.length !== 2 || busy === "cmp"} onClick={compare}>
-            <GitCompareArrows className="h-4 w-4" aria-hidden /> Compare 2
+            <GitCompareArrows className="h-4 w-4" aria-hidden /> {t("editor.compare2")}
           </button>
         </div>
-        <p className="mb-2 text-xs text-muted">History is append-only. Restoring creates a new version; your original upload is never modified.</p>
+        <p className="mb-2 text-xs text-muted">{t("editor.appendOnly")}</p>
         <ul className="space-y-1.5">
           {data?.map((v) => (
             <li key={v.id} className="flex items-center gap-2 rounded border border-line bg-paper px-2 py-1.5 text-sm">
               <input
                 type="checkbox"
-                aria-label={`Select version ${v.number} for comparison`}
+                aria-label={t("editor.selectVersion", { n: v.number })}
                 checked={sel.includes(v.id)}
                 onChange={(e) => setSel((s) => (e.target.checked ? [...s, v.id].slice(-2) : s.filter((x) => x !== v.id)))}
               />
               <span className="num w-8 font-semibold">v{v.number}</span>
               <span className="min-w-0 flex-1 truncate">
-                {v.label ?? v.source}
+                {v.label ?? (SOURCE_KEY[v.source] ? t(SOURCE_KEY[v.source]) : v.source)}
                 <span className="block text-[11px] text-muted">
-                  {fmtDate(v.created_at)} · {v.source.replace("_", " ")}
+                  {fmtDate(v.created_at)} · {SOURCE_KEY[v.source] ? t(SOURCE_KEY[v.source]) : v.source.replace("_", " ")}
                 </span>
               </span>
               {v.source === "ai_accepted" && <Badge tone="ai">AI</Badge>}
               {v.is_latest ? (
-                <Badge tone="teal">current</Badge>
+                <Badge tone="teal">{t("editor.current")}</Badge>
               ) : (
                 <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => restore(v)}>
-                  <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Restore
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden /> {t("editor.restore")}
                 </button>
               )}
             </li>
@@ -432,7 +448,7 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
             v{cmp.a.number} → v{cmp.b.number}
           </p>
           <p className="mt-1 text-sm">
-            Overall indicator: <span className="num">{cmp.overall.a ?? "—"}</span> → <span className="num font-semibold">{cmp.overall.b ?? "—"}</span>
+            {t("editor.overallLine")} <span className="num">{cmp.overall.a ?? "—"}</span> → <span className="num font-semibold">{cmp.overall.b ?? "—"}</span>
           </p>
           <table className="mt-2 w-full text-xs">
             <tbody>
@@ -448,15 +464,15 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
               ))}
             </tbody>
           </table>
-          <p className="label mt-3">Content changes ({cmp.changes.length})</p>
+          <p className="label mt-3">{t("editor.contentChanges", { count: cmp.changes.length })}</p>
           <ul className="space-y-2">
             {cmp.changes.map((ch, i) => (
               <li key={i} className="rounded bg-paper p-2 text-xs">
                 <p className="num text-muted">{ch.path}</p>
                 {ch.diff ? <DiffView ops={ch.diff} /> : ch.change ? <p>{ch.change}</p> : ch.added || ch.removed ? (
                   <p>
-                    {ch.added?.length ? `Added: ${ch.added.join(", ")}. ` : ""}
-                    {ch.removed?.length ? `Removed: ${ch.removed.join(", ")}.` : ""}
+                    {ch.added?.length ? t("editor.added", { list: ch.added.join(", ") }) : ""}
+                    {ch.removed?.length ? t("editor.removed", { list: ch.removed.join(", ") }) : ""}
                   </p>
                 ) : (
                   <p>{JSON.stringify(ch.before)} → {JSON.stringify(ch.after)}</p>
@@ -468,16 +484,16 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
       )}
       <div className="card p-4">
         <p className="flex items-center gap-1.5 font-semibold">
-          <CopyPlus className="h-4 w-4" aria-hidden /> Create a targeted variant
+          <CopyPlus className="h-4 w-4" aria-hidden /> {t("editor.createVariant")}
         </p>
-        <p className="mt-1 text-xs text-muted">A separate resume starting from v{current.number}, with its own history. Good for role-specific versions.</p>
+        <p className="mt-1 text-xs text-muted">{t("editor.variantBody", { n: current.number })}</p>
         <div className="mt-3 grid gap-2">
-          <Field label="Variant name" id="var-title">
-            <input id="var-title" className="input" value={variant.title} onChange={(e) => setVariant({ ...variant, title: e.target.value })} placeholder="e.g. Resume — ML roles" />
+          <Field label={t("editor.variantName")} id="var-title">
+            <input id="var-title" className="input" value={variant.title} onChange={(e) => setVariant({ ...variant, title: e.target.value })} placeholder={t("editor.variantPlaceholder")} />
           </Field>
-          <Field label="Target role (optional)" id="var-role">
+          <Field label={t("editor.targetRoleOpt")} id="var-role">
             <select id="var-role" className="input" value={variant.role} onChange={(e) => setVariant({ ...variant, role: e.target.value })}>
-              <option value="">None</option>
+              <option value="">{t("common.none")}</option>
               {roles.data?.roles.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.title}
@@ -486,7 +502,7 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
             </select>
           </Field>
           <button className="btn btn-secondary btn-sm justify-self-start" disabled={busy === "variant"} onClick={createVariant}>
-            {busy === "variant" ? <Spinner label="Creating" /> : "Create variant"}
+            {busy === "variant" ? <Spinner label={t("editor.creating")} /> : t("editor.createVariantBtn")}
           </button>
         </div>
       </div>
@@ -495,6 +511,7 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
 }
 
 function ExportPanel({ resumeId, dirty }: { resumeId: string; dirty: boolean }) {
+  const t = useT();
   const templates = useApi<Template[]>("/api/templates");
   const [opts, setOpts] = useState({ format: "pdf", template: "professional", page_size: "A4" });
   const [exp, setExp] = useState<ExportRow | null>(null);
@@ -512,7 +529,7 @@ function ExportPanel({ resumeId, dirty }: { resumeId: string; dirty: boolean }) 
         e = await api<ExportRow>(`/api/exports/${e.id}`);
       }
       setExp(e);
-      if (e.status === "failed") setErr(e.error_message ?? "Export failed.");
+      if (e.status === "failed") setErr(e.error_message ?? t("editor.exportFailed"));
     } catch (e) {
       setErr(errMsg(e));
     } finally {
@@ -522,16 +539,16 @@ function ExportPanel({ resumeId, dirty }: { resumeId: string; dirty: boolean }) 
 
   return (
     <div className="card space-y-4 p-4">
-      {dirty && <Alert tone="warn">You have unsaved edits. Exports always use the latest <em>saved</em> version.</Alert>}
+      {dirty && <Alert tone="warn">{t.rich("editor.unsavedExport", { em: (c) => <em>{c}</em> })}</Alert>}
       <fieldset>
-        <legend className="label">Template</legend>
+        <legend className="label">{t("editor.template")}</legend>
         <div className="grid gap-2">
-          {(templates.data ?? []).map((t) => (
-            <label key={t.id} className={`flex cursor-pointer gap-2 rounded border p-2 text-sm ${opts.template === t.id ? "border-teal bg-teal-soft" : "border-line"}`}>
-              <input type="radio" name="tpl" value={t.id} checked={opts.template === t.id} onChange={() => setOpts({ ...opts, template: t.id })} />
+          {(templates.data ?? []).map((tpl) => (
+            <label key={tpl.id} className={`flex cursor-pointer gap-2 rounded border p-2 text-sm ${opts.template === tpl.id ? "border-teal bg-teal-soft" : "border-line"}`}>
+              <input type="radio" name="tpl" value={tpl.id} checked={opts.template === tpl.id} onChange={() => setOpts({ ...opts, template: tpl.id })} />
               <span>
-                <span className="font-medium">{t.name}</span>
-                <span className="block text-xs text-muted">{t.description}</span>
+                <span className="font-medium">{tpl.name}</span>
+                <span className="block text-xs text-muted">{tpl.description}</span>
               </span>
             </label>
           ))}
@@ -539,29 +556,29 @@ function ExportPanel({ resumeId, dirty }: { resumeId: string; dirty: boolean }) 
         </div>
       </fieldset>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Format" id="fmt">
+        <Field label={t("editor.format")} id="fmt">
           <select id="fmt" className="input" value={opts.format} onChange={(e) => setOpts({ ...opts, format: e.target.value })}>
             <option value="pdf">PDF</option>
-            <option value="docx">Word (DOCX)</option>
+            <option value="docx">{t("editor.word")}</option>
           </select>
         </Field>
-        <Field label="Page size" id="ps">
+        <Field label={t("editor.pageSize")} id="ps">
           <select id="ps" className="input" value={opts.page_size} onChange={(e) => setOpts({ ...opts, page_size: e.target.value })}>
             <option value="A4">A4</option>
-            <option value="LETTER">US Letter</option>
+            <option value="LETTER">{t("editor.letter")}</option>
           </select>
         </Field>
       </div>
       <button className="btn btn-primary" onClick={run} disabled={busy}>
-        {busy ? <Spinner label="Generating" /> : (<><Download className="h-4 w-4" aria-hidden /> Generate export</>)}
+        {busy ? <Spinner label={t("editor.generatingShort")} /> : (<><Download className="h-4 w-4" aria-hidden /> {t("editor.generateExport")}</>)}
       </button>
       <div aria-live="polite">
         {err && <ErrorState message={err} onRetry={run} />}
         {exp?.status === "ready" && (
           <div className="space-y-3">
             {exp.unresolved_placeholders.length > 0 && (
-              <Alert tone="warn" title={`${exp.unresolved_placeholders.length} unresolved placeholder${exp.unresolved_placeholders.length > 1 ? "s" : ""}`}>
-                These are highlighted in the file. Replace them with real facts or remove them before sending:
+              <Alert tone="warn" title={t("editor.placeholders", { count: exp.unresolved_placeholders.length })}>
+                {t("editor.placeholdersBody")}
                 <ul className="mt-1 list-disc pl-4">
                   {exp.unresolved_placeholders.map((p, i) => (
                     <li key={i}>{p.placeholder}</li>
@@ -569,9 +586,9 @@ function ExportPanel({ resumeId, dirty }: { resumeId: string; dirty: boolean }) 
                 </ul>
               </Alert>
             )}
-            <Alert tone="ok" title="Export ready" action={<button className="btn btn-primary btn-sm" onClick={() => downloadSigned(`/api/exports/${exp.id}/link`)}>Download</button>}>
+            <Alert tone="ok" title={t("editor.exportReady")} action={<button className="btn btn-primary btn-sm" onClick={() => downloadSigned(`/api/exports/${exp.id}/link`)}>{t("common.download")}</button>}>
               {exp.format.toUpperCase()} · {exp.template} · {exp.page_size}
-              {exp.page_count ? ` · ${exp.page_count} page${exp.page_count > 1 ? "s" : ""}` : ""}. The download link expires after a few minutes.
+              {exp.page_count ? ` · ${t("common.pages", { count: exp.page_count })}` : ""}. {t("editor.linkExpires")}
             </Alert>
           </div>
         )}

@@ -1,5 +1,8 @@
 /* Typed same-origin API client. Session lives in an HTTP-only cookie; unsafe requests
-   carry the double-submit CSRF token read from the non-HttpOnly `ri_csrf` cookie. */
+   carry the double-submit CSRF token read from the non-HttpOnly `ri_csrf` cookie.
+   Messages from the API stay in English; only the frontend's own fallback messages are translated. */
+
+import { translateNow } from "./i18n";
 
 export class ApiError extends Error {
   status: number;
@@ -31,7 +34,7 @@ function redirectToLogin() {
 
 export async function parseError(res: Response): Promise<ApiError> {
   let code = "http_" + res.status;
-  let message = res.statusText || "Request failed";
+  let message = res.statusText || translateNow("common.requestFailed");
   let details: unknown;
   try {
     const body = await res.json();
@@ -46,8 +49,16 @@ export async function parseError(res: Response): Promise<ApiError> {
   } catch {
     /* non-JSON error */
   }
-  if (res.status >= 500 && code.startsWith("http_")) message = "The server had a problem. Please try again.";
+  if (res.status >= 500 && code.startsWith("http_")) message = translateNow("common.serverError");
   return new ApiError(res.status, code, message, details);
+}
+
+/** Staff endpoints answer 403 `mfa_required` until two-factor login is on. The app shell listens for
+    this event and swaps the page for a friendly "turn on 2FA" prompt instead of an error. */
+export const MFA_REQUIRED_EVENT = "ri:mfa-required";
+export function announceMfaRequired(message: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(MFA_REQUIRED_EVENT, { detail: message }));
 }
 
 type Opts = { method?: string; body?: unknown; form?: FormData; noRedirect?: boolean; signal?: AbortSignal };
@@ -70,12 +81,16 @@ export async function api<T = unknown>(path: string, opts: Opts = {}): Promise<T
       signal: opts.signal,
     });
   } catch {
-    throw new ApiError(0, "network_error", "Could not reach the server. Check your connection and try again.");
+    throw new ApiError(0, "network_error", translateNow("common.networkError"));
   }
   if (res.status === 401 && !opts.noRedirect) {
     redirectToLogin();
   }
-  if (!res.ok) throw await parseError(res);
+  if (!res.ok) {
+    const e = await parseError(res);
+    if (e.status === 403 && e.code === "mfa_required") announceMfaRequired(e.message);
+    throw e;
+  }
   if (res.status === 204) return undefined as T;
   const ct = res.headers.get("content-type") ?? "";
   return (ct.includes("application/json") ? res.json() : res.blob()) as Promise<T>;
@@ -92,7 +107,7 @@ export function uploadWithProgress<T>(path: string, form: FormData, onProgress: 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
-    xhr.onerror = () => reject(new ApiError(0, "network_error", "Upload failed: could not reach the server."));
+    xhr.onerror = () => reject(new ApiError(0, "network_error", translateNow("common.uploadNetworkError")));
     xhr.onload = () => {
       let body: unknown = null;
       try {
@@ -103,7 +118,8 @@ export function uploadWithProgress<T>(path: string, form: FormData, onProgress: 
       if (xhr.status >= 200 && xhr.status < 300) return resolve(body as T);
       if (xhr.status === 401) redirectToLogin();
       const d = (body as { detail?: { code?: string; message?: string } } | null)?.detail;
-      reject(new ApiError(xhr.status, d?.code ?? `http_${xhr.status}`, d?.message ?? "Upload failed."));
+      if (xhr.status === 403 && d?.code === "mfa_required") announceMfaRequired(d.message ?? "");
+      reject(new ApiError(xhr.status, d?.code ?? `http_${xhr.status}`, d?.message ?? translateNow("common.uploadFailed")));
     };
     xhr.send(form);
   });
@@ -123,5 +139,5 @@ export async function downloadSigned(linkEndpoint: string) {
 export function errMsg(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
-  return "Something went wrong.";
+  return translateNow("common.genericError");
 }

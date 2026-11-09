@@ -1,25 +1,28 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, FlaskConical, Info, Loader2, RotateCcw, Sparkles, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FlaskConical, Info, Languages, Loader2, RotateCcw, Sparkles, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
+import { useI18n, useT, type MessageKey } from "@/lib/i18n";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
-export function Spinner({ label = "Loading" }: { label?: string }) {
+export function Spinner({ label }: { label?: string }) {
+  const t = useT();
   return (
     <span className="inline-flex items-center gap-2 text-sm text-muted" role="status" aria-live="polite">
       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-      {label}
+      {label ?? t("common.loadingShort")}
     </span>
   );
 }
 
-export function LoadingBlock({ label = "Loading…" }: { label?: string }) {
+export function LoadingBlock({ label }: { label?: string }) {
+  const t = useT();
   return (
     <div className="card flex min-h-40 items-center justify-center p-8">
-      <Spinner label={label} />
+      <Spinner label={label ?? t("common.loading")} />
     </div>
   );
 }
@@ -54,14 +57,15 @@ export function Alert({ tone = "info", title, children, action }: { tone?: Tone;
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const t = useT();
   return (
     <Alert
       tone="bad"
-      title="Something went wrong"
+      title={t("common.somethingWrong")}
       action={
         onRetry && (
           <button className="btn btn-secondary btn-sm" onClick={onRetry}>
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Retry
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden /> {t("common.retry")}
           </button>
         )
       }
@@ -94,26 +98,29 @@ export function Badge({ tone = "neutral", children, className }: { tone?: Tone |
 
 /** Mandatory label whenever a result comes from the development fixture provider. */
 export function FixtureBadge({ show = true }: { show?: boolean }) {
+  const t = useT();
   if (!show) return null;
   return (
     <span
       className="inline-flex items-center gap-1 rounded border-2 border-dashed border-[#b45309] bg-[#fff7ed] px-2 py-0.5 text-xs font-bold text-[#9a3412]"
-      title="Output from a deterministic local stand-in, not a real AI model"
+      title={t("common.fixtureTitle")}
     >
-      <FlaskConical className="h-3.5 w-3.5" aria-hidden /> Development fixture — not live AI
+      <FlaskConical className="h-3.5 w-3.5" aria-hidden /> {t("common.fixtureBadge")}
     </span>
   );
 }
 
-export function AIBadge({ children = "AI suggestion — not applied" }: { children?: ReactNode }) {
+export function AIBadge({ children }: { children?: ReactNode }) {
+  const t = useT();
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-ai-line bg-ai-soft px-2 py-0.5 text-xs font-semibold text-ai">
-      <Sparkles className="h-3.5 w-3.5" aria-hidden /> {children}
+      <Sparkles className="h-3.5 w-3.5" aria-hidden /> {children ?? t("common.aiSuggestionNotApplied")}
     </span>
   );
 }
 
 export function ScoreDial({ value, label, size = 88 }: { value: number | null; label?: string; size?: number }) {
+  const t = useT();
   const r = (size - 10) / 2;
   const c = 2 * Math.PI * r;
   const pct = value == null ? 0 : Math.max(0, Math.min(100, value)) / 100;
@@ -140,7 +147,7 @@ export function ScoreDial({ value, label, size = 88 }: { value: number | null; l
         <span className="num font-semibold leading-none" style={{ fontSize: Math.max(13, Math.round(size * 0.24)) }}>{value ?? "—"}</span>
         {label && size >= 80 && <span className="mt-1 text-[10px] uppercase tracking-wider text-muted">{label}</span>}
       </span>
-      <span className="sr-only">{value == null ? "No score" : `${value} out of 100`}</span>
+      <span className="sr-only">{value == null ? t("common.noScore") : t("common.outOf100", { value })}</span>
     </div>
   );
 }
@@ -184,7 +191,7 @@ export function Section({ title, children, aside, id }: { title: string; childre
   return (
     <section className="card p-5 sm:p-6" aria-labelledby={id}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 id={id} className="text-xl">
+        <h2 id={id} className="scroll-mt-20 text-xl">
           {title}
         </h2>
         {aside}
@@ -198,6 +205,19 @@ export function LiveRegion({ message }: { message: string }) {
   return (
     <p className="sr-only" aria-live="polite" role="status">
       {message}
+    </p>
+  );
+}
+
+/** One quiet line telling non-English readers that the text coming from the API (reasons, tips,
+    rubric explanations, resume content) is in English. Renders nothing in English. */
+export function EnglishNote({ kind = "analysis", className }: { kind?: "analysis" | "generic" | "resume"; className?: string }) {
+  const { locale, t } = useI18n();
+  if (locale === "en") return null;
+  const key: MessageKey = kind === "analysis" ? "common.englishNote" : kind === "resume" ? "common.englishNoteResume" : "common.englishNoteGeneric";
+  return (
+    <p className={cx("flex items-center gap-1.5 text-xs text-muted", className)} data-testid="english-note">
+      <Languages className="h-3.5 w-3.5 shrink-0" aria-hidden /> {t(key)}
     </p>
   );
 }

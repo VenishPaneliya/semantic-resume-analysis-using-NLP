@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     # --- quotas / rate limits ---
     rate_limit_backend: Literal["memory", "redis"] = "memory"
     login_rate_per_minute: int = 10
+    # per-account failure limits (independent of client IP)
+    login_failures_per_account: int = 10  # per 15 minutes
+    second_factor_failures_per_account: int = 10  # per hour, shared by login, disable and new-recovery-codes
     api_rate_per_minute: int = 120
     uploads_per_day: int = 20
     ai_requests_per_day: int = 50
@@ -82,7 +85,7 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     # --- integrations (absent => "unavailable" state in UI) ---
-    learning_resources_provider: Literal["none", "curated_file"] = "none"
+    learning_resources_provider: Literal["none", "curated_file"] = "curated_file"  # bundled, link-checked official docs
     learning_resources_file: str | None = None
     job_listings_provider: Literal["none"] = "none"
 
@@ -114,6 +117,7 @@ class Settings(BaseSettings):
     metrics_token: str | None = None  # if set, /api/metrics requires Bearer token
 
     admin_emails: str = Field(default="", description="comma separated emails promoted to admin on verify")
+    require_mfa_for_staff: bool = Field(default=True, description="recruiters/admins must enable two-factor login")
     recruiter_emails: str = Field(default="", description="comma separated emails promoted to recruiter (HR staff) on verify")
 
     @model_validator(mode="after")
@@ -132,8 +136,19 @@ class Settings(BaseSettings):
                 problems.append("DATABASE_URL must point to PostgreSQL")
             if self.storage_backend != "s3":
                 problems.append("STORAGE_BACKEND must be s3")
+            if not self.require_mfa_for_staff:
+                problems.append("REQUIRE_MFA_FOR_STAFF must be true (staff can read many candidates' data)")
             if self.llm_provider == "fixture":
                 problems.append("LLM_PROVIDER=fixture is not allowed in production (use 'disabled' or a real provider)")
+            if self.metrics_enabled and not self.metrics_token:
+                problems.append("METRICS_TOKEN is required when metrics are enabled (or set METRICS_ENABLED=false)")
+            if self.email_backend != "smtp":
+                problems.append("EMAIL_BACKEND must be smtp (console/memory would log or drop sign-in and reset links)")
+            if self.rate_limit_backend != "redis":
+                problems.append("RATE_LIMIT_BACKEND must be redis (in-memory limits are per process and reset on restart)")
+            for name, url in [("PUBLIC_BASE_URL", self.public_base_url), *(("CORS_ORIGINS", o) for o in self.cors_origin_list)]:
+                if not url.startswith("https://"):
+                    problems.append(f"{name} must use https:// ({url})")
             if problems:
                 raise ValueError("Unsafe production configuration: " + "; ".join(problems))
         return self

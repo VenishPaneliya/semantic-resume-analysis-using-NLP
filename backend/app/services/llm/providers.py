@@ -262,6 +262,21 @@ class FixtureProvider(Provider):
             qs.append({"question": f"This role uses {s}. How would you get up to speed?", "why": "The posting lists a skill your resume does not show.", "based_on": "job_description"})
         return {"questions": qs}
 
+    def _op_interview_feedback(self, p: dict) -> dict:
+        a = p.get("answer", "")
+        strengths, improvements = [], []
+        if re.search(r"\bI\s+\w+ed\b", a):
+            strengths.append("You describe your own actions in the first person.")
+        if re.search(r"\d", a):
+            strengths.append("You include a concrete, measurable detail.")
+        if len(a.split()) < 60:
+            improvements.append("Add a little more context and the steps you took; the answer is quite short.")
+        if not re.search(r"result|so that|reduc|increas|improv|saved", a, re.I):
+            improvements.append("End with the outcome of your work, if you know it.")
+        return {"strengths": strengths[:3] or ["You answered the question directly."],
+                "improvements": improvements[:3] or ["Practise saying it aloud in under two minutes."],
+                "follow_up": "What would you do differently if you faced this again?"}
+
     def _op_default(self, p: dict) -> dict:
         return {"revised": [], "explanation": "No change.", "questions": []}
 

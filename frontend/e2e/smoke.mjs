@@ -100,10 +100,11 @@ try {
     await shot(page, "05-analysis");
   });
 
-  await check("role recommendations", async () => {
+  await check("role leaderboard (old /roles link redirects)", async () => {
     await page.goto(resumeUrl + "/roles");
-    await page.getByText("Relative fit, not hiring probability").waitFor();
-    await page.getByText("relative fit").first().waitFor();
+    await page.waitForURL(//leaderboard$/);
+    await page.getByTestId("role-row").first().waitFor();
+    await page.getByText("Seniority estimate").waitFor();
     await shot(page, "06-roles");
   });
 

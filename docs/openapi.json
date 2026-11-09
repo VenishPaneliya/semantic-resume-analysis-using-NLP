@@ -134,6 +134,45 @@
     }
    }
   },
+  "/api/auth/login/mfa": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Login Mfa",
+    "operationId": "login_mfa_api_auth_login_mfa_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MfaLoginIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/auth/logout": {
    "post": {
     "tags": [
@@ -2770,7 +2809,6 @@
   "/api/recruiter/openings": {
    "get": {
     "tags": [
-     "leaderboard",
      "recruiter"
     ],
     "summary": "R List",
@@ -2788,7 +2826,6 @@
    },
    "post": {
     "tags": [
-     "leaderboard",
      "recruiter"
     ],
     "summary": "R Create",
@@ -2828,7 +2865,6 @@
   "/api/recruiter/openings/{opening_id}": {
    "get": {
     "tags": [
-     "leaderboard",
      "recruiter"
     ],
     "summary": "R Get",
@@ -2867,7 +2903,6 @@
    },
    "patch": {
     "tags": [
-     "leaderboard",
      "recruiter"
     ],
     "summary": "R Update",
@@ -2916,7 +2951,6 @@
    },
    "delete": {
     "tags": [
-     "leaderboard",
      "recruiter"
     ],
     "summary": "R Delete",
@@ -2952,11 +2986,10 @@
   "/api/recruiter/openings/{opening_id}/candidates": {
    "get": {
     "tags": [
-     "leaderboard",
      "recruiter"
     ],
     "summary": "R Candidates",
-    "description": "Applicants ranked by compatibility. Only people who applied (and consented to share) appear.",
+    "description": "Ranked pipeline for one opening, with shortlisting filters. Only people who applied (and consented)\nor were uploaded with recruiter-attested consent appear.",
     "operationId": "r_candidates_api_recruiter_openings__opening_id__candidates_get",
     "parameters": [
      {
@@ -2966,6 +2999,154 @@
       "schema": {
        "type": "string",
        "title": "Opening Id"
+      }
+     },
+     {
+      "name": "must_have",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 10,
+       "description": "Skills that must appear (taxonomy names)",
+       "default": [],
+       "title": "Must Have"
+      },
+      "description": "Skills that must appear (taxonomy names)"
+     },
+     {
+      "name": "min_years",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "number",
+         "maximum": 50,
+         "minimum": 0
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Min Years"
+      }
+     },
+     {
+      "name": "min_score",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "number",
+         "maximum": 100,
+         "minimum": 0
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Min Score"
+      }
+     },
+     {
+      "name": "stage",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "array",
+       "items": {
+        "enum": [
+         "submitted",
+         "shortlisted",
+         "interview",
+         "offer",
+         "hired",
+         "rejected"
+        ],
+        "type": "string"
+       },
+       "default": [],
+       "title": "Stage"
+      }
+     },
+     {
+      "name": "source",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "applied",
+          "uploaded"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Source"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/recruiter/openings/{opening_id}/compare": {
+   "get": {
+    "tags": [
+     "recruiter"
+    ],
+    "summary": "R Compare",
+    "description": "Side-by-side: each requirement of the opening with every candidate's status and evidence.",
+    "operationId": "r_compare_api_recruiter_openings__opening_id__compare_get",
+    "parameters": [
+     {
+      "name": "opening_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Opening Id"
+      }
+     },
+     {
+      "name": "ids",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "minItems": 2,
+       "maxItems": 4,
+       "title": "Ids"
       }
      }
     ],
@@ -2994,7 +3175,6 @@
   "/api/recruiter/applications/{application_id}": {
    "get": {
     "tags": [
-     "leaderboard",
      "recruiter"
     ],
     "summary": "R Application",
@@ -3033,7 +3213,6 @@
    },
    "patch": {
     "tags": [
-     "leaderboard",
      "recruiter"
     ],
     "summary": "R Stage",
@@ -3077,6 +3256,967 @@
         }
        }
       }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "recruiter"
+    ],
+    "summary": "R Remove",
+    "description": "Remove an uploaded candidate (and their stored resume) before the automatic expiry.",
+    "operationId": "r_remove_api_recruiter_applications__application_id__delete",
+    "parameters": [
+     {
+      "name": "application_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Application Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/recruiter/applications/{application_id}/notes": {
+   "get": {
+    "tags": [
+     "recruiter"
+    ],
+    "summary": "List Notes",
+    "operationId": "list_notes_api_recruiter_applications__application_id__notes_get",
+    "parameters": [
+     {
+      "name": "application_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Application Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "recruiter"
+    ],
+    "summary": "Add Note",
+    "operationId": "add_note_api_recruiter_applications__application_id__notes_post",
+    "parameters": [
+     {
+      "name": "application_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Application Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NoteIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/recruiter/notes/{note_id}": {
+   "delete": {
+    "tags": [
+     "recruiter"
+    ],
+    "summary": "Delete Note",
+    "operationId": "delete_note_api_recruiter_notes__note_id__delete",
+    "parameters": [
+     {
+      "name": "note_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Note Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/recruiter/openings/{opening_id}/bulk-upload": {
+   "post": {
+    "tags": [
+     "recruiter"
+    ],
+    "summary": "Bulk Upload",
+    "description": "Add resumes of people who did not sign up themselves. The recruiter must attest that each person\nagreed to be considered. Files are parsed in the sandbox; only extracted content is kept (encrypted),\nand the candidate is deleted automatically after BULK_UPLOAD_RETENTION_DAYS.",
+    "operationId": "bulk_upload_api_recruiter_openings__opening_id__bulk_upload_post",
+    "parameters": [
+     {
+      "name": "opening_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Opening Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_bulk_upload_api_recruiter_openings__opening_id__bulk_upload_post"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/recruiter/analytics": {
+   "get": {
+    "tags": [
+     "recruiter"
+    ],
+    "summary": "Analytics",
+    "description": "Firm-level pipeline analytics. Aggregates only; no candidate identities.",
+    "operationId": "analytics_api_recruiter_analytics_get",
+    "parameters": [
+     {
+      "name": "include_demo",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Include Demo"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/recruiter/fairness": {
+   "get": {
+    "tags": [
+     "recruiter"
+    ],
+    "summary": "Fairness",
+    "description": "Group outcomes from VOLUNTARY self-identification. Groups under FAIRNESS_MIN_GROUP people are suppressed.\nSelf-ID is never used for ranking; this report exists only to detect unequal outcomes.",
+    "operationId": "fairness_api_recruiter_fairness_get",
+    "parameters": [
+     {
+      "name": "opening_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Opening Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/versions/{version_id}/what-if": {
+   "post": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "What If",
+    "description": "Score unsaved edits against a target without saving anything. Same engine as the leaderboards.",
+    "operationId": "what_if_api_versions__version_id__what_if_post",
+    "parameters": [
+     {
+      "name": "version_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Version Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WhatIfIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/learning": {
+   "get": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "Learning Plan",
+    "operationId": "learning_plan_api_learning_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "Learning Add",
+    "operationId": "learning_add_api_learning_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LearningAddIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/learning/{item_id}": {
+   "patch": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "Learning Update",
+    "operationId": "learning_update_api_learning__item_id__patch",
+    "parameters": [
+     {
+      "name": "item_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Item Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LearningPatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "Learning Delete",
+    "operationId": "learning_delete_api_learning__item_id__delete",
+    "parameters": [
+     {
+      "name": "item_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Item Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/resumes/{resume_id}/history": {
+   "get": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "History",
+    "operationId": "history_api_resumes__resume_id__history_get",
+    "parameters": [
+     {
+      "name": "resume_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Resume Id"
+      }
+     },
+     {
+      "name": "role_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 64
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Role Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/versions/{version_id}/interviews": {
+   "post": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "Start Interview",
+    "operationId": "start_interview_api_versions__version_id__interviews_post",
+    "parameters": [
+     {
+      "name": "version_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Version Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InterviewIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/interviews": {
+   "get": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "List Interviews",
+    "operationId": "list_interviews_api_interviews_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/interviews/{session_id}": {
+   "get": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "Get Interview",
+    "operationId": "get_interview_api_interviews__session_id__get",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "Delete Interview",
+    "operationId": "delete_interview_api_interviews__session_id__delete",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/interviews/{session_id}/answers": {
+   "post": {
+    "tags": [
+     "engagement"
+    ],
+    "summary": "Answer",
+    "operationId": "answer_api_interviews__session_id__answers_post",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnswerIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/account/2fa": {
+   "get": {
+    "tags": [
+     "account"
+    ],
+    "summary": "Mfa Status",
+    "operationId": "mfa_status_api_account_2fa_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/account/2fa/setup": {
+   "post": {
+    "tags": [
+     "account"
+    ],
+    "summary": "Mfa Setup",
+    "description": "Start setup: a new secret that only becomes active after a correct code is confirmed.",
+    "operationId": "mfa_setup_api_account_2fa_setup_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/account/2fa/enable": {
+   "post": {
+    "tags": [
+     "account"
+    ],
+    "summary": "Mfa Enable",
+    "operationId": "mfa_enable_api_account_2fa_enable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CodeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/account/2fa/disable": {
+   "post": {
+    "tags": [
+     "account"
+    ],
+    "summary": "Mfa Disable",
+    "operationId": "mfa_disable_api_account_2fa_disable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DisableIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/account/2fa/recovery-codes": {
+   "post": {
+    "tags": [
+     "account"
+    ],
+    "summary": "Mfa New Codes",
+    "operationId": "mfa_new_codes_api_account_2fa_recovery_codes_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CodeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/account/self-id": {
+   "get": {
+    "tags": [
+     "account"
+    ],
+    "summary": "Get Self Id",
+    "operationId": "get_self_id_api_account_self_id_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "account"
+    ],
+    "summary": "Put Self Id",
+    "operationId": "put_self_id_api_account_self_id_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SelfIdIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "account"
+    ],
+    "summary": "Delete Self Id",
+    "operationId": "delete_self_id_api_account_self_id_delete",
+    "responses": {
+     "204": {
+      "description": "Successful Response"
      }
     }
    }
@@ -3313,6 +4453,32 @@
     },
     "type": "object",
     "title": "AcceptIn"
+   },
+   "AnswerIn": {
+    "properties": {
+     "question_id": {
+      "type": "string",
+      "maxLength": 10,
+      "title": "Question Id"
+     },
+     "answer": {
+      "type": "string",
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Answer"
+     },
+     "ai_feedback": {
+      "type": "boolean",
+      "title": "Ai Feedback",
+      "default": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "question_id",
+     "answer"
+    ],
+    "title": "AnswerIn"
    },
    "AppIn": {
     "properties": {
@@ -3578,6 +4744,28 @@
     ],
     "title": "ApplyIn"
    },
+   "Body_bulk_upload_api_recruiter_openings__opening_id__bulk_upload_post": {
+    "properties": {
+     "files": {
+      "items": {
+       "type": "string",
+       "contentMediaType": "application/octet-stream"
+      },
+      "type": "array",
+      "title": "Files"
+     },
+     "consent_attested": {
+      "type": "boolean",
+      "title": "Consent Attested"
+     }
+    },
+    "type": "object",
+    "required": [
+     "files",
+     "consent_attested"
+    ],
+    "title": "Body_bulk_upload_api_recruiter_openings__opening_id__bulk_upload_post"
+   },
    "Body_upload_api_job_descriptions_upload_post": {
     "properties": {
      "file": {
@@ -3744,6 +4932,21 @@
     ],
     "title": "Certification"
    },
+   "CodeIn": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "maxLength": 32,
+      "minLength": 6,
+      "title": "Code"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code"
+    ],
+    "title": "CodeIn"
+   },
    "ConsentIn": {
     "properties": {
      "provider": {
@@ -3850,6 +5053,33 @@
      "confirm_email"
     ],
     "title": "DeleteIn"
+   },
+   "DisableIn": {
+    "properties": {
+     "password": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 256
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Password"
+     },
+     "code": {
+      "type": "string",
+      "maxLength": 32,
+      "minLength": 6,
+      "title": "Code"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code"
+    ],
+    "title": "DisableIn"
    },
    "EditedItem": {
     "properties": {
@@ -4166,6 +5396,36 @@
     "type": "object",
     "title": "HTTPValidationError"
    },
+   "InterviewIn": {
+    "properties": {
+     "role_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 64
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role Id"
+     },
+     "opening_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 36
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Opening Id"
+     }
+    },
+    "type": "object",
+    "title": "InterviewIn"
+   },
    "JDIn": {
     "properties": {
      "text": {
@@ -4205,6 +5465,38 @@
     ],
     "title": "JDIn"
    },
+   "JobAlertsIn": {
+    "properties": {
+     "enabled": {
+      "type": "boolean",
+      "title": "Enabled"
+     },
+     "min_score": {
+      "type": "integer",
+      "maximum": 95.0,
+      "minimum": 40.0,
+      "title": "Min Score",
+      "default": 60
+     },
+     "resume_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 36
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resume Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "enabled"
+    ],
+    "title": "JobAlertsIn"
+   },
    "LanguageItem": {
     "properties": {
      "id": {
@@ -4235,6 +5527,81 @@
      "name"
     ],
     "title": "LanguageItem"
+   },
+   "LearningAddIn": {
+    "properties": {
+     "skills": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Skills"
+     },
+     "target_kind": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "role",
+         "opening"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Target Kind"
+     },
+     "target_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 64
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Target Id"
+     },
+     "target_title": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 200
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Target Title"
+     }
+    },
+    "type": "object",
+    "required": [
+     "skills"
+    ],
+    "title": "LearningAddIn"
+   },
+   "LearningPatch": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "enum": [
+       "todo",
+       "learning",
+       "done"
+      ],
+      "title": "Status"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status"
+    ],
+    "title": "LearningPatch"
    },
    "Link": {
     "properties": {
@@ -4275,6 +5642,43 @@
      "password"
     ],
     "title": "LoginIn"
+   },
+   "MfaLoginIn": {
+    "properties": {
+     "mfa_token": {
+      "type": "string",
+      "maxLength": 128,
+      "title": "Mfa Token"
+     },
+     "code": {
+      "type": "string",
+      "maxLength": 32,
+      "minLength": 6,
+      "title": "Code",
+      "description": "6-digit authenticator code or a recovery code"
+     }
+    },
+    "type": "object",
+    "required": [
+     "mfa_token",
+     "code"
+    ],
+    "title": "MfaLoginIn"
+   },
+   "NoteIn": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Text"
+     }
+    },
+    "type": "object",
+    "required": [
+     "text"
+    ],
+    "title": "NoteIn"
    },
    "OpeningIn": {
     "properties": {
@@ -4941,6 +6345,57 @@
     ],
     "title": "SaveIn"
    },
+   "SelfIdIn": {
+    "properties": {
+     "gender": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "woman",
+         "man",
+         "non_binary",
+         "self_describe",
+         "prefer_not"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Gender"
+     },
+     "age_band": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "under_25",
+         "25_34",
+         "35_44",
+         "45_54",
+         "55_plus",
+         "prefer_not"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Age Band"
+     },
+     "consent": {
+      "type": "boolean",
+      "title": "Consent",
+      "description": "I agree this is used only for anonymous, aggregate fairness checks."
+     }
+    },
+    "type": "object",
+    "required": [
+     "consent"
+    ],
+    "title": "SelfIdIn"
+   },
    "SettingsIn": {
     "properties": {
      "display_name": {
@@ -4973,6 +6428,16 @@
       "anyOf": [
        {
         "$ref": "#/components/schemas/CareerPrefs"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "job_alerts": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/JobAlertsIn"
        },
        {
         "type": "null"
@@ -5039,6 +6504,9 @@
       "enum": [
        "submitted",
        "shortlisted",
+       "interview",
+       "offer",
+       "hired",
        "rejected"
       ],
       "title": "Stage"
@@ -5212,6 +6680,16 @@
       "additionalProperties": true,
       "type": "object",
       "title": "Career Prefs"
+     },
+     "mfa_enabled": {
+      "type": "boolean",
+      "title": "Mfa Enabled",
+      "default": false
+     },
+     "mfa_required_for_role": {
+      "type": "boolean",
+      "title": "Mfa Required For Role",
+      "default": false
      }
     },
     "type": "object",
@@ -5395,6 +6873,42 @@
      "is_latest"
     ],
     "title": "VersionOut"
+   },
+   "WhatIfIn": {
+    "properties": {
+     "content": {
+      "$ref": "#/components/schemas/ResumeContent"
+     },
+     "role_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 64
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role Id"
+     },
+     "opening_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 36
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Opening Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "content"
+    ],
+    "title": "WhatIfIn"
    }
   }
  },
@@ -5442,6 +6956,10 @@
   {
    "name": "recruiter",
    "description": "HR staff: post openings and review ranked applicants."
+  },
+  {
+   "name": "engagement",
+   "description": "What-if scoring, learning plan, resume history, mock interviews."
   },
   {
    "name": "admin",

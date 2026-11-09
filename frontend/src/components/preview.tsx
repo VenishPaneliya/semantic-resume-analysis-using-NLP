@@ -1,3 +1,8 @@
+"use client";
+
+/* The resume itself (headings, "Present", "Grade:") stays in English: resumes are read and exported in English.
+   Only the surrounding interface text (labels, tooltips, screen-reader hints) is translated. */
+import { useT } from "@/lib/i18n";
 import type { DiffOp, ResumeContent } from "@/lib/types";
 import { SECTION_LABEL } from "./content-form";
 
@@ -15,12 +20,13 @@ function range(s: string | null, e: string | null, cur = false) {
 
 /** Renders text with [ADD: …] placeholders visibly highlighted. */
 export function WithPlaceholders({ text }: { text: string }) {
+  const t = useT();
   const parts = text.split(/(\[(?:ADD|TODO|CONFIRM)[^\]]*\])/gi);
   return (
     <>
       {parts.map((p, i) =>
         /^\[(ADD|TODO|CONFIRM)/i.test(p) ? (
-          <mark key={i} className="rounded bg-[#fde68a] px-0.5 font-semibold text-[#92400e]" title="Unresolved placeholder — replace with a real fact or remove">
+          <mark key={i} className="rounded bg-[#fde68a] px-0.5 font-semibold text-[#92400e]" title={t("preview.placeholderTitle")}>
             {p}
           </mark>
         ) : (
@@ -35,9 +41,11 @@ export function ResumePreview({ c, template = "professional" }: { c: ResumeConte
   const serif = template === "professional";
   const accent = template === "student" ? "#1d4ed8" : template === "technical" ? "#0f766e" : "#111827";
   const upper = template !== "professional";
+  const t = useT();
   return (
     <article
-      aria-label="Resume preview"
+      aria-label={t("preview.aria")}
+      lang="en"
       className="mx-auto w-full max-w-[640px] bg-white px-7 py-8 text-[12.5px] leading-[1.45] text-[#111] shadow-[0_2px_20px_-8px_#0004]"
       style={{ fontFamily: serif ? "Georgia, 'Times New Roman', serif" : "Arial, Helvetica, sans-serif" }}
     >
@@ -136,6 +144,7 @@ function sectionBody(c: ResumeContent, k: string) {
 }
 
 export function DiffView({ ops }: { ops: DiffOp[] }) {
+  const t = useT();
   return (
     <p className="text-sm leading-relaxed">
       {ops.map((o, i) =>
@@ -143,12 +152,12 @@ export function DiffView({ ops }: { ops: DiffOp[] }) {
           <span key={i}>{o.text}</span>
         ) : o.op === "delete" ? (
           <del key={i} className="rounded bg-bad-soft text-bad decoration-bad/60">
-            <span className="sr-only">removed: </span>
+            <span className="sr-only">{t("preview.removed")}</span>
             {o.text}
           </del>
         ) : (
           <ins key={i} className="rounded bg-ok-soft text-ok no-underline">
-            <span className="sr-only">added: </span>
+            <span className="sr-only">{t("preview.added")}</span>
             {o.text}
           </ins>
         ),

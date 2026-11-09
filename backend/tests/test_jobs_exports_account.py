@@ -188,11 +188,20 @@ def test_long_resume_paginates(make_user, personas):
 # ---------------------------------------------------------------- career
 
 
-def test_roadmap_and_integrations_unavailable_state(make_user, pdf_bytes):
+def test_roadmap_and_integrations_unavailable_state(make_user, pdf_bytes, monkeypatch):
+    from app.config import get_settings
+
     api = make_user()
     _, vid = confirmed_version(api, pdf_bytes)
     r = api.get(f"/api/career/roadmap/{vid}", params={"roles": ["mlops_engineer"]}).json()
     assert r["status"] == "ok" and r["steps"] and r["portfolio_projects"]
+    # bundled list: only official, link-checked resources, or an honest empty state
+    for s in r["steps"]:
+        assert s["resources"]["status"] in ("ok", "empty")
+        for res in s["resources"].get("resources", []):
+            assert res["url"].startswith("https://") and res["retrieved_on"]
+    monkeypatch.setattr(get_settings(), "learning_resources_provider", "none")
+    r = api.get(f"/api/career/roadmap/{vid}", params={"roles": ["devops_engineer"]}).json()
     assert all(s["resources"]["status"] == "unavailable" for s in r["steps"])
     jl = api.get("/api/career/job-listings").json()
     assert jl["status"] == "unavailable" and "never generated" in jl["message"]

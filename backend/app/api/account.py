@@ -8,10 +8,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.auth import UserOut, user_out
-from app.api.deps import client_ip, current_session, current_user, err
+from app.api.deps import client_ip, current_session, current_user, err, get_owned
 from app.config import get_settings
 from app.db import get_db
-from app.models import UsageEvent, User, UserSession, utcnow
+from app.models import Resume, UsageEvent, User, UserSession, utcnow
 from app.security.passwords import hash_password, password_problems, verify_password
 from app.security.ratelimit import enforce
 from app.security.sessions import clear_session_cookies, revoke_all_sessions
@@ -30,10 +30,17 @@ class CareerPrefs(BaseModel):
     work_arrangements: list[Literal["remote", "hybrid", "onsite"]] = Field(default_factory=list)
 
 
+class JobAlertsIn(BaseModel):
+    enabled: bool
+    min_score: int = Field(default=60, ge=40, le=95)
+    resume_id: str | None = Field(default=None, max_length=36)
+
+
 class SettingsIn(BaseModel):
     display_name: str | None = Field(default=None, max_length=120)
     notification_prefs: dict[str, bool] | None = None
     career_prefs: CareerPrefs | None = None
+    job_alerts: JobAlertsIn | None = None
 
 
 class ConsentIn(BaseModel):
@@ -58,7 +65,14 @@ def update_settings(body: SettingsIn, user: User = Depends(current_user), db: Se
         user.display_name = body.display_name.strip() or None
     if body.notification_prefs is not None:
         allowed = {"product_updates", "processing_complete", "weekly_digest"}
-        user.notification_prefs = {k: bool(v) for k, v in body.notification_prefs.items() if k in allowed}
+        kept = {k: v for k, v in (user.notification_prefs or {}).items() if k.startswith("job_alert")}
+        user.notification_prefs = {**kept, **{k: bool(v) for k, v in body.notification_prefs.items() if k in allowed}}
+    if body.job_alerts is not None:
+        ja = body.job_alerts
+        if ja.resume_id:
+            get_owned(db, Resume, ja.resume_id, user)
+        user.notification_prefs = {**(user.notification_prefs or {}), "job_alerts": ja.enabled,
+                                   "job_alert_min_score": ja.min_score, "job_alert_resume_id": ja.resume_id}
     if body.career_prefs is not None:
         roles = get_taxonomy().roles
         prefs = body.career_prefs.model_dump()
