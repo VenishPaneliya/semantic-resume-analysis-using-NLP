@@ -115,8 +115,10 @@ def test_fixture_adds_placeholder_and_question_for_missing_metric(make_user, per
     api = make_user()
     _, vid = confirmed_version(api, text_to_pdf(render_text(content)))
     c, e, b = _first_bullet(api, vid)
-    s = api.post(f"/api/versions/{vid}/suggestions", json={"operation": "rewrite_bullet",
-                 "target_path": f"experience/{e['id']}/bullets/{b['id']}"}).json()
+    r = api.post(f"/api/versions/{vid}/suggestions", json={"operation": "rewrite_bullet",
+                 "target_path": f"experience/{e['id']}/bullets/{b['id']}"})
+    assert r.status_code in (200, 201), (r.status_code, r.text, b)  # show the server's reason if this ever fails
+    s = r.json()
     after = s["items"][0]["after"]
     assert after.startswith("Managed") and "[ADD:" in after
     assert s["questions"] and s["status"] == "pending"
