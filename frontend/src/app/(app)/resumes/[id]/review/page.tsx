@@ -3,24 +3,23 @@
 import { AlertTriangle, CheckCircle2, FileSearch, Quote, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ContentForm, SECTION_LABEL } from "@/components/content-form";
-import { Alert, Badge, ErrorState, LoadingBlock, Section, Spinner } from "@/components/ui";
+import { ContentForm, SECTION_LABEL, SECTION_LABEL_KEY } from "@/components/content-form";
+import { Alert, Badge, EnglishNote, ErrorState, LoadingBlock, Section, Spinner } from "@/components/ui";
 import { api, errMsg } from "@/lib/api";
+import { useT, type MessageKey } from "@/lib/i18n";
 import type { Extraction, ResumeContent, SectionKey } from "@/lib/types";
 import { useResume } from "../context";
 
-const WARNINGS: Record<string, { tone: "warn" | "bad" | "info"; text: string }> = {
-  embedded_instructions_detected: {
-    tone: "bad",
-    text: "This document contains text that looks like instructions aimed at AI systems (for example “ignore previous instructions”). It was treated as plain data and ignored. Many screeners treat hidden instructions as manipulation — consider removing it.",
-  },
-  content_in_page_header: { tone: "warn", text: "Some content sits in the page header. Some parsers skip headers; check the contact fields below." },
-  ocr_used_text_may_contain_errors: { tone: "warn", text: "Text was read with OCR because the PDF has no text layer. Expect character errors." },
-  pdf_active_content_ignored: { tone: "info", text: "The PDF contains active content (scripts/actions). It was never executed." },
-  pdf_permissions_encryption: { tone: "info", text: "The PDF has permission restrictions; it was opened read-only." },
+const WARNINGS: Record<string, { tone: "warn" | "bad" | "info"; text: MessageKey }> = {
+  embedded_instructions_detected: { tone: "bad", text: "review.warn.embedded" },
+  content_in_page_header: { tone: "warn", text: "review.warn.header" },
+  ocr_used_text_may_contain_errors: { tone: "warn", text: "review.warn.ocr" },
+  pdf_active_content_ignored: { tone: "info", text: "review.warn.active" },
+  pdf_permissions_encryption: { tone: "info", text: "review.warn.permissions" },
 };
 
 export default function ReviewPage() {
+  const t = useT();
   const { resume, reload } = useResume();
   const router = useRouter();
   const [ex, setEx] = useState<Extraction | null>(null);
@@ -41,8 +40,8 @@ export default function ReviewPage() {
   }
   useEffect(() => {
     if (resume.status === "processing") {
-      const t = setInterval(() => void reload(), 1500);
-      return () => clearInterval(t);
+      const timer = setInterval(() => void reload(), 1500);
+      return () => clearInterval(timer);
     }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,13 +50,13 @@ export default function ReviewPage() {
   if (resume.status === "processing")
     return (
       <div className="card p-8" aria-live="polite">
-        <Spinner label={`Processing your document${resume.job?.stage ? ` — ${resume.job.stage}` : ""}…`} />
+        <Spinner label={resume.job?.stage ? t("review.processingStage", { stage: resume.job.stage }) : t("review.processing")} />
       </div>
     );
   if (resume.status === "failed")
     return (
       <ErrorState
-        message={`${resume.error_message ?? "Processing failed."} You can retry from the dashboard or upload a different file.`}
+        message={`${resume.error_message ?? t("dash.processingFailed")} ${t("review.failedHint")}`}
         onRetry={
           resume.job
             ? async () => {
@@ -69,7 +68,7 @@ export default function ReviewPage() {
       />
     );
   if (error) return <ErrorState message={error.msg} onRetry={load} />;
-  if (!ex || !content) return <LoadingBlock label="Loading extracted fields…" />;
+  if (!ex || !content) return <LoadingBlock label={t("review.loading")} />;
 
   const confirmed = !!resume.latest_version_id;
   const uncertainBy = new Map<string, string[]>();
@@ -84,13 +83,13 @@ export default function ReviewPage() {
       if (unparsed.has(s))
         return (
           <div className="mb-3">
-            <Alert tone="warn" title="Detected but not reliably extracted">
-              We found a “{SECTION_LABEL[s as SectionKey]}” heading but could not parse its contents. Please fill it in by hand.
+            <Alert tone="warn" title={t("review.notParsedTitle")}>
+              {t("review.notParsedBody", { section: t(SECTION_LABEL_KEY[s as SectionKey]) })}
             </Alert>
           </div>
         );
       if (missing.includes(s as SectionKey))
-        return <p className="mb-3 text-xs text-muted">Not found in the document. Leave empty if you do not have this section.</p>;
+        return <p className="mb-3 text-xs text-muted">{t("review.sectionNotFound")}</p>;
       return null;
     }
     const conf = ex.confidence[path];
@@ -108,13 +107,13 @@ export default function ReviewPage() {
             <span className="inline-flex max-w-full items-center gap-1 truncate text-xs text-muted">
               <Quote className="h-3 w-3 shrink-0" aria-hidden />
               <span className="truncate">“{ev.text}”</span>
-              {ev.page != null && <span className="num shrink-0">· p.{ev.page}</span>}
+              {ev.page != null && <span className="num shrink-0">{t("review.pageShort", { page: ev.page })}</span>}
             </span>
           )}
         </div>
         {unc?.map((r) => (
           <p key={r} className="flex items-start gap-1 text-xs text-warn">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden /> Uncertain: {r}
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden /> {t("review.uncertain", { reason: r })}
           </p>
         ))}
       </div>
@@ -139,20 +138,20 @@ export default function ReviewPage() {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
       <div className="space-y-5">
         {confirmed ? (
-          <Alert tone="ok" title="Extraction confirmed">
-            This extraction became version 1. Further changes happen in the Editor, where every save is versioned.
+          <Alert tone="ok" title={t("review.confirmedTitle")}>
+            {t("review.confirmedBody")}
           </Alert>
         ) : (
-          <Alert tone="info" title="Check what we extracted">
-            Correct anything that is wrong or missing. Nothing is analysed until you confirm — your confirmed content is what AI edits are checked
-            against.
+          <Alert tone="info" title={t("review.checkTitle")}>
+            {t("review.checkBody")}
           </Alert>
         )}
+        <EnglishNote kind="resume" />
         {ex.warnings.map((w) => {
           const m = WARNINGS[w];
           return m ? (
-            <Alert key={w} tone={m.tone} title={w === "embedded_instructions_detected" ? "Embedded instructions detected" : undefined}>
-              {m.text}
+            <Alert key={w} tone={m.tone} title={w === "embedded_instructions_detected" ? t("review.embeddedTitle") : undefined}>
+              {t(m.text)}
             </Alert>
           ) : null;
         })}
@@ -161,26 +160,26 @@ export default function ReviewPage() {
         </fieldset>
         {!confirmed && (
           <div className="card sticky bottom-3 z-10 flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-            <p className="flex-1 text-sm text-ink-2">Confirming creates version 1. Your original file is kept unchanged.</p>
+            <p className="flex-1 text-sm text-ink-2">{t("review.confirmNote")}</p>
             {saveErr && <p className="text-sm text-bad" role="alert">{saveErr}</p>}
             <button className="btn btn-primary" onClick={confirm} disabled={saving}>
-              {saving ? <Spinner label="Saving" /> : (<><CheckCircle2 className="h-4 w-4" aria-hidden /> Confirm extraction</>)}
+              {saving ? <Spinner label={t("common.saving")} /> : (<><CheckCircle2 className="h-4 w-4" aria-hidden /> {t("review.confirm")}</>)}
             </button>
           </div>
         )}
       </div>
 
       <aside className="space-y-5">
-        <Section title="Document" id="doc-facts">
+        <Section title={t("review.document")} id="doc-facts">
           <dl className="space-y-2 text-sm">
-            <Row k="File" v={resume.original_filename} />
-            <Row k="Pages" v={String(layout.page_count ?? "not paginated (DOCX)")} />
-            <Row k="Text layer" v={ex.ocr_used ? "No — OCR used" : "Yes"} />
-            {typeof layout.body_font_size_pt === "number" && <Row k="Body font size" v={`${layout.body_font_size_pt} pt`} />}
-            {typeof layout.distinct_font_count === "number" && <Row k="Distinct fonts" v={String(layout.distinct_font_count)} />}
-            <Row k="Parser" v={`${ex.parser_version} · ${ex.extractor_version}`} />
+            <Row k={t("review.file")} v={resume.original_filename} />
+            <Row k={t("review.pages")} v={String(layout.page_count ?? t("review.notPaginated"))} />
+            <Row k={t("review.textLayer")} v={ex.ocr_used ? t("review.ocrUsed") : t("common.yes")} />
+            {typeof layout.body_font_size_pt === "number" && <Row k={t("review.bodyFont")} v={`${layout.body_font_size_pt} pt`} />}
+            {typeof layout.distinct_font_count === "number" && <Row k={t("review.distinctFonts")} v={String(layout.distinct_font_count)} />}
+            <Row k={t("review.parser")} v={`${ex.parser_version} · ${ex.extractor_version}`} />
           </dl>
-          <p className="mt-3 text-xs text-muted">Only properties measured from the file are shown. Visual layout is not inferred from text.</p>
+          <p className="mt-3 text-xs text-muted">{t("review.measuredNote")}</p>
           <button
             className="btn btn-secondary btn-sm mt-3"
             onClick={async () => {
@@ -188,34 +187,33 @@ export default function ReviewPage() {
               window.open(url, "_blank", "noopener");
             }}
           >
-            <FileSearch className="h-4 w-4" aria-hidden /> View original
+            <FileSearch className="h-4 w-4" aria-hidden /> {t("review.viewOriginal")}
           </button>
         </Section>
-        <Section title="Sections" id="sections">
+        <Section title={t("review.sections")} id="sections">
           <ul className="space-y-1.5 text-sm">
             {allSections.map((s) => (
               <li key={s} className="flex items-center justify-between gap-2">
-                <span>{SECTION_LABEL[s]}</span>
+                <span className="min-w-0">{t(SECTION_LABEL_KEY[s])}</span>
                 {unparsed.has(s) ? (
-                  <Badge tone="warn">Not parsed</Badge>
+                  <Badge tone="warn" className="shrink-0">{t("review.badge.notParsed")}</Badge>
                 ) : ex.detected_sections.includes(s) ? (
-                  <Badge tone="ok">Found</Badge>
+                  <Badge tone="ok" className="shrink-0">{t("review.badge.found")}</Badge>
                 ) : missing.includes(s) ? (
-                  <Badge>Missing</Badge>
+                  <Badge className="shrink-0">{t("review.badge.missing")}</Badge>
                 ) : (
-                  <Badge tone="teal">Inferred</Badge>
+                  <Badge tone="teal" className="shrink-0">{t("review.badge.inferred")}</Badge>
                 )}
               </li>
             ))}
           </ul>
           <p className="mt-3 text-xs text-muted">
-            <strong>Missing</strong> means no such section exists in the document. <strong>Not parsed</strong> means we found it but could not read it
-            reliably.
+            {t.rich("review.legend", { b: (c) => <strong>{c}</strong> })}
           </p>
         </Section>
         {ex.unrecognized_skills.length > 0 && (
-          <Section title="Unrecognised skills" id="unrec">
-            <p className="mb-2 text-xs text-muted">Kept verbatim under “Other tools”. They are not in our skill taxonomy, so they do not affect role matching.</p>
+          <Section title={t("review.unrecognised")} id="unrec">
+            <p className="mb-2 text-xs text-muted">{t("review.unrecognisedBody")}</p>
             <div className="flex flex-wrap gap-1.5">
               {ex.unrecognized_skills.map((s) => (
                 <Badge key={s}>{s}</Badge>
@@ -224,8 +222,8 @@ export default function ReviewPage() {
           </Section>
         )}
         {ex.uncertain.length > 0 && (
-          <Alert tone="warn" title={`${ex.uncertain.length} uncertain field${ex.uncertain.length > 1 ? "s" : ""}`}>
-            Flagged instead of guessed. Look for <ShieldAlert className="inline h-3.5 w-3.5" aria-hidden /> “Uncertain” notes in the form.
+          <Alert tone="warn" title={t("review.uncertainCount", { count: ex.uncertain.length })}>
+            {t.rich("review.uncertainBody", { icon: () => <ShieldAlert className="inline h-3.5 w-3.5" aria-hidden /> })}
           </Alert>
         )}
       </aside>
@@ -243,12 +241,14 @@ function Row({ k, v }: { k: string; v: string }) {
 }
 
 function ConfidenceBadge({ value }: { value: number }) {
+  const t = useT();
   const tone = value >= 0.8 ? "ok" : value >= 0.6 ? "info" : "warn";
-  return <Badge tone={tone}>Confidence {Math.round(value * 100)}%</Badge>;
+  return <Badge tone={tone}>{t("review.confidence", { pct: Math.round(value * 100) })}</Badge>;
 }
 
 function EvidenceLine({ page }: { page: number | null }) {
-  return page != null ? <p className="ml-5 text-[11px] text-muted num">source: page {page}</p> : null;
+  const t = useT();
+  return page != null ? <p className="ml-5 text-[11px] text-muted num">{t("review.source", { page })}</p> : null;
 }
 
 function isEmpty(c: ResumeContent, s: SectionKey) {

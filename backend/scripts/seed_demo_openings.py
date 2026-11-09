@@ -18,9 +18,9 @@ sys.path.insert(0, str(ROOT))
 
 from sqlalchemy import select  # noqa: E402
 
-from app.api.openings import _extract  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
 from app.models import JobOpening  # noqa: E402
+from app.services.openings import extract_opening  # noqa: E402
 
 
 def main() -> None:
@@ -40,7 +40,7 @@ def main() -> None:
             if (row["title"], row["company"]) in have:
                 continue
             o = JobOpening(**row, is_demo=True, status="open")
-            _extract(o)
+            extract_opening(o)
             db.add(o)
             added += 1
         db.commit()

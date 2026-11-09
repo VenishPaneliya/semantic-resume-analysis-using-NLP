@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import subprocess
 import sys
 
@@ -13,12 +14,15 @@ from app.config import get_settings
 from app.services.parsing.parsers import ParseError, parse_document
 
 
-def _limits(mem_mb: int, cpu_s: int):  # pragma: no cover - POSIX only
+def _limits(mem_mb: int, cpu_s: float):  # pragma: no cover - POSIX only
+    # setrlimit takes whole seconds; a fractional timeout (e.g. 0.5 s) would raise TypeError in the child
+    cpu = max(1, math.ceil(cpu_s))
+
     def apply():
         import resource
 
         resource.setrlimit(resource.RLIMIT_AS, (mem_mb * 1024 * 1024, mem_mb * 1024 * 1024))
-        resource.setrlimit(resource.RLIMIT_CPU, (cpu_s, cpu_s + 1))
+        resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu + 1))
         resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
 
     return apply
@@ -50,6 +54,8 @@ def parse_isolated(kind: str, data: bytes, *, timeout: int | None = None, in_pro
         )
     except subprocess.TimeoutExpired as exc:
         raise ParseError("parse_timeout", "Processing took too long and was stopped.", retryable=False) from exc
+    except (subprocess.SubprocessError, OSError) as exc:  # the sandbox itself could not start
+        raise ParseError("parser_crashed", "The document could not be processed safely.", retryable=True) from exc
     if proc.returncode != 0 or not proc.stdout:
         raise ParseError("parser_crashed", "The document could not be processed safely.", retryable=True)
     out = json.loads(proc.stdout.decode())

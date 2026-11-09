@@ -9,34 +9,35 @@ import { OpeningForm } from "@/components/opening-form";
 import { Badge, Empty, ErrorState, fmtDate, LoadingBlock, PageHeader, Section } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
+import { useT } from "@/lib/i18n";
 import type { RecruiterOpening, RecruiterOpeningFull } from "@/lib/types";
 
 export default function RecruiterHome() {
   const router = useRouter();
+  const t = useT();
   const list = useApi<RecruiterOpening[]>("/api/recruiter/openings");
   const [creating, setCreating] = useState(false);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Recruiter"
-        title="Your openings"
+        eyebrow={t("rec.eyebrow")}
+        title={t("rec.home.title")}
         actions={
           !creating && (
             <button className="btn btn-primary" onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4" aria-hidden /> New opening
+              <Plus className="h-4 w-4" aria-hidden /> {t("rec.home.newOpening")}
             </button>
           )
         }
       >
-        Post vacancies, then review the people who apply, ranked by a compatibility indicator. Candidates only appear here after they apply and agree to share
-        their resume.
+        {t("rec.home.intro")}
       </PageHeader>
 
       {creating && (
-        <Section title="New opening" id="new-opening">
+        <Section title={t("rec.home.newOpening")} id="new-opening">
           <OpeningForm
-            submitLabel="Publish opening"
+            submitLabel={t("rec.home.publish")}
             onCancel={() => setCreating(false)}
             onSubmit={async (v) => {
               const o = await api<RecruiterOpeningFull>("/api/recruiter/openings", { body: v });
@@ -51,20 +52,20 @@ export default function RecruiterHome() {
       ) : list.error ? (
         <ErrorState message={list.error} onRetry={list.reload} />
       ) : !list.data?.length ? (
-        <Empty icon={<Users className="h-8 w-8" aria-hidden />} title="No openings yet">
-          Create your first opening to start receiving applications.
+        <Empty icon={<Users className="h-8 w-8" aria-hidden />} title={t("rec.home.empty")}>
+          {t("rec.home.emptyBody")}
         </Empty>
       ) : (
         <div className="card relative overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
-            <caption className="sr-only">Openings</caption>
+            <caption className="sr-only">{t("rec.home.caption")}</caption>
             <thead>
               <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-muted">
-                <th scope="col" className="px-4 py-3 font-semibold">Opening</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Status</th>
-                <th scope="col" className="px-4 py-3 text-right font-semibold">Applicants</th>
-                <th scope="col" className="px-4 py-3 text-right font-semibold">Top score</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Posted</th>
+                <th scope="col" className="px-4 py-3 font-semibold">{t("rec.col.opening")}</th>
+                <th scope="col" className="px-4 py-3 font-semibold">{t("rec.col.status")}</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">{t("rec.col.applicants")}</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">{t("rec.col.topScore")}</th>
+                <th scope="col" className="px-4 py-3 font-semibold">{t("rec.col.posted")}</th>
               </tr>
             </thead>
             <tbody>
@@ -83,7 +84,7 @@ export default function RecruiterHome() {
                     </p>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge tone={o.status === "open" ? "ok" : "neutral"}>{o.status === "open" ? "Open" : "Closed"}</Badge>
+                    <Badge tone={o.status === "open" ? "ok" : "neutral"}>{o.status === "open" ? t("rec.statusOpen") : t("rec.statusClosed")}</Badge>
                   </td>
                   <td className="num px-4 py-3 text-right">{o.applicants}</td>
                   <td className="num px-4 py-3 text-right">{o.top_score == null ? "—" : Math.round(o.top_score)}</td>

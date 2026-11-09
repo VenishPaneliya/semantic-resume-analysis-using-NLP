@@ -26,8 +26,10 @@
   --color-info-soft: #eaf1fb;
   --color-info: #1e4a8a;
 
-  --font-display: var(--font-inter), "Segoe UI", system-ui, sans-serif;
-  --font-sans: var(--font-inter), "Segoe UI", system-ui, sans-serif;
+  /* Inter first so Latin text (names, skills, numbers) always renders in Inter; Inter has no Indic
+     glyphs, so Devanagari (Hindi) and Gujarati characters fall through to the Noto faces. */
+  --font-display: var(--font-inter), var(--font-devanagari), var(--font-gujarati), "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--font-inter), var(--font-devanagari), var(--font-gujarati), "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
 }
 
@@ -170,6 +172,41 @@
   .num {
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* Hindi and Gujarati: matras and conjuncts reach well above and below the Latin x-height, and
+   letter-spacing breaks shaping in Indic scripts. Give text a little more line height and drop
+   tracking/uppercase (which has no meaning there). Latin-only text in these pages is unaffected
+   apart from the slightly looser leading. Unlayered on purpose: it must beat Tailwind utilities. */
+:lang(hi) body,
+:lang(gu) body {
+  line-height: 1.6;
+}
+:lang(hi) :is(h1, h2, h3),
+:lang(gu) :is(h1, h2, h3) {
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+:lang(hi) .btn,
+:lang(gu) .btn {
+  line-height: 1.5rem;
+}
+:lang(hi) .btn-sm,
+:lang(gu) .btn-sm {
+  line-height: 1.35rem;
+}
+:lang(hi) :is(.eyebrow, .tracking-wide, .tracking-wider, .tracking-widest, .tracking-tight, .uppercase):not(input),
+:lang(gu) :is(.eyebrow, .tracking-wide, .tracking-wider, .tracking-widest, .tracking-tight, .uppercase):not(input) {
+  letter-spacing: 0;
+  text-transform: none;
+}
+:lang(hi) :is(.leading-none, .leading-tight, .leading-snug),
+:lang(gu) :is(.leading-none, .leading-tight, .leading-snug) {
+  line-height: 1.35;
+}
+:lang(hi) .num.leading-none,
+:lang(gu) .num.leading-none {
+  line-height: 1;
 }
 
 @keyframes rise {

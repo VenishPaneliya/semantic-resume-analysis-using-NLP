@@ -1,0 +1,762 @@
+{
+ "meta": {
+  "split": "all",
+  "personas": 12,
+  "embedding_model": "st:sentence-transformers/all-MiniLM-L6-v2",
+  "llm_provider": "fixture",
+  "dataset": "synthetic-personas-v1",
+  "labels_as_of": "2025-09",
+  "generated_at": "2026-11-08T15:08:54+00:00",
+  "notice": "SYNTHETIC DEVELOPMENT DATA. All people, employers and schools are fictional. Labels were hand-assigned by the developer and are NOT a substitute for evaluation on consented, representative real resumes.",
+  "seconds": 15.5
+ },
+ "extraction": {
+  "fields": {
+   "contact.email": {
+    "accuracy": 1.0,
+    "n": 36
+   },
+   "contact.name": {
+    "accuracy": 1.0,
+    "n": 36
+   },
+   "contact.phone": {
+    "accuracy": 1.0,
+    "n": 33
+   },
+   "education.count": {
+    "accuracy": 1.0,
+    "n": 36
+   },
+   "education.degree": {
+    "accuracy": 0.833,
+    "n": 36
+   },
+   "education.institution": {
+    "accuracy": 1.0,
+    "n": 36
+   },
+   "experience.bullet_recall": {
+    "accuracy": 1.0,
+    "n": 123
+   },
+   "experience.count": {
+    "accuracy": 1.0,
+    "n": 36
+   },
+   "experience.end/current": {
+    "accuracy": 1.0,
+    "n": 48
+   },
+   "experience.organization": {
+    "accuracy": 1.0,
+    "n": 48
+   },
+   "experience.start": {
+    "accuracy": 1.0,
+    "n": 48
+   },
+   "experience.title": {
+    "accuracy": 1.0,
+    "n": 48
+   },
+   "projects.count": {
+    "accuracy": 1.0,
+    "n": 36
+   }
+  },
+  "by_layout": {
+   "A": {
+    "contact.email": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "contact.name": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "contact.phone": {
+     "accuracy": 1.0,
+     "n": 11
+    },
+    "education.count": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "education.degree": {
+     "accuracy": 0.833,
+     "n": 12
+    },
+    "education.institution": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "experience.bullet_recall": {
+     "accuracy": 1.0,
+     "n": 41
+    },
+    "experience.count": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "experience.end/current": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "experience.organization": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "experience.start": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "experience.title": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "projects.count": {
+     "accuracy": 1.0,
+     "n": 12
+    }
+   },
+   "B": {
+    "contact.email": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "contact.name": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "contact.phone": {
+     "accuracy": 1.0,
+     "n": 11
+    },
+    "education.count": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "education.degree": {
+     "accuracy": 0.833,
+     "n": 12
+    },
+    "education.institution": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "experience.bullet_recall": {
+     "accuracy": 1.0,
+     "n": 41
+    },
+    "experience.count": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "experience.end/current": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "experience.organization": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "experience.start": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "experience.title": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "projects.count": {
+     "accuracy": 1.0,
+     "n": 12
+    }
+   },
+   "C": {
+    "contact.email": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "contact.name": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "contact.phone": {
+     "accuracy": 1.0,
+     "n": 11
+    },
+    "education.count": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "education.degree": {
+     "accuracy": 0.833,
+     "n": 12
+    },
+    "education.institution": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "experience.bullet_recall": {
+     "accuracy": 1.0,
+     "n": 41
+    },
+    "experience.count": {
+     "accuracy": 1.0,
+     "n": 12
+    },
+    "experience.end/current": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "experience.organization": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "experience.start": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "experience.title": {
+     "accuracy": 1.0,
+     "n": 16
+    },
+    "projects.count": {
+     "accuracy": 1.0,
+     "n": 12
+    }
+   }
+  },
+  "by_level": {
+   "student": {
+    "mean_field_accuracy": 1.0
+   },
+   "junior": {
+    "mean_field_accuracy": 0.984
+   },
+   "mid": {
+    "mean_field_accuracy": 1.0
+   },
+   "senior": {
+    "mean_field_accuracy": 0.976
+   },
+   "sparse": {
+    "mean_field_accuracy": 1.0
+   }
+  },
+  "skills": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "tp": 282,
+   "fp": 0,
+   "fn": 0
+  },
+  "skills_by_layout": {
+   "A": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "tp": 94,
+    "fp": 0,
+    "fn": 0
+   },
+   "B": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "tp": 94,
+    "fp": 0,
+    "fn": 0
+   },
+   "C": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "tp": 94,
+    "fp": 0,
+    "fn": 0
+   }
+  },
+  "failures": []
+ },
+ "recommendations": {
+  "summary": {
+   "n": 11,
+   "hit@1": 1.0,
+   "hit@3": 1.0,
+   "precision@3": 0.606,
+   "ndcg@5": 0.986,
+   "seniority_in_plausible_range": 0.909,
+   "insufficient_evidence_correct": [
+    {
+     "persona": "p08",
+     "insufficient_expected": true,
+     "insufficient_returned": true
+    }
+   ]
+  },
+  "per_persona": [
+   {
+    "persona": "p01",
+    "level": "student",
+    "relevant": [
+     "data_analyst",
+     "data_scientist"
+    ],
+    "top3": [
+     "data_analyst",
+     "data_scientist",
+     "data_engineer"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.667,
+    "ndcg@5": 1.0,
+    "seniority_expected": "entry",
+    "seniority_estimate": "entry",
+    "seniority_in_range": true,
+    "status": "ok"
+   },
+   {
+    "persona": "p02",
+    "level": "junior",
+    "relevant": [
+     "backend_developer",
+     "fullstack_developer"
+    ],
+    "top3": [
+     "backend_developer",
+     "fullstack_developer",
+     "mobile_developer"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.667,
+    "ndcg@5": 1.0,
+    "seniority_expected": "junior",
+    "seniority_estimate": "junior",
+    "seniority_in_range": true,
+    "status": "ok"
+   },
+   {
+    "persona": "p03",
+    "level": "mid",
+    "relevant": [
+     "data_scientist",
+     "ml_engineer",
+     "mlops_engineer"
+    ],
+    "top3": [
+     "ml_engineer",
+     "data_scientist",
+     "mlops_engineer"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 1.0,
+    "ndcg@5": 1.0,
+    "seniority_expected": "mid",
+    "seniority_estimate": "senior",
+    "seniority_in_range": true,
+    "status": "ok"
+   },
+   {
+    "persona": "p04",
+    "level": "senior",
+    "relevant": [
+     "devops_engineer",
+     "mlops_engineer"
+    ],
+    "top3": [
+     "devops_engineer",
+     "mlops_engineer",
+     "data_engineer"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.667,
+    "ndcg@5": 1.0,
+    "seniority_expected": "senior",
+    "seniority_estimate": "staff",
+    "seniority_in_range": true,
+    "status": "ok"
+   },
+   {
+    "persona": "p05",
+    "level": "junior",
+    "relevant": [
+     "qa_automation_engineer"
+    ],
+    "top3": [
+     "qa_automation_engineer",
+     "devops_engineer",
+     "backend_developer"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.333,
+    "ndcg@5": 1.0,
+    "seniority_expected": "junior",
+    "seniority_estimate": "junior",
+    "seniority_in_range": true,
+    "status": "ok"
+   },
+   {
+    "persona": "p06",
+    "level": "mid",
+    "relevant": [
+     "frontend_developer",
+     "fullstack_developer"
+    ],
+    "top3": [
+     "frontend_developer",
+     "fullstack_developer",
+     "mobile_developer"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.667,
+    "ndcg@5": 1.0,
+    "seniority_expected": "mid",
+    "seniority_estimate": "senior",
+    "seniority_in_range": true,
+    "status": "ok"
+   },
+   {
+    "persona": "p07",
+    "level": "student",
+    "relevant": [
+     "backend_developer",
+     "frontend_developer",
+     "fullstack_developer"
+    ],
+    "top3": [
+     "frontend_developer",
+     "fullstack_developer",
+     "mobile_developer"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.667,
+    "ndcg@5": 0.967,
+    "seniority_expected": "entry",
+    "seniority_estimate": "entry",
+    "seniority_in_range": true,
+    "status": "ok"
+   },
+   {
+    "persona": "p08",
+    "insufficient_expected": true,
+    "insufficient_returned": true
+   },
+   {
+    "persona": "p09",
+    "level": "mid",
+    "relevant": [
+     "backend_developer",
+     "data_engineer"
+    ],
+    "top3": [
+     "data_engineer",
+     "ml_engineer",
+     "data_scientist"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.333,
+    "ndcg@5": 0.877,
+    "seniority_expected": "mid",
+    "seniority_estimate": "senior",
+    "seniority_in_range": false,
+    "status": "ok"
+   },
+   {
+    "persona": "p10",
+    "level": "junior",
+    "relevant": [
+     "ml_engineer",
+     "nlp_llm_engineer"
+    ],
+    "top3": [
+     "nlp_llm_engineer",
+     "ml_engineer",
+     "data_scientist"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.667,
+    "ndcg@5": 1.0,
+    "seniority_expected": "junior",
+    "seniority_estimate": "junior",
+    "seniority_in_range": true,
+    "status": "ok"
+   },
+   {
+    "persona": "p11",
+    "level": "senior",
+    "relevant": [
+     "data_analyst",
+     "data_scientist"
+    ],
+    "top3": [
+     "data_scientist",
+     "data_analyst",
+     "data_engineer"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.667,
+    "ndcg@5": 1.0,
+    "seniority_expected": "senior",
+    "seniority_estimate": "staff",
+    "seniority_in_range": true,
+    "status": "ok"
+   },
+   {
+    "persona": "p12",
+    "level": "junior",
+    "relevant": [
+     "mobile_developer"
+    ],
+    "top3": [
+     "mobile_developer",
+     "backend_developer",
+     "fullstack_developer"
+    ],
+    "hit@1": 1,
+    "hit@3": 1,
+    "precision@3": 0.333,
+    "ndcg@5": 1.0,
+    "seniority_expected": "junior",
+    "seniority_estimate": "junior",
+    "seniority_in_range": true,
+    "status": "ok"
+   }
+  ]
+ },
+ "jd_matching": {
+  "accuracy": 0.979,
+  "n": 48,
+  "confusion": {
+   "matched": {
+    "matched": 24,
+    "partial": 1
+   },
+   "missing": {
+    "missing": 20
+   },
+   "unknown": {
+    "unknown": 2
+   },
+   "partial": {
+    "partial": 1
+   }
+  },
+  "misses": [
+   {
+    "persona": "p10",
+    "jd": "jd_ml",
+    "requirement": "Python",
+    "expected": "matched",
+    "got": "partial"
+   }
+  ]
+ },
+ "grounding": {
+  "claim_detection_recall": 0.923,
+  "labelled_claims": 13,
+  "faithful_rewrites": 8,
+  "faithful_rewrites_falsely_flagged": 0,
+  "false_positive_rate_on_faithful": 0.0,
+  "details": [
+   {
+    "rewrite": "Built FastAPI REST APIs used by 200 internal users.",
+    "labelled": [],
+    "flagged": [],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Built FastAPI REST APIs used by 2,000 internal users.",
+    "labelled": [
+     "2,000"
+    ],
+    "flagged": [
+     "2,000"
+    ],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Built FastAPI and GraphQL APIs used by 200 internal users.",
+    "labelled": [
+     "graphql"
+    ],
+    "flagged": [
+     "graphql"
+    ],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Containerised services with Docker and deployed them on Kubernetes at Netflix.",
+    "labelled": [
+     "kubernetes",
+     "netflix"
+    ],
+    "flagged": [
+     "kubernetes",
+     "netflix"
+    ],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Containerised backend services with Docker [ADD: number of services].",
+    "labelled": [],
+    "flagged": [],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Added pytest unit tests and a GitHub Actions CI pipeline, raising coverage to 95%.",
+    "labelled": [
+     "95%"
+    ],
+    "flagged": [
+     "95%"
+    ],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Introduced drift monitoring that reduced false positives by 18%.",
+    "labelled": [],
+    "flagged": [],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Introduced drift monitoring that reduced false positives by 18% and saved $2M annually.",
+    "labelled": [
+     "$2m"
+    ],
+    "flagged": [
+     "$2m"
+    ],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Trained XGBoost and scikit-learn fraud models as a certified AWS architect.",
+    "labelled": [
+     "certified"
+    ],
+    "flagged": [
+     "certified aws architect."
+    ],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Built churn prediction models and presented findings to product stakeholders.",
+    "labelled": [],
+    "flagged": [],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Created a Power BI dashboard tracking weekly revenue across 15 stores.",
+    "labelled": [],
+    "flagged": [],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Created a Tableau dashboard tracking weekly revenue across 15 stores.",
+    "labelled": [
+     "tableau"
+    ],
+    "flagged": [
+     "tableau"
+    ],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Wrote SQL queries analysing two years of store sales for the regional team.",
+    "labelled": [],
+    "flagged": [],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Wrote SQL queries analysing 5 years of sales data while completing a Master's degree.",
+    "labelled": [
+     "5",
+     "master's"
+    ],
+    "flagged": [
+     "5",
+     "degree.",
+     "master",
+     "master's degree."
+    ],
+    "missed": [],
+    "extra_flags": [
+     "degree."
+    ]
+   },
+   {
+    "rewrite": "Migrated the marketing site to Next.js and Tailwind CSS in 2019.",
+    "labelled": [
+     "2019"
+    ],
+    "flagged": [],
+    "missed": [
+     "2019"
+    ],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Migrated the marketing site to Next.js and Tailwind CSS in 2017, cutting load time by 40%.",
+    "labelled": [
+     "2017",
+     "40%"
+    ],
+    "flagged": [
+     "2017",
+     "40%"
+    ],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Mentored four junior engineers.",
+    "labelled": [],
+    "flagged": [],
+    "missed": [],
+    "extra_flags": []
+   },
+   {
+    "rewrite": "Mentored 4 junior engineers on Kubernetes and Terraform practices.",
+    "labelled": [],
+    "flagged": [],
+    "missed": [],
+    "extra_flags": []
+   }
+  ]
+ },
+ "rewriting_provider": {
+  "provider": "fixture",
+  "model": "fixture-v1",
+  "rewrites": 46,
+  "rewrites_with_unsupported_claims": 0,
+  "rate": 0.0,
+  "examples": [],
+  "note": "fixture provider is rule-based; configure LLM_PROVIDER to measure a real model"
+ }
+}

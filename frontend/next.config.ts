@@ -10,7 +10,9 @@ const config: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // Same-origin API: the browser talks to /api on this host, so session cookies stay first-party.
   async rewrites() {
-    return [{ source: "/api/:path*", destination: `${backend}/api/:path*` }];
+    // Everything under /api except /api/metrics, which is for the monitoring system on the internal
+    // network (scrape the API container directly), never for the public website.
+    return [{ source: "/api/:path((?!metrics(?:/|$)).*)", destination: `${backend}/api/:path` }];
   },
   async headers() {
     return [

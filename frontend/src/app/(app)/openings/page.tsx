@@ -6,9 +6,11 @@ import { useMemo, useState } from "react";
 import { OpeningMeta, SampleBadge, StageBadge, TierBadge } from "@/components/leaderboard";
 import { Badge, Empty, ErrorState, fmtDate, LoadingBlock, PageHeader, Section } from "@/components/ui";
 import { useApi } from "@/lib/hooks";
+import { useT } from "@/lib/i18n";
 import type { MyOpeningApplication, Opening, Resume } from "@/lib/types";
 
 export default function OpeningsPage() {
+  const t = useT();
   const openings = useApi<Opening[]>("/api/openings");
   const mine = useApi<MyOpeningApplication[]>("/api/me/opening-applications");
   const resumes = useApi<Resume[]>("/api/resumes");
@@ -19,18 +21,17 @@ export default function OpeningsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Posted by the HR team" title="Openings">
-        Open vacancies you can compare your resume against, and apply to when you&apos;re ready. Applying shares the resume version you choose with the HR
-        team for that opening.
+      <PageHeader eyebrow={t("openings.eyebrow")} title={t("openings.title")}>
+        {t("openings.intro")}
       </PageHeader>
 
       <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
           <label htmlFor="match-resume" className="label">
-            Match against
+            {t("openings.matchAgainst")}
           </label>
           {resumes.loading && !resumes.data ? (
-            <p className="text-sm text-muted">Loading your resumes…</p>
+            <p className="text-sm text-muted">{t("openings.loadingResumes")}</p>
           ) : usable.length ? (
             <select id="match-resume" className="input" value={resumeId} onChange={(e) => setPicked(e.target.value)}>
               {usable.map((r) => (
@@ -41,13 +42,19 @@ export default function OpeningsPage() {
             </select>
           ) : (
             <p className="text-sm text-muted">
-              No confirmed resume yet. <Link href="/dashboard" className="text-teal underline">Upload and confirm one</Link> to see how you match.
+              {t.rich("openings.noResume", {
+                link: (c) => (
+                  <Link href="/dashboard" className="text-teal underline">
+                    {c}
+                  </Link>
+                ),
+              })}
             </p>
           )}
         </div>
         {resumeId && (
           <Link href={`/resumes/${resumeId}/leaderboard`} className="btn btn-secondary btn-sm">
-            <BarChart3 className="h-4 w-4" aria-hidden /> Rank openings for this resume
+            <BarChart3 className="h-4 w-4 shrink-0" aria-hidden /> {t("openings.rankForResume")}
           </Link>
         )}
       </div>
@@ -55,15 +62,15 @@ export default function OpeningsPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section aria-labelledby="open-h" className="min-w-0 space-y-3">
           <h2 id="open-h" className="text-xl">
-            Open now
+            {t("openings.openNow")}
           </h2>
           {openings.loading && !openings.data ? (
             <LoadingBlock />
           ) : openings.error ? (
             <ErrorState message={openings.error} onRetry={openings.reload} />
           ) : !openings.data?.length ? (
-            <Empty icon={<Briefcase className="h-8 w-8" aria-hidden />} title="No openings yet">
-              Nothing has been posted yet. Check back soon.
+            <Empty icon={<Briefcase className="h-8 w-8" aria-hidden />} title={t("openings.empty")}>
+              {t("openings.emptyBody")}
             </Empty>
           ) : (
             <ul className="space-y-3">
@@ -79,16 +86,16 @@ export default function OpeningsPage() {
                             {o.title}
                           </Link>
                           {o.is_demo && <SampleBadge />}
-                          {a && <Badge tone="teal">Applied</Badge>}
+                          {a && <Badge tone="teal">{t("openings.applied")}</Badge>}
                         </div>
                         <OpeningMeta o={o} className="mt-1" />
                       </div>
-                      <Link href={href} className="btn btn-secondary btn-sm" aria-label={`View ${o.title} at ${o.company}`}>
-                        View <ArrowRight className="h-4 w-4" aria-hidden />
+                      <Link href={href} className="btn btn-secondary btn-sm" aria-label={t("openings.viewAria", { title: o.title, company: o.company })}>
+                        {t("openings.view")} <ArrowRight className="h-4 w-4" aria-hidden />
                       </Link>
                     </div>
                     {o.skills.length > 0 && (
-                      <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Skills asked for">
+                      <ul className="mt-3 flex flex-wrap gap-1.5" aria-label={t("openings.skillsAsked")}>
                         {o.skills.slice(0, 10).map((s) => (
                           <li key={s}>
                             <Badge>{s}</Badge>
@@ -104,13 +111,13 @@ export default function OpeningsPage() {
         </section>
 
         <aside>
-          <Section title="My applications" id="my-apps">
+          <Section title={t("openings.myApplications")} id="my-apps">
             {mine.loading && !mine.data ? (
               <LoadingBlock />
             ) : mine.error ? (
               <ErrorState message={mine.error} onRetry={mine.reload} />
             ) : !mine.data?.length ? (
-              <p className="text-sm text-muted">You haven&apos;t applied to any openings yet.</p>
+              <p className="text-sm text-muted">{t("openings.noApplications")}</p>
             ) : (
               <ul className="divide-y divide-line">
                 {mine.data.map((a) => (
@@ -123,8 +130,8 @@ export default function OpeningsPage() {
                       <span className="font-medium">{a.opening.title}</span>
                     )}
                     <p className="text-xs text-muted">
-                      {a.opening.company} · applied {fmtDate(a.applied_at)}
-                      {a.opening.status === "closed" && " · opening closed"}
+                      {a.opening.company} · {t("openings.appliedOn", { date: fmtDate(a.applied_at) })}
+                      {a.opening.status === "closed" && t("openings.closed")}
                     </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                       <span className="num font-semibold">{Math.round(a.score)}</span>
@@ -133,8 +140,8 @@ export default function OpeningsPage() {
                     </div>
                     <p className="mt-1 text-xs text-ink-2">
                       {a.standing.available
-                        ? `#${a.standing.rank} of ${a.standing.applicants} · top ${a.standing.top_percent}%`
-                        : `${a.standing.applicants} applicant${a.standing.applicants === 1 ? "" : "s"} so far; your position shows from 3.`}
+                        ? t("openings.standing", { rank: a.standing.rank ?? "", applicants: a.standing.applicants, top: a.standing.top_percent ?? "" })
+                        : t("openings.soFar", { count: a.standing.applicants })}
                     </p>
                   </li>
                 ))}

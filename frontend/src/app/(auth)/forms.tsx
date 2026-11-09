@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Alert, Field, Spinner } from "@/components/ui";
 import { api, errMsg } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 function useSubmit() {
   const [pending, setPending] = useState(false);
@@ -17,10 +18,12 @@ function safeNext(n: string | null) {
 }
 
 export function LoginForm() {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const s = useSubmit();
   const [google, setGoogle] = useState(false);
+  const [mfaToken, setMfaToken] = useState<string | null>(params.get("mfa_token"));
   useEffect(() => {
     api<{ google: boolean }>("/api/auth/providers", { noRedirect: true }).then((p) => setGoogle(p.google)).catch(() => {});
   }, []);
@@ -31,54 +34,165 @@ export function LoginForm() {
     s.setPending(true);
     s.setError(null);
     try {
-      await api("/api/auth/login", { body: { email: f.get("email"), password: f.get("password") }, noRedirect: true });
+      const r = await api<{ mfa_required?: boolean; mfa_token?: string }>("/api/auth/login", { body: { email: f.get("email"), password: f.get("password") }, noRedirect: true });
+      if (r?.mfa_required && r.mfa_token) {
+        setMfaToken(r.mfa_token);
+        s.setPending(false);
+        return;
+      }
       router.push(safeNext(params.get("next")));
     } catch (err) {
       s.setError(errMsg(err));
       s.setPending(false);
     }
   }
+
+  if (mfaToken)
+    return (
+      <MfaStep
+        token={mfaToken}
+        onSuccess={() => router.push(safeNext(params.get("next")))}
+        onRestart={() => {
+          setMfaToken(null);
+          if (params.get("mfa_token")) router.replace("/login");
+        }}
+      />
+    );
   return (
     <>
-      <h1 className="text-2xl">Sign in</h1>
-      <p className="mt-1 text-sm text-ink-2">Welcome back.</p>
+      <h1 className="text-2xl">{t("common.signIn")}</h1>
+      <p className="mt-1 text-sm text-ink-2">{t("auth.login.welcome")}</p>
       <form className="mt-6 space-y-4" onSubmit={submit} noValidate={false}>
         {s.error && <Alert tone="bad">{s.error}</Alert>}
-        <Field label="Email" id="email">
+        <Field label={t("auth.email")} id="email">
           <input className="input" id="email" name="email" type="email" autoComplete="email" required />
         </Field>
-        <Field label="Password" id="password">
+        <Field label={t("auth.password")} id="password">
           <input className="input" id="password" name="password" type="password" autoComplete="current-password" required />
         </Field>
         <button className="btn btn-primary w-full justify-center" disabled={s.pending}>
-          {s.pending ? <Spinner label="Signing in" /> : "Sign in"}
+          {s.pending ? <Spinner label={t("auth.login.signingIn")} /> : t("common.signIn")}
         </button>
       </form>
       {google && (
         <a href="/api/auth/google/login" className="btn btn-secondary mt-3 w-full justify-center">
-          Continue with Google
+          {t("auth.login.google")}
         </a>
       )}
-      <div className="mt-6 flex justify-between text-sm">
+      <div className="mt-6 flex flex-wrap justify-between gap-2 text-sm">
         <Link href="/forgot-password" className="text-teal underline-offset-2 hover:underline">
-          Forgot password?
+          {t("auth.login.forgot")}
         </Link>
         <Link href="/register" className="text-teal underline-offset-2 hover:underline">
-          Create an account
+          {t("auth.login.create")}
         </Link>
       </div>
     </>
   );
 }
 
+function MfaStep({ token, onSuccess, onRestart }: { token: string; onSuccess: () => void; onRestart: () => void }) {
+  const t = useT();
+  const s = useSubmit();
+  const [recovery, setRecovery] = useState(false);
+  const [code, setCode] = useState("");
+  const [expired, setExpired] = useState(false);
+  const [left, setLeft] = useState<number | null>(null);
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    s.setPending(true);
+    s.setError(null);
+    try {
+      const r = await api<{ recovery_codes_left?: number }>("/api/auth/login/mfa", { body: { mfa_token: token, code }, noRedirect: true });
+      if (typeof r?.recovery_codes_left === "number") {
+        setLeft(r.recovery_codes_left);
+        s.setPending(false);
+        return;
+      }
+      onSuccess();
+    } catch (err) {
+      s.setError(errMsg(err));
+      setExpired((err as { code?: string }).code === "invalid_token");
+      s.setPending(false);
+    }
+  }
+
+  if (left !== null)
+    return (
+      <>
+        <h1 className="text-2xl">{t("auth.mfa.recoveryUsedTitle")}</h1>
+        <div className="mt-6 space-y-4">
+          <Alert tone={left <= 3 ? "warn" : "info"} title={t("auth.mfa.codesLeft", { count: left })}>
+            {t("auth.mfa.recoveryUsedBody")}
+          </Alert>
+          <button className="btn btn-primary w-full justify-center" onClick={onSuccess}>
+            {t("common.continue")}
+          </button>
+        </div>
+      </>
+    );
+
+  return (
+    <>
+      <h1 className="text-2xl">{t("auth.mfa.title")}</h1>
+      <p className="mt-1 text-sm text-ink-2">
+        {recovery ? t("auth.mfa.recoveryIntro") : t("auth.mfa.totpIntro")}
+      </p>
+      <form className="mt-6 space-y-4" onSubmit={submit}>
+        {s.error && (
+          <Alert tone="bad" action={expired ? <button type="button" className="btn btn-secondary btn-sm" onClick={onRestart}>{t("auth.mfa.startAgain")}</button> : undefined}>
+            {s.error}
+          </Alert>
+        )}
+        <Field label={recovery ? t("auth.mfa.recoveryCode") : t("auth.mfa.authCode")} id="mfa-code">
+          <input
+            key={recovery ? "rc" : "totp"}
+            className="input font-mono tracking-widest"
+            id="mfa-code"
+            name="code"
+            autoComplete="one-time-code"
+            inputMode={recovery ? "text" : "numeric"}
+            maxLength={recovery ? 32 : 6}
+            value={code}
+            onChange={(e) => setCode(recovery ? e.target.value.trim() : e.target.value.replace(/\D/g, ""))}
+            autoFocus
+            required
+          />
+        </Field>
+        <button className="btn btn-primary w-full justify-center" disabled={s.pending || (recovery ? code.length < 6 : code.length !== 6)}>
+          {s.pending ? <Spinner label={t("auth.mfa.checking")} /> : t("auth.mfa.verify")}
+        </button>
+      </form>
+      <div className="mt-6 flex flex-wrap justify-between gap-2 text-sm">
+        <button
+          type="button"
+          className="text-teal underline-offset-2 hover:underline"
+          onClick={() => {
+            setRecovery((r) => !r);
+            setCode("");
+            s.setError(null);
+          }}
+        >
+          {recovery ? t("auth.mfa.useApp") : t("auth.mfa.useRecovery")}
+        </button>
+        <button type="button" className="text-ink-2 underline-offset-2 hover:underline" onClick={onRestart}>
+          {t("auth.backToSignIn")}
+        </button>
+      </div>
+    </>
+  );
+}
+
 export function RegisterForm() {
+  const t = useT();
   const router = useRouter();
   const s = useSubmit();
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     if (f.get("password") !== f.get("confirm")) {
-      s.setError("Passwords do not match.");
+      s.setError(t("auth.passwordsMismatch"));
       return;
     }
     s.setPending(true);
@@ -96,33 +210,31 @@ export function RegisterForm() {
   }
   return (
     <>
-      <h1 className="text-2xl">Create your account</h1>
-      <p className="mt-1 text-sm text-ink-2">We will email you a link to verify your address.</p>
+      <h1 className="text-2xl">{t("auth.register.title")}</h1>
+      <p className="mt-1 text-sm text-ink-2">{t("auth.register.intro")}</p>
       <form className="mt-6 space-y-4" onSubmit={submit}>
         {s.error && <Alert tone="bad">{s.error}</Alert>}
-        <Field label="Name (optional)" id="name">
+        <Field label={t("auth.register.name")} id="name">
           <input className="input" id="name" name="name" autoComplete="name" maxLength={120} />
         </Field>
-        <Field label="Email" id="email">
+        <Field label={t("auth.email")} id="email">
           <input className="input" id="email" name="email" type="email" autoComplete="email" required />
         </Field>
-        <Field label="Password" id="password" hint="At least 10 characters, with letters and a number or symbol.">
+        <Field label={t("auth.password")} id="password" hint={t("auth.passwordHint")}>
           <input className="input" id="password" name="password" type="password" autoComplete="new-password" minLength={10} required />
         </Field>
-        <Field label="Confirm password" id="confirm">
+        <Field label={t("auth.confirmPassword")} id="confirm">
           <input className="input" id="confirm" name="confirm" type="password" autoComplete="new-password" required />
         </Field>
-        <p className="text-xs text-muted">
-          Your resume is stored encrypted and is not used to train models. You can export or delete everything from Settings.
-        </p>
+        <p className="text-xs text-muted">{t("auth.register.privacy")}</p>
         <button className="btn btn-primary w-full justify-center" disabled={s.pending}>
-          {s.pending ? <Spinner label="Creating account" /> : "Create account"}
+          {s.pending ? <Spinner label={t("auth.register.creating")} /> : t("common.createAccount")}
         </button>
       </form>
       <p className="mt-6 text-sm">
-        Already registered?{" "}
+        {t("auth.register.already")}{" "}
         <Link href="/login" className="text-teal hover:underline">
-          Sign in
+          {t("common.signIn")}
         </Link>
       </p>
     </>
@@ -130,10 +242,11 @@ export function RegisterForm() {
 }
 
 export function VerifyEmail() {
+  const t = useT();
   const params = useSearchParams();
   const token = params.get("token");
   const [state, setState] = useState<"working" | "ok" | "error">(token ? "working" : "error");
-  const [msg, setMsg] = useState(token ? "" : "This link is missing its token.");
+  const [msg, setMsg] = useState(token ? "" : t("auth.verify.missingToken"));
   const done = useRef(false);
   useEffect(() => {
     if (!token || done.current) return;
@@ -147,17 +260,17 @@ export function VerifyEmail() {
   }, [token]);
   return (
     <>
-      <h1 className="text-2xl">Email verification</h1>
+      <h1 className="text-2xl">{t("auth.verify.title")}</h1>
       <div className="mt-6" aria-live="polite">
-        {state === "working" && <Spinner label="Verifying your email…" />}
+        {state === "working" && <Spinner label={t("auth.verify.working")} />}
         {state === "ok" && (
-          <Alert tone="ok" title="Email verified">
-            You can now upload and analyse resumes. <Link href="/dashboard">Go to your dashboard</Link>.
+          <Alert tone="ok" title={t("auth.verify.okTitle")}>
+            {t.rich("auth.verify.okBody", { link: (c) => <Link href="/dashboard">{c}</Link> })}
           </Alert>
         )}
         {state === "error" && (
-          <Alert tone="bad" title="Could not verify">
-            {msg} Sign in and use “Resend link” to get a new one.
+          <Alert tone="bad" title={t("auth.verify.errorTitle")}>
+            {msg} {t("auth.verify.errorHint")}
           </Alert>
         )}
       </div>
@@ -166,6 +279,7 @@ export function VerifyEmail() {
 }
 
 export function ForgotForm() {
+  const t = useT();
   const s = useSubmit();
   const [sent, setSent] = useState<string | null>(null);
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -184,8 +298,8 @@ export function ForgotForm() {
   }
   return (
     <>
-      <h1 className="text-2xl">Reset your password</h1>
-      <p className="mt-1 text-sm text-ink-2">Enter your email and we will send a reset link.</p>
+      <h1 className="text-2xl">{t("auth.forgot.title")}</h1>
+      <p className="mt-1 text-sm text-ink-2">{t("auth.forgot.intro")}</p>
       {sent ? (
         <div className="mt-6">
           <Alert tone="ok">{sent}</Alert>
@@ -193,17 +307,17 @@ export function ForgotForm() {
       ) : (
         <form className="mt-6 space-y-4" onSubmit={submit}>
           {s.error && <Alert tone="bad">{s.error}</Alert>}
-          <Field label="Email" id="email">
+          <Field label={t("auth.email")} id="email">
             <input className="input" id="email" name="email" type="email" autoComplete="email" required />
           </Field>
           <button className="btn btn-primary w-full justify-center" disabled={s.pending}>
-            {s.pending ? <Spinner label="Sending" /> : "Send reset link"}
+            {s.pending ? <Spinner label={t("auth.forgot.sending")} /> : t("auth.forgot.send")}
           </button>
         </form>
       )}
       <p className="mt-6 text-sm">
         <Link href="/login" className="text-teal hover:underline">
-          Back to sign in
+          {t("auth.backToSignIn")}
         </Link>
       </p>
     </>
@@ -211,6 +325,7 @@ export function ForgotForm() {
 }
 
 export function ResetForm() {
+  const t = useT();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
   const s = useSubmit();
@@ -219,7 +334,7 @@ export function ResetForm() {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     if (f.get("password") !== f.get("confirm")) {
-      s.setError("Passwords do not match.");
+      s.setError(t("auth.passwordsMismatch"));
       return;
     }
     s.setPending(true);
@@ -233,27 +348,27 @@ export function ResetForm() {
       s.setPending(false);
     }
   }
-  if (!token) return <Alert tone="bad" title="Invalid link">This reset link is missing its token.</Alert>;
+  if (!token) return <Alert tone="bad" title={t("auth.reset.invalidTitle")}>{t("auth.reset.invalidBody")}</Alert>;
   return (
     <>
-      <h1 className="text-2xl">Choose a new password</h1>
+      <h1 className="text-2xl">{t("auth.reset.title")}</h1>
       {done ? (
         <div className="mt-6">
-          <Alert tone="ok" title="Password updated">
-            All other sessions were signed out. <Link href="/login">Sign in</Link>.
+          <Alert tone="ok" title={t("auth.reset.doneTitle")}>
+            {t.rich("auth.reset.doneBody", { link: (c) => <Link href="/login">{c}</Link> })}
           </Alert>
         </div>
       ) : (
         <form className="mt-6 space-y-4" onSubmit={submit}>
           {s.error && <Alert tone="bad">{s.error}</Alert>}
-          <Field label="New password" id="password" hint="At least 10 characters, with letters and a number or symbol.">
+          <Field label={t("auth.newPassword")} id="password" hint={t("auth.passwordHint")}>
             <input className="input" id="password" name="password" type="password" autoComplete="new-password" minLength={10} required />
           </Field>
-          <Field label="Confirm password" id="confirm">
+          <Field label={t("auth.confirmPassword")} id="confirm">
             <input className="input" id="confirm" name="confirm" type="password" autoComplete="new-password" required />
           </Field>
           <button className="btn btn-primary w-full justify-center" disabled={s.pending}>
-            {s.pending ? <Spinner label="Saving" /> : "Update password"}
+            {s.pending ? <Spinner label={t("common.saving")} /> : t("auth.reset.submit")}
           </button>
         </form>
       )}

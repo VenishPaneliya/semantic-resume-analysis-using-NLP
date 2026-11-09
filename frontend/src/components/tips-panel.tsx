@@ -1,21 +1,25 @@
 "use client";
 
-import { Compass, GraduationCap, Lightbulb, ShieldCheck, Sparkles, X } from "lucide-react";
+import { BookmarkPlus, Check, Compass, GraduationCap, Lightbulb, ShieldCheck, Sparkles, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
+import { useT, type MessageKey } from "@/lib/i18n";
 import type { Suggestion, Tip, Tips } from "@/lib/types";
 import { TierBadge } from "./leaderboard";
 import { SuggestionCard } from "./suggestion-card";
-import { Alert, Badge, ErrorState, LoadingBlock, Spinner } from "./ui";
+import { Alert, Badge, EnglishNote, ErrorState, LoadingBlock, Spinner } from "./ui";
 
 export type TipsTarget = { kind: "role" | "opening"; id: string; title: string };
 
-const PRIORITY: { id: Tip["priority"]; label: string; tone: "bad" | "warn" | "neutral" }[] = [
-  { id: "high", label: "High priority", tone: "bad" },
-  { id: "medium", label: "Medium priority", tone: "warn" },
-  { id: "low", label: "Low priority", tone: "neutral" },
+const PRIORITY: { id: Tip["priority"]; label: MessageKey; tone: "bad" | "warn" | "neutral" }[] = [
+  { id: "high", label: "tips.priority.high", tone: "bad" },
+  { id: "medium", label: "tips.priority.medium", tone: "warn" },
+  { id: "low", label: "tips.priority.low", tone: "neutral" },
 ];
+
+const IMPORTANCE_KEY: Record<string, MessageKey> = { required: "tips.importance.required", preferred: "tips.importance.preferred" };
 
 /** Relevance-gated tips for one role or opening. Below the gate it shows a learning path, never resume edits. */
 export function TipsContent({ versionId, target, onVersionChange, headingLevel = 2 }: {
@@ -24,41 +28,43 @@ export function TipsContent({ versionId, target, onVersionChange, headingLevel =
   onVersionChange?: (versionId: string) => void;
   headingLevel?: 2 | 3;
 }) {
+  const t = useT();
   const q = target.kind === "role" ? `role_id=${encodeURIComponent(target.id)}` : `opening_id=${encodeURIComponent(target.id)}`;
   const { data, error, loading, reload } = useApi<Tips>(`/api/versions/${versionId}/tips?${q}`);
   const H = headingLevel === 2 ? "h2" : "h3";
   const H2 = headingLevel === 2 ? "h3" : "h4";
 
-  if (loading && !data) return <LoadingBlock label="Checking how close this is…" />;
-  if (error || !data) return <ErrorState message={error ?? "Could not load tips."} onRetry={reload} />;
+  if (loading && !data) return <LoadingBlock label={t("tips.checking")} />;
+  if (error || !data) return <ErrorState message={error ?? t("tips.loadError")} onRetry={reload} />;
 
   return (
     <div className="space-y-4" data-testid="tips-content">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-ink-2">
-          Score <strong className="num">{data.score == null ? "—" : Math.round(data.score)}</strong>/100
+          {t.rich("tips.score", { b: (c) => <strong className="num">{c}</strong> }, { score: data.score == null ? "—" : Math.round(data.score) })}
         </span>
         <TierBadge tier={data.tier} />
       </div>
+      <EnglishNote />
 
       {data.eligible ? (
         <>
           {data.tips.length === 0 ? (
-            <Alert tone="ok" title="Nothing urgent to change">
-              {data.message ?? "Your resume already presents this well."}
+            <Alert tone="ok" title={t("tips.nothingUrgent")}>
+              {data.message ?? t("tips.alreadyWell")}
             </Alert>
           ) : (
             PRIORITY.map((p) => {
-              const tips = data.tips.filter((t) => t.priority === p.id);
+              const tips = data.tips.filter((tip) => tip.priority === p.id);
               if (!tips.length) return null;
               return (
-                <section key={p.id} aria-label={p.label}>
+                <section key={p.id} aria-label={t(p.label)}>
                   <H2 className="label flex items-center gap-2">
-                    <Badge tone={p.tone}>{p.label}</Badge>
+                    <Badge tone={p.tone}>{t(p.label)}</Badge>
                   </H2>
                   <ul className="space-y-3">
-                    {tips.map((t) => (
-                      <TipItem key={t.id} tip={t} versionId={versionId} onVersionChange={onVersionChange} />
+                    {tips.map((tip) => (
+                      <TipItem key={tip.id} tip={tip} versionId={versionId} onVersionChange={onVersionChange} />
                     ))}
                   </ul>
                 </section>
@@ -67,8 +73,8 @@ export function TipsContent({ versionId, target, onVersionChange, headingLevel =
           )}
           {data.learning_path.length > 0 && (
             <details className="rounded-lg border border-line p-3">
-              <summary className="cursor-pointer text-sm font-semibold">Skills this asks for that your resume doesn&apos;t show</summary>
-              <LearningPath items={data.learning_path} />
+              <summary className="cursor-pointer text-sm font-semibold">{t("tips.skillsNotShown")}</summary>
+              <LearningPath items={data.learning_path} target={data.target} />
             </details>
           )}
         </>
@@ -77,46 +83,78 @@ export function TipsContent({ versionId, target, onVersionChange, headingLevel =
           <div className="flex items-start gap-3">
             <Compass className="mt-0.5 h-6 w-6 shrink-0 text-teal" aria-hidden />
             <div>
-              <H className="text-lg">Not a close match yet</H>
+              <H className="text-lg">{t("tips.notClose")}</H>
               <p className="mt-1 text-sm text-ink-2">{data.gate_message}</p>
             </div>
           </div>
           {data.learning_path.length > 0 ? (
             <div className="mt-4">
               <H2 className="label flex items-center gap-1.5">
-                <GraduationCap className="h-4 w-4" aria-hidden /> Where to start
+                <GraduationCap className="h-4 w-4" aria-hidden /> {t("tips.whereToStart")}
               </H2>
-              <LearningPath items={data.learning_path} />
+              <LearningPath items={data.learning_path} target={data.target} />
             </div>
           ) : (
-            <p className="mt-3 text-sm text-muted">No specific skills to list for this target.</p>
+            <p className="mt-3 text-sm text-muted">{t("tips.noSkills")}</p>
           )}
         </div>
       )}
 
-      <Alert tone="info" title="Honesty first">
+      <Alert tone="info" title={t("tips.honesty")}>
         {data.honesty_note}
       </Alert>
     </div>
   );
 }
 
-function LearningPath({ items }: { items: Tips["learning_path"] }) {
+function LearningPath({ items, target }: { items: Tips["learning_path"]; target: Tips["target"] }) {
+  const t = useT();
+  const [state, setState] = useState<{ busy: boolean; added: string[] | null; err: string | null }>({ busy: false, added: null, err: null });
+  async function add() {
+    setState({ busy: true, added: null, err: null });
+    try {
+      const r = await api<{ added: string[] }>("/api/learning", {
+        body: { skills: items.slice(0, 12).map((l) => l.skill), target_kind: target.kind, target_id: target.id, target_title: target.title },
+      });
+      setState({ busy: false, added: r.added, err: null });
+    } catch (e) {
+      setState({ busy: false, added: null, err: errMsg(e) });
+    }
+  }
   return (
+    <>
     <ol className="mt-2 space-y-2">
       {items.map((l) => (
         <li key={l.skill} className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-baseline sm:gap-2">
-          <span className="flex items-center gap-2 font-medium">
-            {l.skill} <Badge tone={l.importance === "required" ? "warn" : "neutral"}>{l.importance}</Badge>
+          <span className="flex flex-wrap items-center gap-2 font-medium">
+            {l.skill} <Badge tone={l.importance === "required" ? "warn" : "neutral"}>{IMPORTANCE_KEY[l.importance] ? t(IMPORTANCE_KEY[l.importance]) : l.importance}</Badge>
           </span>
           <span className="text-xs text-ink-2">{l.why}</span>
         </li>
       ))}
     </ol>
+    <div className="mt-3 flex flex-wrap items-center gap-2" aria-live="polite">
+      {state.added ? (
+        <p className="flex flex-wrap items-center gap-1.5 text-xs text-ok" data-testid="learning-added">
+          <Check className="h-3.5 w-3.5" aria-hidden />
+          {state.added.length ? t("tips.added", { count: state.added.length }) : t("tips.alreadyInPlan")}
+          <Link href="/learning" className="font-semibold text-teal underline">
+            {t("tips.viewPlan")}
+          </Link>
+        </p>
+      ) : (
+        <button type="button" className="btn btn-secondary btn-sm" onClick={add} disabled={state.busy}>
+          {state.busy ? <Spinner label={t("tips.adding")} /> : (<><BookmarkPlus className="h-4 w-4" aria-hidden /> {t("tips.addToPlan")}</>)}
+        </button>
+      )}
+      {state.err && <p className="text-xs text-bad" role="alert">{state.err}</p>}
+    </div>
+    </>
   );
 }
 
 function TipItem({ tip, versionId, onVersionChange }: { tip: Tip; versionId: string; onVersionChange?: (v: string) => void }) {
+  const t = useT();
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{ msg: string; related: boolean } | null>(null);
@@ -148,12 +186,12 @@ function TipItem({ tip, versionId, onVersionChange }: { tip: Tip; versionId: str
       <p className="mt-1 text-sm text-ink-2">{tip.detail}</p>
       {tip.action?.type === "ai" && !suggestion && (
         <button className="btn btn-secondary btn-sm mt-2" onClick={draft} disabled={pending}>
-          {pending ? <Spinner label="Drafting" /> : (<><Sparkles className="h-4 w-4 text-ai" aria-hidden /> Draft with AI</>)}
+          {pending ? <Spinner label={t("tips.drafting")} /> : (<><Sparkles className="h-4 w-4 text-ai" aria-hidden /> {t("tips.draftAi")}</>)}
         </button>
       )}
       {error && (
         <div className="mt-2">
-          <Alert tone={error.related ? "warn" : "bad"} title={error.related ? "Not related enough to tailor" : undefined}>
+          <Alert tone={error.related ? "warn" : "bad"} title={error.related ? t("tips.notRelated") : undefined}>
             {error.msg}
           </Alert>
         </div>
@@ -171,14 +209,14 @@ function TipItem({ tip, versionId, onVersionChange }: { tip: Tip; versionId: str
       )}
       {resolved === "accepted" && (
         <p className="mt-2 flex items-center gap-1.5 text-xs text-ok" role="status">
-          <ShieldCheck className="h-3.5 w-3.5" aria-hidden /> Accepted. Saved as a new resume version.
+          <ShieldCheck className="h-3.5 w-3.5" aria-hidden /> {t("tips.accepted")}
         </p>
       )}
       {resolved === "rejected" && (
         <p className="mt-2 text-xs text-muted" role="status">
-          Rejected. Nothing changed.{" "}
+          {t("tips.rejected")}{" "}
           <button className="text-teal underline" onClick={() => { setSuggestion(null); setResolved(null); }}>
-            Try again
+            {t("tips.tryAgain")}
           </button>
         </p>
       )}
@@ -193,6 +231,7 @@ export function TipsDrawer({ target, versionId, onClose, onVersionChange }: {
   onClose: () => void;
   onVersionChange?: (v: string) => void;
 }) {
+  const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -239,12 +278,12 @@ export function TipsDrawer({ target, versionId, onClose, onVersionChange }: {
       >
         <div className="flex items-start justify-between gap-3 border-b border-line bg-card px-5 py-4">
           <div className="min-w-0">
-            <p className="eyebrow">How to improve for this {target.kind}</p>
+            <p className="eyebrow">{target.kind === "role" ? t("tips.improveRole") : t("tips.improveOpening")}</p>
             <h2 id="tips-title" className="text-xl leading-tight">
               {target.title}
             </h2>
           </div>
-          <button ref={closeRef} className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close tips">
+          <button ref={closeRef} className="btn btn-ghost btn-sm shrink-0" onClick={onClose} aria-label={t("tips.close")}>
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>

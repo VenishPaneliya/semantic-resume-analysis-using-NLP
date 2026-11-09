@@ -6,13 +6,17 @@
 // Persona PDFs in e2e/fixtures/personas are rendered from backend/eval/synthetic.py (render(persona, "A")).
 import { chromium } from "playwright";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { freshCode, loadSecret, saveSecret } from "./totp.mjs";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3010";
 const LOG = process.env.BACKEND_LOG ?? "e2e/backend-lb.log";
 const FIX = "e2e/fixtures/personas";
 const OUT = "e2e/screenshots";
 const HR_EMAIL = process.env.HR_EMAIL ?? "hr@example.com";
+// shared with features-v2.mjs: the HR account's TOTP secret once two-factor sign-in is on
+const HR_TOTP_FILE = process.env.HR_TOTP_FILE ?? path.join(os.tmpdir(), "ri-e2e-hr-totp.json");
 fs.mkdirSync(OUT, { recursive: true });
 
 const stamp = Date.now();
@@ -51,8 +55,32 @@ async function csrf(ctx) {
   return (await ctx.cookies()).find((c) => c.name === "ri_csrf")?.value ?? "";
 }
 async function call(ctx, method, p, opts = {}) {
-  const r = await ctx.request.fetch(BASE + p, { method, headers: { "x-csrf-token": await csrf(ctx) }, ...opts });
-  return r;
+  // the backend rate-limits auth POSTs per IP; wait it out instead of failing
+  for (let i = 0; ; i++) {
+    const r = await ctx.request.fetch(BASE + p, { method, timeout: 240000, headers: { "x-csrf-token": await csrf(ctx) }, ...opts });
+    if (r.status() !== 429 || i >= 30) return r;
+    await new Promise((res) => setTimeout(res, 5000));
+  }
+}
+
+/** Staff need two-factor sign-in (REQUIRE_MFA_FOR_STAFF). Turn it on for a fresh HR account, or complete the
+    second step with the stored secret when signing in. */
+async function ensureHrMfa(ctx) {
+  const st = await ok(await call(ctx, "GET", "/api/account/2fa"), "2fa status");
+  if (st.enabled) return;
+  const setup = await ok(await call(ctx, "POST", "/api/account/2fa/setup"), "2fa setup");
+  const { code, step } = await freshCode(setup.secret);
+  const r = await ok(await call(ctx, "POST", "/api/account/2fa/enable", { data: { code } }), "2fa enable");
+  saveSecret(HR_TOTP_FILE, { secret: setup.secret, lastStep: step, recovery: r.recovery_codes });
+}
+async function loginHr(ctx) {
+  const r = await ok(await call(ctx, "POST", "/api/auth/login", { data: { email: HR_EMAIL, password } }), "recruiter login");
+  if (!r.mfa_required) return;
+  const saved = loadSecret(HR_TOTP_FILE);
+  if (!saved) throw new Error(`HR has 2FA on but ${HR_TOTP_FILE} has no secret`);
+  const { code, step } = await freshCode(saved.secret, saved.lastStep);
+  saveSecret(HR_TOTP_FILE, { ...saved, lastStep: step });
+  await ok(await call(ctx, "POST", "/api/auth/login/mfa", { data: { mfa_token: r.mfa_token, code } }), "recruiter 2nd step");
 }
 async function ok(r, what) {
   if (!r.ok()) throw new Error(`${what}: HTTP ${r.status()} ${await r.text()}`);
@@ -121,9 +149,10 @@ try {
       // already registered in an earlier run: sign in instead
       if (!/HTTP 409|already/i.test(e.message)) throw e;
       const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-      await ok(await call(ctx, "POST", "/api/auth/login", { data: { email: HR_EMAIL, password } }), "recruiter login");
+      await loginHr(ctx);
       return ctx;
     });
+    await ensureHrMfa(rec);
     recPage = watch(await rec.newPage());
     await recPage.goto(`${BASE}/recruiter`);
     await recPage.getByRole("link", { name: "Recruiter" }).first().waitFor();
@@ -252,7 +281,9 @@ try {
     await s.waitFor({ timeout: 60000 });
     await s.getByText(/of 3$/).waitFor();
     await s.getByText(/top \d+%/).first().waitFor();
-    await s.getByRole("img", { name: /Anonymous score distribution/ }).waitFor();
+    // with only 3 applicants the median and score spread stay hidden (they would reveal the others' scores)
+    await s.getByTestId("spread-later").waitFor();
+    if (await s.getByRole("img", { name: /Anonymous score distribution/ }).count()) throw new Error("score spread shown with 3 applicants");
     await page.getByRole("heading", { name: "How to improve for this opening" }).waitFor();
     await page.getByTestId("tips-content").waitFor({ timeout: 60000 });
     await shot(page, "lb-06-standing-ranked");

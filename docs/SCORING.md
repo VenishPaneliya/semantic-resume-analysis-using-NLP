@@ -4,7 +4,7 @@ All numbers are **advisory indicators** computed by published, deterministic rul
 ATS score, a hiring probability, or a prediction of interviews. The live rubric (weights, rules,
 rationale) is served at `GET /api/rubric` and versioned (`rubric_version` on every result).
 
-## 1. Resume rubric (`app/services/analysis/rubric.py`, `rubric-1.0.0`)
+## 1. Resume rubric (`app/services/analysis/rubric.py`, `rubric-1.1.0`)
 
 | Category | Weight | What is measured |
 |---|---|---|
@@ -28,7 +28,7 @@ rationale) is served at `GET /api/rubric` and versioned (`rubric_version` on eve
 - Every finding carries the rule id, rationale, suggested fix, effort and resume evidence; the
   improvement list is ordered by priority (weighted impact), then effort.
 
-## 2. Role recommendations (`app/services/ml/recommender.py`, `hybrid-recommender-1.0.0`)
+## 2. Role recommendations (`app/services/ml/recommender.py`, `hybrid-recommender-1.1.0`)
 
 ```
 fit = 100 × (0.40·required_coverage + 0.20·preferred_coverage + 0.25·semantic + 0.15·title_signal)
@@ -58,7 +58,7 @@ proxies) and protected attributes are excluded. A test asserts identical scores 
 No supervised classifier is shipped: there is no labelled, consented, representative dataset to train or
 validate one. See [EVALUATION.md](EVALUATION.md#what-data-would-improve-the-models) for what would be needed.
 
-## 3. Job description matching (`app/services/ml/jd.py`, `jd-matcher-1.0.0`)
+## 3. Job description matching (`app/services/ml/jd.py`, `jd-matcher-1.2.0`)
 
 Requirements are extracted per line under requirement/preferred headings and classified as
 `skill`, `experience`, `education`, `certification`, `unassessable` (work authorisation, travel, …) or `other`.
@@ -87,14 +87,18 @@ the text or confirms each fact (recorded on the suggestion). `[ADD: …]` placeh
 are flagged again at export. Known limitation: a real value used in the wrong context (e.g. a year that
 exists elsewhere in the resume) is not detected.
 
-## 5. Leaderboards and the relevance gate (`app/services/ml/leaderboard.py`, `leaderboard-1.0.0`)
+## 5. Leaderboards and the relevance gate (`app/services/ml/leaderboard.py`, `leaderboard-1.1.0`)
 
-- **A. Roles:** all taxonomy roles ranked by the §2 fit score.
+- **A. Roles:** all taxonomy roles ranked by the §2 fit score plus the preference adjustment (target roles / domains saved
+  on the account). Each row shows the adjustment openly ("+5 preference"); the score itself is unchanged. This view
+  also replaced the separate Roles tab, and carries the seniority estimate.
 - **B. Openings:** open vacancies posted by HR staff, ranked by the §3 compatibility indicator.
 - **C. Standing:** `rank = 1 + number of applicants with a strictly higher score` (ties share the better
   rank) and `top % = rank / applicants`. It is shown only when at least 3 people have applied. Candidates see
-  their own rank, the count, the median and a 10-point histogram, never another applicant's identity or
-  score. Scores are recomputed when a candidate re-applies or the recruiter edits the opening.
+  their own rank and the count. The median (rounded to the nearest 5) and a 10-point histogram describe other
+  people, so they appear only from 10 applicants, and a histogram band with 1–2 people shows "a few" rather than
+  a number. With 3 applicants an exact median would simply be another person's score. Candidates never see
+  another applicant's identity or score. Scores are recomputed when a candidate re-applies or the recruiter edits the opening.
 - **Tiers (heuristic bands, not probabilities):** strong ≥ 60, good 40–59, stretch 25–39, not a match < 25.
   The bands were set by inspecting the synthetic personas: their true role scores 60–96 on roles and 78–96 on
   matching demo openings, adjacent roles 35–57, and unrelated roles mostly below 25.
@@ -107,3 +111,20 @@ exists elsewhere in the resume) is not detected.
   missing skills with related evidence ("if you haven't, leave it out"); use the target's standard wording for
   skills you already have; lead with and quantify your most relevant bullets; and point the summary at the
   target. None of them adds a skill or result on the user's behalf.
+
+## 6. Fairness monitoring (`/api/recruiter/fairness`, admins only)
+
+For each dimension (gender, age band), from **voluntary** self-identification only, and only for applicants
+who applied themselves: group size, mean compatibility score, strong rate (score ≥ 60) and selection rate
+(stage shortlisted/interview/offer/hired). Impact ratio = group rate ÷ highest group rate; below 0.8 is
+flagged (four-fifths rule). Groups with fewer than 10 people are suppressed, a dimension is shown only when
+at least 2 groups pass that threshold, and the data is a snapshot as of the start of the current UTC day (stage
+changes made today are not counted), so the report can't be used to infer one person's answer. A counterfactual test
+(`test_counterfactual_identity_changes_do_not_change_scores`) checks that changing name, contact details,
+location, employer and school leaves every score unchanged.
+
+## 7. Mock interview checks (`app/services/interview.py`)
+
+Rule-based, always shown separately from AI coaching: situation cue, first-person action verb, result cue,
+a number, 60–300 words, "I" at least as often as "we", and whether skills mentioned appear in the resume.
+Score = 1 + 4 × (checks passed ÷ 7). These are structure heuristics, not a judgement of answer quality.

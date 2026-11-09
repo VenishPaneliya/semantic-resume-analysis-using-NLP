@@ -2,18 +2,33 @@
 
 import { useState } from "react";
 import { api, errMsg } from "@/lib/api";
-import type { ApplicationStage } from "@/lib/types";
-import { STAGE } from "./leaderboard";
+import { useT, type MessageKey, type TFunction } from "@/lib/i18n";
+import { STAGES, type ApplicationStage } from "@/lib/types";
+
+/** Translation keys for application stages (the codes come from the API). */
+export const STAGE_KEY: Record<ApplicationStage, MessageKey> = {
+  submitted: "stage.submitted",
+  shortlisted: "stage.shortlisted",
+  interview: "stage.interview",
+  offer: "stage.offer",
+  hired: "stage.hired",
+  rejected: "stage.rejected",
+};
+
+export function stageLabel(t: TFunction, s: string) {
+  return s in STAGE_KEY ? t(STAGE_KEY[s as ApplicationStage]) : s.replace(/_/g, " ");
+}
 
 /** Recruiter control for an application's stage. Saves immediately. */
 export function StageSelect({ applicationId, stage, name, onChange }: { applicationId: string; stage: ApplicationStage; name: string; onChange: (s: ApplicationStage) => void }) {
+  const t = useT();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sid = `stage-${applicationId}`;
   return (
     <div>
       <label htmlFor={sid} className="sr-only">
-        Stage for {name}
+        {t("stage.label", { name })}
       </label>
       <select
         id={sid}
@@ -34,9 +49,9 @@ export function StageSelect({ applicationId, stage, name, onChange }: { applicat
           }
         }}
       >
-        {(Object.keys(STAGE) as ApplicationStage[]).map((s) => (
+        {STAGES.map((s) => (
           <option key={s} value={s}>
-            {STAGE[s].label}
+            {t(STAGE_KEY[s])}
           </option>
         ))}
       </select>

@@ -1,0 +1,36 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+
+# Python
+**/__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# local data: databases, uploaded/test files, evaluation output
+backend/var/
+*.db
+*.sqlite3
+
+# Node / Next.js (frontend/.gitignore has more)
+node_modules/
+frontend/.next*/
+
+# editor / OS / tool scratch
+.superpowers/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Python packaging output
+build/
+dist/
+*.egg-info/

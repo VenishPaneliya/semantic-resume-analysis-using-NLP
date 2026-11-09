@@ -10,15 +10,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import err, get_owned, recruiter_user, verified_user
+from app.api.deps import err, get_owned, verified_user
 from app.db import get_db
 from app.models import JobOpening, OpeningApplication, ResumeVersion, User
 from app.services.audit import audit
-from app.services.ml.jd import extract_jd, match
+from app.services.ml.jd import match, prepare_resume
 from app.services.ml.leaderboard import (
+    TIERS,
+    TIPS_MIN,
     fit_for_opening,
     fit_for_role,
-    infer_role,
     opening_row,
     role_leaderboard,
     standing,
@@ -61,7 +62,9 @@ def _open_opening(db: Session, opening_id: str) -> JobOpening:
 
 
 def _scores(db: Session, opening_id: str) -> list[float]:
-    return [float(s) for s in db.scalars(select(OpeningApplication.score).where(OpeningApplication.opening_id == opening_id))]
+    # only people who applied themselves count; recruiter bulk uploads never affect a candidate's standing
+    return [float(s) for s in db.scalars(select(OpeningApplication.score).where(OpeningApplication.opening_id == opening_id,
+                                                                                OpeningApplication.source == "applied"))]
 
 
 def _my_application(db: Session, opening_id: str, user: User) -> OpeningApplication | None:
@@ -94,8 +97,9 @@ def openings_for_me(version_id: str, user: User = Depends(verified_user), db: Se
                                .order_by(JobOpening.created_at.desc()).limit(MAX_OPENINGS_RANKED)))
     mine = {a.opening_id: a for a in db.scalars(select(OpeningApplication).where(OpeningApplication.user_id == user.id))}
     rows = []
+    prepared = prepare_resume(v.content)  # resume-side work once, not once per opening
     for o in openings:
-        row = {**opening_out(o), **opening_row(match(v.content, o.extracted))}
+        row = {**opening_out(o), **opening_row(match(v.content, o.extracted, prepared=prepared))}
         a = mine.get(o.id)
         row["application"] = None if not a else {"score": a.score, "stage": a.stage, "version_id": a.version_id}
         rows.append(row)
@@ -103,6 +107,7 @@ def openings_for_me(version_id: str, user: User = Depends(verified_user), db: Se
     for i, r in enumerate(rows, 1):
         r["rank"] = i
     return {"leaderboard_version": LEADERBOARD_VERSION, "matcher_version": JD_MATCHER_VERSION, "rows": rows,
+            "tiers": [{"min": lo, "id": i, "label": lb} for lo, i, lb in TIERS], "tips_min_score": TIPS_MIN,
             "status": "ok" if rows else "no_openings",
             "message": None if rows else "No openings have been posted yet. Check back soon.",
             "disclaimer": "Compatibility indicators, not hiring probabilities. Openings are posted by the HR team."}
@@ -139,9 +144,12 @@ def list_openings(user: User = Depends(verified_user), db: Session = Depends(get
 @router.get("/openings/{opening_id}")
 def get_opening(opening_id: str, version_id: str | None = Query(None, max_length=36), user: User = Depends(verified_user),
                 db: Session = Depends(get_db)):
-    o = _open_opening(db, opening_id)
+    o = db.get(JobOpening, opening_id)
+    a = _my_application(db, o.id, user) if o else None
+    if not o or (o.status != "open" and not a):
+        # closed openings stay visible only to people who applied, so they can follow their stage
+        raise err(404, "not_found", "This opening is not available.")
     out = {**opening_out(o, include_description=True), "application": None, "match": None}
-    a = _my_application(db, o.id, user)
     if a:
         out["application"] = _application_out(db, a)
     vid = version_id or (a.version_id if a else None)

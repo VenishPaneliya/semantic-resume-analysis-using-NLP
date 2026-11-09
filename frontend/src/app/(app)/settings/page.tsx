@@ -3,34 +3,58 @@
 import { Download, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { JobAlertsCard, SelfIdCard, TwoFactorCard } from "@/components/account-cards";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { useUser } from "@/components/shell";
 import { Alert, Badge, ErrorState, Field, FixtureBadge, fmtDate, LoadingBlock, PageHeader, Section, Spinner } from "@/components/ui";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
+import { useT, type MessageKey } from "@/lib/i18n";
 import type { Privacy, Role, User } from "@/lib/types";
 
 export default function SettingsPage() {
+  const t = useT();
   return (
     <>
-      <PageHeader eyebrow="Account" title="Settings" />
+      <PageHeader eyebrow={t("settings.eyebrow")} title={t("settings.title")} />
       <div className="grid gap-6 lg:grid-cols-2">
+        <LanguageCard />
         <Profile />
         <CareerPrefsCard />
+        <TwoFactorCard />
+        <PasswordCard />
         <PrivacyCard />
         <Notifications />
+        <SelfIdCard />
+        <JobAlertsCard />
         <Usage />
         <Sessions />
-        <PasswordCard />
         <DataCard />
       </div>
     </>
   );
 }
 
+function LanguageCard() {
+  const t = useT();
+  return (
+    <Section title={t("common.language")} id="language-h">
+      <div className="space-y-2" data-testid="language-settings">
+        <label htmlFor="language" className="label">
+          {t("common.language")}
+        </label>
+        <LanguageSwitcher variant="field" id="language" />
+        <p className="text-xs text-muted">{t("common.languageHelp")}</p>
+      </div>
+    </Section>
+  );
+}
+
 function Saved({ ok, err }: { ok: boolean; err: string | null }) {
+  const t = useT();
   return (
     <span aria-live="polite" className="text-sm">
-      {ok && <span className="text-ok">Saved.</span>}
+      {ok && <span className="text-ok">{t("settings.saved")}</span>}
       {err && <span className="text-bad">{err}</span>}
     </span>
   );
@@ -58,10 +82,11 @@ function useSave() {
 }
 
 function Profile() {
+  const t = useT();
   const { user } = useUser();
   const s = useSave();
   return (
-    <Section title="Profile" id="profile">
+    <Section title={t("settings.profile")} id="profile">
       <form
         className="space-y-3"
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
@@ -69,14 +94,14 @@ function Profile() {
           void s.save({ display_name: new FormData(e.currentTarget).get("display_name") });
         }}
       >
-        <Field label="Email" id="email-ro">
+        <Field label={t("settings.email")} id="email-ro">
           <input className="input bg-paper" id="email-ro" value={user.email} readOnly />
         </Field>
-        <Field label="Display name" id="display_name">
+        <Field label={t("settings.displayName")} id="display_name">
           <input className="input" id="display_name" name="display_name" defaultValue={user.display_name ?? ""} maxLength={120} />
         </Field>
         <div className="flex items-center gap-3">
-          <button className="btn btn-primary btn-sm" disabled={s.busy}>Save</button>
+          <button className="btn btn-primary btn-sm" disabled={s.busy}>{t("common.save")}</button>
           <Saved ok={s.ok} err={s.err} />
         </div>
       </form>
@@ -84,7 +109,10 @@ function Profile() {
   );
 }
 
+const ARRANGEMENT_LABEL: Record<string, MessageKey> = { remote: "settings.arr.remote", hybrid: "settings.arr.hybrid", onsite: "settings.arr.onsite" };
+
 function CareerPrefsCard() {
+  const t = useT();
   const { user } = useUser();
   const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles");
   const s = useSave();
@@ -92,7 +120,7 @@ function CareerPrefsCard() {
   const [targets, setTargets] = useState<string[]>(p.target_roles ?? []);
   const [arr, setArr] = useState<string[]>(p.work_arrangements ?? []);
   return (
-    <Section title="Career preferences" id="career">
+    <Section title={t("settings.career")} id="career">
       <form
         className="space-y-4"
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
@@ -103,36 +131,36 @@ function CareerPrefsCard() {
         }}
       >
         <fieldset>
-          <legend className="label">Target roles</legend>
+          <legend className="label">{t("settings.targetRoles")}</legend>
           <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2">
             {roles.data?.roles.map((r) => (
               <label key={r.id} className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={targets.includes(r.id)} onChange={(e) => setTargets(e.target.checked ? [...targets, r.id] : targets.filter((x) => x !== r.id))} />
-                {r.title}
+                <span lang="en">{r.title}</span>
               </label>
             ))}
           </div>
         </fieldset>
-        <Field label="Preferred domains (comma separated)" id="domains" hint="e.g. ai, data, web, infrastructure">
+        <Field label={t("settings.domains")} id="domains" hint={t("settings.domainsHint")}>
           <input className="input" id="domains" name="domains" defaultValue={(p.domains ?? []).join(", ")} />
         </Field>
-        <Field label="Preferred locations (comma separated)" id="locations">
+        <Field label={t("settings.locations")} id="locations">
           <input className="input" id="locations" name="locations" defaultValue={(p.locations ?? []).join(", ")} />
         </Field>
         <fieldset>
-          <legend className="label">Work arrangements</legend>
-          <div className="flex gap-4">
+          <legend className="label">{t("settings.arrangements")}</legend>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
             {["remote", "hybrid", "onsite"].map((a) => (
               <label key={a} className="flex items-center gap-2 text-sm capitalize">
                 <input type="checkbox" checked={arr.includes(a)} onChange={(e) => setArr(e.target.checked ? [...arr, a] : arr.filter((x) => x !== a))} />
-                {a}
+                {t(ARRANGEMENT_LABEL[a])}
               </label>
             ))}
           </div>
         </fieldset>
-        <p className="text-xs text-muted">Preferences adjust ordering only. Personal attributes are never used for ranking.</p>
+        <p className="text-xs text-muted">{t("settings.prefsNote")}</p>
         <div className="flex items-center gap-3">
-          <button className="btn btn-primary btn-sm" disabled={s.busy}>Save preferences</button>
+          <button className="btn btn-primary btn-sm" disabled={s.busy}>{t("settings.savePrefs")}</button>
           <Saved ok={s.ok} err={s.err} />
         </div>
       </form>
@@ -141,6 +169,7 @@ function CareerPrefsCard() {
 }
 
 function PrivacyCard() {
+  const t = useT();
   const { setUser } = useUser();
   const p = useApi<Privacy>("/api/account/privacy");
   const [busy, setBusy] = useState(false);
@@ -159,7 +188,7 @@ function PrivacyCard() {
     }
   }
   return (
-    <Section title="AI & privacy" id="privacy" aside={<ShieldCheck className="h-5 w-5 text-teal" aria-hidden />}>
+    <Section title={t("settings.privacy")} id="privacy" aside={<ShieldCheck className="h-5 w-5 text-teal" aria-hidden />}>
       {p.loading && !p.data ? (
         <LoadingBlock />
       ) : p.error ? (
@@ -167,31 +196,32 @@ function PrivacyCard() {
       ) : p.data ? (
         <div className="space-y-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <span>AI provider:</span>
+            <span>{t("settings.provider")}</span>
             <Badge tone="teal">{p.data.ai_provider}</Badge>
             <span className="num text-xs text-muted">{p.data.ai_model}</span>
             <FixtureBadge show={p.data.ai_provider === "fixture"} />
           </div>
           <p className="text-ink-2">
-            <strong>What is sent:</strong> {p.data.what_is_sent}
+            <strong>{t("settings.whatSent")}</strong> {p.data.what_is_sent}
           </p>
           <p className="text-ink-2">
-            <strong>Training:</strong> {p.data.training_use}
+            <strong>{t("settings.training")}</strong> {p.data.training_use}
           </p>
           <p className="text-ink-2">
-            <strong>Retention:</strong> files {p.data.retention_days.files} days, analyses {p.data.retention_days.analyses} days.
+            <strong>{t("settings.retention")}</strong>{" "}
+            {t("settings.retentionValue", { files: p.data.retention_days.files, analyses: p.data.retention_days.analyses })}
           </p>
           {p.data.sends_data_externally ? (
             <div className="rounded-md border border-line bg-paper p-3">
               <p className="font-medium">
-                {p.data.consented ? `You consented on ${fmtDate(p.data.consented_at)}.` : "AI features are off until you consent."}
+                {p.data.consented ? t("settings.consentedOn", { date: fmtDate(p.data.consented_at) }) : t("settings.aiOff")}
               </p>
               <button className={`btn btn-sm mt-2 ${p.data.consented ? "btn-secondary" : "btn-primary"}`} disabled={busy} onClick={() => set(!p.data!.consented)}>
-                {busy ? <Spinner label="" /> : p.data.consented ? "Withdraw consent" : `Allow sending redacted sections to ${p.data.ai_provider}`}
+                {busy ? <Spinner label="" /> : p.data.consented ? t("settings.withdrawConsent") : t("settings.allowSending", { provider: p.data.ai_provider })}
               </button>
             </div>
           ) : (
-            <Alert tone="info">No resume data leaves this server with the current provider, so no consent is needed.</Alert>
+            <Alert tone="info">{t("settings.noConsentNeeded")}</Alert>
           )}
           {err && <Alert tone="bad">{err}</Alert>}
         </div>
@@ -201,27 +231,30 @@ function PrivacyCard() {
 }
 
 function Notifications() {
+  const t = useT();
   const { user } = useUser();
   const s = useSave();
-  const [prefs, setPrefs] = useState<Record<string, boolean>>(user.notification_prefs ?? {});
-  const items = [
-    ["processing_complete", "Email me when a document finishes processing"],
-    ["weekly_digest", "Weekly summary of application follow-ups"],
-    ["product_updates", "Occasional product updates"],
+  const [prefs, setPrefs] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(Object.entries(user.notification_prefs ?? {}).filter(([k, v]) => !k.startsWith("job_alert") && typeof v === "boolean")) as Record<string, boolean>,
+  );
+  const items: [string, MessageKey][] = [
+    ["processing_complete", "settings.notif.processing"],
+    ["weekly_digest", "settings.notif.weekly"],
+    ["product_updates", "settings.notif.product"],
   ];
   return (
-    <Section title="Notifications" id="notif">
+    <Section title={t("settings.notifications")} id="notif">
       <fieldset className="space-y-2">
-        <legend className="sr-only">Email notifications</legend>
+        <legend className="sr-only">{t("settings.emailNotifs")}</legend>
         {items.map(([k, label]) => (
           <label key={k} className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={!!prefs[k]} onChange={(e) => setPrefs({ ...prefs, [k]: e.target.checked })} />
-            {label}
+            {t(label)}
           </label>
         ))}
       </fieldset>
       <div className="mt-3 flex items-center gap-3">
-        <button className="btn btn-primary btn-sm" disabled={s.busy} onClick={() => s.save({ notification_prefs: prefs })}>Save</button>
+        <button className="btn btn-primary btn-sm" disabled={s.busy} onClick={() => s.save({ notification_prefs: prefs })}>{t("common.save")}</button>
         <Saved ok={s.ok} err={s.err} />
       </div>
     </Section>
@@ -229,15 +262,16 @@ function Notifications() {
 }
 
 function Usage() {
+  const t = useT();
   const u = useApi<{ ai_requests_this_month: number; estimated_cost_usd: number; limits: Record<string, number> }>("/api/account/usage");
   return (
-    <Section title="Usage" id="usage">
+    <Section title={t("settings.usage")} id="usage">
       {u.error ? <ErrorState message={u.error} onRetry={u.reload} /> : !u.data ? <LoadingBlock /> : (
         <dl className="grid grid-cols-2 gap-3 text-sm">
-          <div><dt className="text-muted">AI requests this month</dt><dd className="num text-xl">{u.data.ai_requests_this_month}</dd></div>
-          <div><dt className="text-muted">Estimated AI cost</dt><dd className="num text-xl">${u.data.estimated_cost_usd.toFixed(4)}</dd></div>
-          <div><dt className="text-muted">Daily AI limit</dt><dd className="num">{u.data.limits.ai_requests_per_day}</dd></div>
-          <div><dt className="text-muted">Daily upload limit</dt><dd className="num">{u.data.limits.uploads_per_day}</dd></div>
+          <div><dt className="text-muted">{t("settings.aiRequests")}</dt><dd className="num text-xl">{u.data.ai_requests_this_month}</dd></div>
+          <div><dt className="text-muted">{t("settings.aiCost")}</dt><dd className="num text-xl">${u.data.estimated_cost_usd.toFixed(4)}</dd></div>
+          <div><dt className="text-muted">{t("settings.aiLimit")}</dt><dd className="num">{u.data.limits.ai_requests_per_day}</dd></div>
+          <div><dt className="text-muted">{t("settings.uploadLimit")}</dt><dd className="num">{u.data.limits.uploads_per_day}</dd></div>
         </dl>
       )}
     </Section>
@@ -245,20 +279,21 @@ function Usage() {
 }
 
 function Sessions() {
+  const t = useT();
   const s = useApi<{ id: string; created_at: string; last_seen_at: string; user_agent: string | null; current: boolean }[]>("/api/account/sessions");
   return (
-    <Section title="Active sessions" id="sessions">
+    <Section title={t("settings.sessions")} id="sessions">
       {s.error ? <ErrorState message={s.error} onRetry={s.reload} /> : !s.data ? <LoadingBlock /> : (
         <ul className="space-y-2">
           {s.data.map((x) => (
             <li key={x.id} className="flex items-center gap-2 rounded border border-line p-2 text-sm">
               <div className="min-w-0 flex-1">
-                <p className="truncate">{x.user_agent || "Unknown device"}</p>
-                <p className="text-xs text-muted">Last active {fmtDate(x.last_seen_at)}</p>
+                <p className="truncate">{x.user_agent || t("settings.unknownDevice")}</p>
+                <p className="text-xs text-muted">{t("settings.lastActive", { date: fmtDate(x.last_seen_at) })}</p>
               </div>
-              {x.current ? <Badge tone="teal">This device</Badge> : (
+              {x.current ? <Badge tone="teal" className="shrink-0">{t("settings.thisDevice")}</Badge> : (
                 <button className="btn btn-ghost btn-sm" onClick={async () => { await api(`/api/account/sessions/${x.id}`, { method: "DELETE" }); await s.reload(); }}>
-                  <LogOut className="h-4 w-4" aria-hidden /> Sign out
+                  <LogOut className="h-4 w-4" aria-hidden /> {t("settings.signOut")}
                 </button>
               )}
             </li>
@@ -270,6 +305,7 @@ function Sessions() {
 }
 
 function PasswordCard() {
+  const t = useT();
   const { user } = useUser();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -277,7 +313,7 @@ function PasswordCard() {
     e.preventDefault();
     const form = e.currentTarget;
     const f = new FormData(form);
-    if (f.get("new_password") !== f.get("confirm")) return setMsg({ ok: false, text: "Passwords do not match." });
+    if (f.get("new_password") !== f.get("confirm")) return setMsg({ ok: false, text: t("auth.passwordsMismatch") });
     setBusy(true);
     try {
       const r = await api<{ status: string }>("/api/account/password", { body: { current_password: f.get("current_password") || null, new_password: f.get("new_password") } });
@@ -290,21 +326,22 @@ function PasswordCard() {
     }
   }
   return (
-    <Section title={user.has_password ? "Change password" : "Set a password"} id="pw">
+    <Section title={user.has_password ? t("settings.changePassword") : t("settings.setPassword")} id="pw">
       <form className="space-y-3" onSubmit={submit}>
         {user.has_password && (
-          <Field label="Current password" id="current_password"><input className="input" type="password" id="current_password" name="current_password" autoComplete="current-password" required /></Field>
+          <Field label={t("settings.currentPassword")} id="current_password"><input className="input" type="password" id="current_password" name="current_password" autoComplete="current-password" required /></Field>
         )}
-        <Field label="New password" id="new_password" hint="At least 10 characters, with letters and a number or symbol."><input className="input" type="password" id="new_password" name="new_password" autoComplete="new-password" minLength={10} required /></Field>
-        <Field label="Confirm new password" id="confirm"><input className="input" type="password" id="confirm" name="confirm" autoComplete="new-password" required /></Field>
+        <Field label={t("settings.newPassword")} id="new_password" hint={t("auth.passwordHint")}><input className="input" type="password" id="new_password" name="new_password" autoComplete="new-password" minLength={10} required /></Field>
+        <Field label={t("settings.confirmNew")} id="confirm"><input className="input" type="password" id="confirm" name="confirm" autoComplete="new-password" required /></Field>
         {msg && <Alert tone={msg.ok ? "ok" : "bad"}>{msg.text}</Alert>}
-        <button className="btn btn-primary btn-sm" disabled={busy}>{busy ? <Spinner label="Saving" /> : "Update password"}</button>
+        <button className="btn btn-primary btn-sm" disabled={busy}>{busy ? <Spinner label={t("common.saving")} /> : t("settings.updatePassword")}</button>
       </form>
     </Section>
   );
 }
 
 function DataCard() {
+  const t = useT();
   const { user } = useUser();
   const router = useRouter();
   const [busy, setBusy] = useState<"export" | "delete" | null>(null);
@@ -330,7 +367,7 @@ function DataCard() {
     }
   }
   async function del() {
-    if (!window.confirm("Permanently delete your account, every resume, version, analysis and stored file? This cannot be undone.")) return;
+    if (!window.confirm(t("settings.confirmDelete"))) return;
     setBusy("delete");
     setErr(null);
     try {
@@ -343,26 +380,26 @@ function DataCard() {
   }
   return (
     <section className="card p-5 sm:p-6 lg:col-span-2" aria-labelledby="data-h">
-      <h2 id="data-h" className="text-xl">Your data</h2>
+      <h2 id="data-h" className="text-xl">{t("settings.yourData")}</h2>
       <div className="mt-4 grid gap-6 md:grid-cols-2">
         <div>
-          <p className="text-sm text-ink-2">Download everything linked to your account: records as JSON plus your original uploads.</p>
+          <p className="text-sm text-ink-2">{t("settings.exportHelp")}</p>
           <button className="btn btn-secondary mt-3" onClick={exportData} disabled={busy !== null}>
-            {busy === "export" ? <Spinner label="Preparing" /> : (<><Download className="h-4 w-4" aria-hidden /> Export my data</>)}
+            {busy === "export" ? <Spinner label={t("settings.preparing")} /> : (<><Download className="h-4 w-4" aria-hidden /> {t("settings.export")}</>)}
           </button>
         </div>
         <div className="rounded-lg border border-[#e9b7af] bg-bad-soft p-4">
-          <p className="font-semibold text-bad">Delete account</p>
-          <p className="mt-1 text-sm text-ink-2">Removes stored files, versions, analyses, AI suggestions, job descriptions and applications. A content-free audit entry is kept.</p>
+          <p className="font-semibold text-bad">{t("settings.deleteAccount")}</p>
+          <p className="mt-1 text-sm text-ink-2">{t("settings.deleteHelp")}</p>
           <div className="mt-3 space-y-2">
-            <Field label={`Type your email (${user.email}) to confirm`} id="del-email">
+            <Field label={t("settings.typeEmail", { email: user.email })} id="del-email">
               <input className="input" id="del-email" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoComplete="off" />
             </Field>
             {user.has_password && (
-              <Field label="Password" id="del-pw"><input className="input" type="password" id="del-pw" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" /></Field>
+              <Field label={t("settings.password")} id="del-pw"><input className="input" type="password" id="del-pw" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" /></Field>
             )}
             <button className="btn btn-danger" disabled={busy !== null || confirmText.trim().toLowerCase() !== user.email} onClick={del}>
-              {busy === "delete" ? <Spinner label="Deleting" /> : (<><Trash2 className="h-4 w-4" aria-hidden /> Delete everything</>)}
+              {busy === "delete" ? <Spinner label={t("settings.deleting")} /> : (<><Trash2 className="h-4 w-4" aria-hidden /> {t("settings.deleteEverything")}</>)}
             </button>
           </div>
         </div>

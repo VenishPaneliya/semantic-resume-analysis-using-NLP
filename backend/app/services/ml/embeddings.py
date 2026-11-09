@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections import OrderedDict
 from functools import lru_cache
 
 import numpy as np
@@ -22,13 +23,43 @@ from app.config import get_settings
 log = logging.getLogger(__name__)
 
 
+CACHE_MAX_TEXTS = 20_000  # ~30 MB of MiniLM vectors; oldest entries are dropped first
+
+
 class Embedder:
+    """Text -> unit vectors. `encode` memoises per exact text (bounded LRU), because the same texts are
+    embedded over and over: one resume's evidence against every opening, and every opening's requirements
+    on every leaderboard view. Vectors are deterministic for a given model, so caching changes no result."""
+
     name: str
     lo: float
     hi: float
 
-    def encode(self, texts: list[str]) -> np.ndarray:  # pragma: no cover - interface
+    def _encode(self, texts: list[str]) -> np.ndarray:  # pragma: no cover - interface
         raise NotImplementedError
+
+    def encode(self, texts: list[str]) -> np.ndarray:
+        cache: OrderedDict[str, np.ndarray] = self.__dict__.setdefault("_cache", OrderedDict())
+        lock: threading.Lock = self.__dict__.setdefault("_cache_lock", threading.Lock())
+        with lock:
+            missing = list(dict.fromkeys(t for t in texts if t not in cache))
+        if missing:
+            vecs = self._encode(missing)
+            with lock:
+                for t, v in zip(missing, vecs, strict=True):
+                    cache[t] = v
+                while len(cache) > CACHE_MAX_TEXTS:
+                    cache.popitem(last=False)
+        with lock:
+            out = []
+            for t in texts:
+                v = cache.get(t)
+                if v is None:  # evicted between the two steps under heavy load: compute directly
+                    v = self._encode([t])[0]
+                else:
+                    cache.move_to_end(t)
+                out.append(v)
+        return np.vstack(out).astype(np.float32) if out else self._encode(texts)
 
     def similarity(self, a: list[str], b: list[str]) -> np.ndarray:
         ea, eb = self.encode(a), self.encode(b)
@@ -48,7 +79,7 @@ class SentenceTransformerEmbedder(Embedder):
         self.name = f"st:{model_name}"
         self._lock = threading.Lock()
 
-    def encode(self, texts: list[str]) -> np.ndarray:
+    def _encode(self, texts: list[str]) -> np.ndarray:
         with self._lock:
             v = self.model.encode(texts, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False)
         return np.asarray(v, dtype=np.float32)
@@ -72,7 +103,7 @@ class TfidfEmbedder(Embedder):
         self.word.fit(corpus)
         self.char.fit(corpus)
 
-    def encode(self, texts: list[str]) -> np.ndarray:
+    def _encode(self, texts: list[str]) -> np.ndarray:
         from scipy.sparse import hstack
         from sklearn.preprocessing import normalize
 

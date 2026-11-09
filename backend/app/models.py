@@ -96,6 +96,11 @@ class User(TimestampMixin, Base):
     ai_consent_provider: Mapped[str | None] = mapped_column(String(64))
     allow_training_use: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    # two-factor authentication (TOTP, RFC 6238)
+    totp_secret: Mapped[str | None] = mapped_column(EncryptedText)
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    recovery_code_hashes: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    totp_last_step: Mapped[int | None] = mapped_column(Integer)  # rejects reuse of an accepted code
 
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
 
@@ -414,6 +419,65 @@ class ApplicationNote(Base):
     author_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     text: Mapped[str] = mapped_column(EncryptedText)
     created_at: Mapped[datetime] = mapped_column(TZDateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------- candidate engagement
+
+
+class JobAlertSent(Base):
+    """Dedupe record: one alert per user per opening."""
+
+    __tablename__ = "job_alerts_sent"
+    __table_args__ = (UniqueConstraint("user_id", "opening_id"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    opening_id: Mapped[str] = mapped_column(ForeignKey("job_openings.id", ondelete="CASCADE"), index=True)
+    score: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(TZDateTime, default=utcnow)
+
+
+class LearningItem(TimestampMixin, Base):
+    """A skill on the user's learning plan."""
+
+    __tablename__ = "learning_items"
+    __table_args__ = (UniqueConstraint("user_id", "skill"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    skill: Mapped[str] = mapped_column(String(80))
+    target_kind: Mapped[str | None] = mapped_column(String(16))  # role | opening
+    target_id: Mapped[str | None] = mapped_column(String(64))
+    target_title: Mapped[str | None] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(16), default="todo")  # todo | learning | done
+    completed_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+
+
+class InterviewSession(TimestampMixin, Base):
+    """Mock interview practice. Answers are personal free text and stored encrypted."""
+
+    __tablename__ = "interview_sessions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    version_id: Mapped[str] = mapped_column(ForeignKey("resume_versions.id", ondelete="CASCADE"), index=True)
+    target_kind: Mapped[str | None] = mapped_column(String(16))
+    target_id: Mapped[str | None] = mapped_column(String(64))
+    target_title: Mapped[str | None] = mapped_column(String(200))
+    questions: Mapped[list] = mapped_column(JSONType, default=list)
+    questions_source: Mapped[str] = mapped_column(String(32))  # provider name or "template"
+    answers_enc: Mapped[str | None] = mapped_column(EncryptedText)  # JSON {question_id: {answer, feedback, at}}
+
+
+class DemographicSelfId(TimestampMixin, Base):
+    """Voluntary self-identification used ONLY for aggregate fairness monitoring.
+
+    Never read by ranking, matching, tips or recruiter candidate views. Values are encrypted;
+    reports only show groups with at least FAIRNESS_MIN_GROUP people. Deleting it is one click."""
+
+    __tablename__ = "demographic_self_ids"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    gender: Mapped[str | None] = mapped_column(EncryptedText)
+    age_band: Mapped[str | None] = mapped_column(EncryptedText)
+    consented_at: Mapped[datetime] = mapped_column(TZDateTime, default=utcnow)
 
 
 # ---------------------------------------------------------------- ops

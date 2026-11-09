@@ -63,16 +63,23 @@ class InterviewOut(BaseModel):
     questions: list[InterviewQ] = Field(max_length=20)
 
 
+class InterviewFeedbackOut(BaseModel):
+    strengths: list[str] = Field(default_factory=list, max_length=5)
+    improvements: list[str] = Field(default_factory=list, max_length=5)
+    follow_up: str | None = Field(default=None, max_length=400)
+
+
 SCHEMAS: dict[str, type[BaseModel]] = {
     "rewrite_bullet": RewriteOut, "grammar": RewriteOut, "shorten": RewriteOut, "tone": RewriteOut,
     "tailor": RewriteOut, "improve_summary": RewriteOut, "cover_letter": CoverLetterOut,
-    "interview_questions": InterviewOut,
+    "interview_questions": InterviewOut, "interview_feedback": InterviewFeedbackOut,
 }
 
 SCHEMA_HINTS = {
     RewriteOut: '{"revised":[{"target_id":"<id from input>","text":"<revised text>"}],"explanation":"<why these edits>","questions":["<fact you need from the user>"]}',
     CoverLetterOut: '{"paragraphs":["<paragraph>", "..."],"questions":["<fact you need>"]}',
     InterviewOut: '{"questions":[{"question":"...","why":"...","based_on":"<item id or job_description>"}]}',
+    InterviewFeedbackOut: '{"strengths":["..."],"improvements":["..."],"follow_up":"<a likely follow-up question>"}',
 }
 
 OP_INSTRUCTIONS = {
@@ -85,6 +92,10 @@ OP_INSTRUCTIONS = {
     "improve_summary": "Write a 2–3 sentence professional summary using only the facts provided. Use target_id 'summary'.",
     "cover_letter": "Write a concise cover letter (3–5 short paragraphs) using only the facts provided. Use placeholders for anything unknown.",
     "interview_questions": "Generate likely interview questions grounded in the resume items and (if given) the job description gaps.",
+    "interview_feedback": ("Coach the candidate's practice answer in task_json.answer to task_json.question. Name up to 3 strengths "
+                           "and up to 3 concrete improvements (structure, clarity, ownership, outcome). Never write new claims, "
+                           "numbers or experiences for the candidate: when a detail is missing, tell them to add it only if it is "
+                           "true. Suggest one likely follow-up question."),
 }
 
 

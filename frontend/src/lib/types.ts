@@ -8,8 +8,10 @@ export interface User {
   email_verified: boolean;
   ai_consent_provider: string | null;
   has_password: boolean;
-  notification_prefs: Record<string, boolean>;
+  notification_prefs: Record<string, boolean | number | string | null>;
   career_prefs: CareerPrefs;
+  mfa_enabled?: boolean;
+  mfa_required_for_role?: boolean;
 }
 
 export interface CareerPrefs {
@@ -205,10 +207,13 @@ export interface RoleRow {
   core_coverage: number | null; tips_available: boolean; tips_blocked_reason: string | null;
   components: { required_coverage: number; preferred_coverage: number; semantic: number; semantic_raw_cosine: number; title_signal: number };
   keywords_matched: string[]; keywords_weak: string[]; keywords_missing: string[]; missing_required: string[]; reasons: string[];
+  possibly_unlisted: { skill: string; because_you_have: string[] }[]; next_steps: string[];
+  /** rows are ordered by score + this adjustment from the user's target roles / domains; the score itself is unchanged */
+  preference_adjustment: number; preference_reasons: string[];
 }
 export interface RoleLeaderboard {
   status: "ok" | "insufficient_evidence"; message?: string; leaderboard_version: string; embedding_model: string; taxonomy_version: string;
-  tips_min_score: number; tips_min_core_coverage: number; tiers: TierBand[]; disclaimer: string; rows: RoleRow[];
+  tips_min_score: number; tips_min_core_coverage: number; tiers: TierBand[]; disclaimer: string; rows: RoleRow[]; seniority: Seniority;
 }
 
 export type WorkArrangement = "onsite" | "hybrid" | "remote";
@@ -231,12 +236,16 @@ export interface OpeningLeaderboard {
   status: "ok" | "no_openings"; message: string | null; leaderboard_version: string; matcher_version: string; disclaimer: string; rows: OpeningRow[];
 }
 
-export type ApplicationStage = "submitted" | "shortlisted" | "rejected";
+export type ApplicationStage = "submitted" | "shortlisted" | "interview" | "offer" | "hired" | "rejected";
+export const STAGES: ApplicationStage[] = ["submitted", "shortlisted", "interview", "offer", "hired", "rejected"];
 export type Standing =
   | { available: false; applicants: number; min_pool?: number; message: string }
   | {
-      available: true; rank: number; applicants: number; top_percent: number; my_score: number; median: number;
-      distribution: { from: number; to: number; count: number }[]; note: string;
+      available: true; rank: number; applicants: number; top_percent: number; my_score: number;
+      /** null below distribution_min_pool applicants: with few people these would reveal others' scores */
+      median: number | null; distribution_min_pool: number;
+      /** count is null for a band with 1-2 people ("a few") */
+      distribution: { from: number; to: number; count: number | null }[] | null; note: string;
     };
 export interface OpeningApplicationOut {
   id: string; version_id: string; score: number; tier: Tier; stage: ApplicationStage; applied_at: string; updated_at: string; standing: Standing;
@@ -259,15 +268,86 @@ export interface Tips {
 }
 
 // ---------------------------------------------------------------- recruiter
-export interface RecruiterOpening extends Opening { applicants: number; top_score: number | null }
+export interface RecruiterOpening extends Opening { applicants: number; top_score: number | null; stages?: Record<ApplicationStage, number> }
 export interface RecruiterOpeningFull extends OpeningFull { applicants: number; warnings?: string[]; rescored_applications?: number }
+export type CandidateSource = "applied" | "uploaded";
 export interface CandidateRow {
-  rank: number; application_id: string; name: string; email: string; score: number; tier: Tier; stage: ApplicationStage;
+  rank: number; application_id: string; name: string; email: string | null; source: CandidateSource; score: number; tier: Tier; stage: ApplicationStage;
   counts: Partial<Record<"matched" | "partial" | "missing" | "unknown", number>>; keywords_matched: string[]; keywords_missing: string[];
-  applied_at: string; updated_at: string;
+  years: number | null; notes: number; applied_at: string; updated_at: string; stage_changed_at: string | null; expires_at: string | null;
 }
-export interface CandidateList { opening: Opening; candidates: CandidateRow[]; note: string }
+export interface CandidateFilters { must_have: string[]; min_years: number | null; min_score: number | null; stage: ApplicationStage[]; source: CandidateSource | null }
+export interface CandidateList { opening: Opening; candidates: CandidateRow[]; total: number; filters: CandidateFilters; stages: ApplicationStage[]; note: string }
+export interface Note { id: string; text: string; author: string; author_id: string | null; created_at: string }
 export interface RecruiterApplication {
-  id: string; opening_id: string; name: string; email: string; score: number; tier: Tier; stage: ApplicationStage;
+  id: string; opening_id: string; name: string; email: string | null; source: CandidateSource; score: number; tier: Tier; stage: ApplicationStage;
   match: Omit<MatchResult, "jd" | "cached"> | null; resume: ResumeContent; applied_at: string;
+  facts: { years: number; skills: string[] } | null; expires_at: string | null; notes: Note[];
+}
+export type ReqStatus = "matched" | "partial" | "missing" | "unknown";
+export interface CompareCell { application_id: string; status: ReqStatus; explanation: string | null; evidence: (EvidenceRef & { similarity?: number })[] }
+export interface CompareResult {
+  opening: Opening; note: string;
+  candidates: { application_id: string; name: string; score: number; tier: Tier; stage: ApplicationStage; years: number | null; counts: Partial<Record<ReqStatus, number>> }[];
+  requirements: { text: string; importance: "required" | "preferred"; kind: string; cells: CompareCell[] }[];
+}
+export interface BulkUploadResult {
+  added: { application_id: string; file: string; name: string; score: number; tier: Tier }[];
+  failed: { file: string; code: string; message: string }[];
+  retention_days: number; note: string;
+}
+export interface AnalyticsOpening extends Opening {
+  applicants: number; strong_matches: number; median_score: number | null; advanced: number; median_days_to_advance: number | null; age_days: number; hard_to_fill: boolean;
+}
+export interface Analytics {
+  totals: { openings_open: number; openings_closed: number; candidates: number; applied: number; uploaded: number; stages: Record<ApplicationStage, number>; median_score: number | null };
+  most_missing_skills: { skill: string; candidates: number; share: number }[];
+  openings: AnalyticsOpening[]; include_demo: boolean; notes: string[];
+}
+export interface FairnessGroup {
+  group: string; n: number; mean_score: number; strong_rate: number; selection_rate: number; flags: string[];
+  strong_rate_impact_ratio: number | null; selection_rate_impact_ratio: number | null;
+}
+export interface Fairness {
+  opening_id: string | null; applicants: number; as_of: string; min_group_size: number; min_groups_shown: number;
+  dimensions: Record<"gender" | "age_band", { groups: FairnessGroup[] }>; notes: string[];
+}
+
+// ---------------------------------------------------------------- engagement
+export interface WhatIfSide { score: number | null; tier: Tier; core_coverage: number | null; tips_available: boolean }
+export interface WhatIf {
+  target: { kind: "role" | "opening"; id: string; title: string }; before: WhatIfSide; after: WhatIfSide; delta: number | null;
+  keywords_gained: string[]; keywords_lost: string[]; note: string;
+}
+export type LearningStatus = "todo" | "learning" | "done";
+export interface LearningItem {
+  id: string; skill: string; status: LearningStatus; target: { kind: "role" | "opening" | null; id: string | null; title: string | null };
+  resources: ResourceLookup; evidence_in_resume: boolean; next_step: string | null; created_at: string; completed_at: string | null;
+}
+export interface LearningPlan { items: LearningItem[]; progress: { done: number; total: number; percent: number }; resource_provider: string; added?: string[] }
+export interface HistoryPoint {
+  version_id: string; number: number; label: string | null; source: string; created_at: string; quality: number | null;
+  top_role: { role_id: string; title: string; score: number } | null; target_score: number | null;
+}
+export interface ResumeHistory { resume_id: string; role_id: string | null; points: HistoryPoint[]; change: { quality: number | null; target_score: number | null }; note: string }
+export interface CheckItem { id: string; ok: boolean; label: string; tip: string }
+export interface AnswerChecks { kind: "rule_based"; label: string; words: number; score: number; items: CheckItem[]; skills_mentioned: string[] }
+export type AiFeedback =
+  | { status: "ok"; strengths: string[]; improvements: string[]; follow_up: string | null; provider: string; model: string; is_fixture: boolean; label: string }
+  | { status: "unavailable"; code: string; message: string }
+  | { status: "skipped" };
+export interface InterviewAnswer { answer: string; checks: AnswerChecks; ai: AiFeedback; at: string }
+export interface InterviewQuestion { id: string; question: string; why?: string; based_on?: string; answer: InterviewAnswer | null }
+export interface InterviewSession {
+  id: string; version_id: string; target: { kind: "role" | "opening" | null; id: string | null; title: string | null };
+  questions: InterviewQuestion[]; questions_source: string; is_fixture: boolean; answered: number; created_at: string; updated_at: string;
+}
+export interface InterviewSummary { id: string; version_id: string; target: InterviewSession["target"]; answered: number; questions: number; created_at: string }
+
+// ---------------------------------------------------------------- security & privacy
+export interface MfaStatus { enabled: boolean; enabled_at: string | null; recovery_codes_left: number }
+export interface MfaSetup { secret: string; otpauth_uri: string; instructions: string }
+export interface SelfId {
+  notice: string; options: { gender: string[]; age_band: string[] };
+  value: { gender: string | null; age_band: string | null; consented_at: string } | null;
 }

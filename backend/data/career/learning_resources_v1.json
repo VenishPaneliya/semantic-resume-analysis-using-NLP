@@ -1,0 +1,514 @@
+[
+ {
+  "skill": "Accessibility",
+  "title": "Accessibility (MDN)",
+  "url": "https://developer.mozilla.org/en-US/docs/Web/Accessibility",
+  "source": "MDN",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Airflow",
+  "title": "Airflow Tutorials",
+  "url": "https://airflow.apache.org/docs/apache-airflow/stable/tutorial/index.html",
+  "source": "apache.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Android",
+  "title": "Android Basics with Compose",
+  "url": "https://developer.android.com/courses/android-basics-compose/course",
+  "source": "developer.android.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Angular",
+  "title": "Angular tutorials",
+  "url": "https://angular.dev/tutorials",
+  "source": "angular.dev",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "AWS",
+  "title": "AWS Skill Builder",
+  "url": "https://skillbuilder.aws/",
+  "source": "aws.amazon.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Bash",
+  "title": "GNU Bash Reference Manual",
+  "url": "https://www.gnu.org/software/bash/manual/bash.html",
+  "source": "gnu.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "C#",
+  "title": "C# documentation",
+  "url": "https://learn.microsoft.com/en-us/dotnet/csharp/",
+  "source": "Microsoft Learn",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Celery",
+  "title": "First steps with Celery",
+  "url": "https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html",
+  "source": "celeryq.dev",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "CI/CD",
+  "title": "GitHub Actions: Understanding",
+  "url": "https://docs.github.com/en/actions/get-started/understand-github-actions",
+  "source": "GitHub Docs",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "CSS",
+  "title": "CSS: Learn web development",
+  "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Styling_basics",
+  "source": "MDN",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "dbt",
+  "title": "dbt Quickstarts",
+  "url": "https://docs.getdbt.com/guides",
+  "source": "getdbt.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Django",
+  "title": "Writing your first Django app",
+  "url": "https://docs.djangoproject.com/en/stable/intro/tutorial01/",
+  "source": "djangoproject.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Docker",
+  "title": "Docker: Get started",
+  "url": "https://docs.docker.com/get-started/",
+  "source": "docker.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Elasticsearch",
+  "title": "Elasticsearch Guide",
+  "url": "https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html",
+  "source": "elastic.co",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Excel",
+  "title": "Excel help & learning",
+  "url": "https://support.microsoft.com/en-us/excel",
+  "source": "Microsoft Support",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Express",
+  "title": "Express: Getting started",
+  "url": "https://expressjs.com/en/starter/installing.html",
+  "source": "expressjs.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "FastAPI",
+  "title": "FastAPI Tutorial - User Guide",
+  "url": "https://fastapi.tiangolo.com/tutorial/",
+  "source": "fastapi.tiangolo.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Flask",
+  "title": "Flask Tutorial",
+  "url": "https://flask.palletsprojects.com/en/stable/tutorial/",
+  "source": "palletsprojects.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "GCP",
+  "title": "Google Cloud Skills Boost",
+  "url": "https://www.cloudskillsboost.google/",
+  "source": "google.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Git",
+  "title": "Pro Git book",
+  "url": "https://git-scm.com/book/en/v2",
+  "source": "git-scm.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Go",
+  "title": "A Tour of Go",
+  "url": "https://go.dev/tour/",
+  "source": "go.dev",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "GraphQL",
+  "title": "Learn GraphQL",
+  "url": "https://graphql.org/learn/",
+  "source": "graphql.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "gRPC",
+  "title": "gRPC: Introduction",
+  "url": "https://grpc.io/docs/what-is-grpc/introduction/",
+  "source": "grpc.io",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "HTML",
+  "title": "HTML: Getting started",
+  "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Structuring_content",
+  "source": "MDN",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "iOS",
+  "title": "Develop in Swift Tutorials",
+  "url": "https://developer.apple.com/tutorials/develop-in-swift/",
+  "source": "developer.apple.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Java",
+  "title": "Learn Java (dev.java)",
+  "url": "https://dev.java/learn/",
+  "source": "dev.java",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "JavaScript",
+  "title": "JavaScript Guide",
+  "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide",
+  "source": "MDN",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Kafka",
+  "title": "Apache Kafka Quickstart",
+  "url": "https://kafka.apache.org/quickstart",
+  "source": "apache.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Kotlin",
+  "title": "Kotlin docs: Getting started",
+  "url": "https://kotlinlang.org/docs/getting-started.html",
+  "source": "kotlinlang.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Kubernetes",
+  "title": "Kubernetes Basics",
+  "url": "https://kubernetes.io/docs/tutorials/kubernetes-basics/",
+  "source": "kubernetes.io",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "LLMs",
+  "title": "Hugging Face LLM Course",
+  "url": "https://huggingface.co/learn/llm-course/chapter1/1",
+  "source": "huggingface.co",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Machine Learning",
+  "title": "Machine Learning Crash Course",
+  "url": "https://developers.google.com/machine-learning/crash-course",
+  "source": "Google for Developers",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "MLflow",
+  "title": "MLflow Getting Started",
+  "url": "https://mlflow.org/docs/latest/getting-started/",
+  "source": "mlflow.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "MongoDB",
+  "title": "MongoDB: Getting started",
+  "url": "https://www.mongodb.com/docs/manual/tutorial/getting-started/",
+  "source": "mongodb.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "MySQL",
+  "title": "MySQL Tutorial",
+  "url": "https://dev.mysql.com/doc/refman/8.4/en/tutorial.html",
+  "source": "mysql.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Next.js",
+  "title": "Next.js Learn",
+  "url": "https://nextjs.org/learn",
+  "source": "nextjs.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Node.js",
+  "title": "Learn Node.js",
+  "url": "https://nodejs.org/en/learn",
+  "source": "nodejs.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "NumPy",
+  "title": "NumPy: the absolute basics",
+  "url": "https://numpy.org/doc/stable/user/absolute_beginners.html",
+  "source": "numpy.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Pandas",
+  "title": "10 minutes to pandas",
+  "url": "https://pandas.pydata.org/docs/user_guide/10min.html",
+  "source": "pydata.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Playwright",
+  "title": "Playwright: Installation",
+  "url": "https://playwright.dev/docs/intro",
+  "source": "playwright.dev",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "PostgreSQL",
+  "title": "PostgreSQL Tutorial",
+  "url": "https://www.postgresql.org/docs/current/tutorial.html",
+  "source": "postgresql.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Power BI",
+  "title": "Power BI learning paths",
+  "url": "https://learn.microsoft.com/en-us/training/powerplatform/power-bi",
+  "source": "Microsoft Learn",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Python",
+  "title": "The Python Tutorial",
+  "url": "https://docs.python.org/3/tutorial/",
+  "source": "python.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "RabbitMQ",
+  "title": "RabbitMQ Tutorials",
+  "url": "https://www.rabbitmq.com/tutorials",
+  "source": "rabbitmq.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "React",
+  "title": "React: Quick Start",
+  "url": "https://react.dev/learn",
+  "source": "react.dev",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "React Native",
+  "title": "React Native: Introduction",
+  "url": "https://reactnative.dev/docs/getting-started",
+  "source": "reactnative.dev",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Redis",
+  "title": "Redis docs: Get started",
+  "url": "https://redis.io/docs/latest/get-started/",
+  "source": "redis.io",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Rust",
+  "title": "The Rust Programming Language",
+  "url": "https://doc.rust-lang.org/book/",
+  "source": "rust-lang.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Security",
+  "title": "OWASP Top Ten",
+  "url": "https://owasp.org/www-project-top-ten/",
+  "source": "owasp.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Selenium",
+  "title": "Selenium documentation",
+  "url": "https://www.selenium.dev/documentation/",
+  "source": "selenium.dev",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Spark",
+  "title": "Spark Quick Start",
+  "url": "https://spark.apache.org/docs/latest/quick-start.html",
+  "source": "apache.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Spring Boot",
+  "title": "Spring Boot guides",
+  "url": "https://spring.io/guides",
+  "source": "spring.io",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "SQL",
+  "title": "PostgreSQL Tutorial: The SQL Language",
+  "url": "https://www.postgresql.org/docs/current/tutorial-sql.html",
+  "source": "postgresql.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Statistics",
+  "title": "OpenStax Introductory Statistics",
+  "url": "https://openstax.org/details/books/introductory-statistics-2e",
+  "source": "OpenStax",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Swift",
+  "title": "The Swift Programming Language",
+  "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/",
+  "source": "swift.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Tableau",
+  "title": "Tableau free training videos",
+  "url": "https://www.tableau.com/learn/training",
+  "source": "tableau.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Tailwind CSS",
+  "title": "Tailwind CSS docs",
+  "url": "https://tailwindcss.com/docs",
+  "source": "tailwindcss.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "TensorFlow",
+  "title": "TensorFlow tutorials",
+  "url": "https://www.tensorflow.org/tutorials",
+  "source": "tensorflow.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Terraform",
+  "title": "Terraform tutorials",
+  "url": "https://developer.hashicorp.com/terraform/tutorials",
+  "source": "hashicorp.com",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Transformers",
+  "title": "Hugging Face Transformers docs",
+  "url": "https://huggingface.co/docs/transformers/index",
+  "source": "huggingface.co",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "TypeScript",
+  "title": "TypeScript Handbook",
+  "url": "https://www.typescriptlang.org/docs/handbook/intro.html",
+  "source": "typescriptlang.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Unit Testing",
+  "title": "pytest: Get started",
+  "url": "https://docs.pytest.org/en/stable/getting-started.html",
+  "source": "pytest.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "Vue.js",
+  "title": "Vue.js Guide",
+  "url": "https://vuejs.org/guide/introduction.html",
+  "source": "vuejs.org",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ },
+ {
+  "skill": "XGBoost",
+  "title": "Get started with XGBoost",
+  "url": "https://xgboost.readthedocs.io/en/stable/get_started.html",
+  "source": "xgboost.readthedocs.io",
+  "retrieved_on": "2026-11-08",
+  "kind": "official_docs"
+ }
+]

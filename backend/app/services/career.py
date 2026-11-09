@@ -12,6 +12,7 @@ from pathlib import Path
 from app.config import get_settings
 from app.schemas.resume import ResumeContent
 from app.services.ml.recommender import skill_gap
+from app.services.text import clip
 
 DATA = Path(__file__).resolve().parents[2] / "data" / "career"
 
@@ -56,11 +57,17 @@ class CuratedFileProvider(ResourceProvider):
                 "resources": [{k: r[k] for k in ("title", "url", "source", "retrieved_on") if k in r} for r in rows[:5]]}
 
 
+BUNDLED_RESOURCES = Path(__file__).resolve().parents[2] / "data" / "career" / "learning_resources_v1.json"
+
+
 def resource_provider() -> ResourceProvider:
+    """Default: the bundled list of official documentation links, each link-checked on its
+    `retrieved_on` date. LEARNING_RESOURCES_FILE swaps in an admin-maintained list;
+    LEARNING_RESOURCES_PROVIDER=none turns resources off (an explicit unavailable state)."""
     s = get_settings()
-    if s.learning_resources_provider == "curated_file" and s.learning_resources_file:
+    if s.learning_resources_provider == "curated_file":
         try:
-            return CuratedFileProvider(s.learning_resources_file)
+            return CuratedFileProvider(s.learning_resources_file or str(BUNDLED_RESOURCES))
         except (OSError, ValueError):
             return ResourceProvider()
     return ResourceProvider()
@@ -106,7 +113,7 @@ def roadmap(content: ResumeContent, role_ids: list[str]) -> dict:
 def template_interview_questions(content: ResumeContent, gaps: list[str]) -> list[dict]:
     qs = []
     for path, owner, text in content.all_bullets()[:6]:
-        qs.append({"question": f"In “{owner}”, you wrote: “{text[:140]}”. What exactly was your role, and what would you do differently?",
+        qs.append({"question": f"In “{owner}”, you wrote: “{clip(text, 140)}”. What exactly was your role, and what would you do differently?",
                    "why": "Interviewers verify ownership and depth behind resume claims.", "based_on": path})
     for e in content.experience[:2]:
         if e.title:

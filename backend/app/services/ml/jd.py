@@ -30,7 +30,15 @@ SECTION_PATTERNS = {
     "preferred": r"(preferred|nice to have|bonus|good to have|desired|plus|preferred qualifications|additional qualifications)",
     "about": r"(about (us|the company|the team)|who we are|benefits|perks|what we offer|compensation|equal opportunity)",
 }
-YEARS_RE = re.compile(r"(\d{1,2})\s*(?:\+|plus)?\s*(?:-|–|to)?\s*(\d{1,2})?\s*\+?\s*(?:years?|yrs?)", re.I)
+_NUM_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+YEARS_RE = re.compile(
+    r"\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:\+|plus)?\s*(?:-|–|to)?\s*(\d{1,2})?\s*\+?\s*(?:years?|yrs?)\b",
+    re.I,
+)
+
+
+def _years_value(token: str) -> int:
+    return int(token) if token.isdigit() else _NUM_WORDS[token.lower()]
 REMOTE_RE = re.compile(r"\b(fully remote|remote[- ]first|remote|work from home|wfh)\b", re.I)
 HYBRID_RE = re.compile(r"\bhybrid\b", re.I)
 ONSITE_RE = re.compile(r"\b(on[- ]?site|in[- ]office|office[- ]based)\b", re.I)
@@ -41,12 +49,18 @@ UNASSESSABLE = re.compile(
     r"on[- ]call|weekends?|driver'?s licen[cs]e|security clearance|citizenship)\b", re.I
 )
 ALTERNATIVE = re.compile(r"\b(or|one of|any of|such as|e\.g\.|similar)\b", re.I)
+# Checked in order; the first match wins. Every alternative starts at a word boundary so that
+# "Systems" is not "MS" and "time" is not "ME". Two-letter abbreviations that are also English
+# words or product names (BE, BA, BS, MS, ME) only count in capitals, and "MS Office" is not a degree.
+_MS_PRODUCT = r"(?!\s*(?:office|excel|word|sql|teams|project|access|azure|dynamics|outlook|powerpoint)\b)"
 DEGREE_LEVELS = [
-    (5, r"ph\.?\s?d|doctorate"),
-    (4, r"master|m\.?\s?s\b|m\.?\s?sc|m\.?\s?tech|mba|m\.?e\b|mca"),
-    (3, r"bachelor|b\.?\s?s\b|b\.?\s?sc|b\.?\s?tech|b\.?e\b|b\.?a\b|bca|bba|b\.?com|degree in|undergraduate"),
-    (2, r"associate|diploma"),
-    (1, r"high school|secondary"),
+    (5, r"\bph\.?\s?d\b|\bdoctorate\b|\bdoctoral\b"),
+    (4, rf"\bmaster|\bm\.\s?s\b\.?|(?-i:\bMS\b){_MS_PRODUCT}|\bm\.?\s?sc\b|\bm\.?\s?tech\b|\bmba\b|\bm\.\s?e\b\.?|(?-i:\bME\b)|\bmca\b|\bpost[- ]?graduate\b"),
+    (2, r"\bassociate'?s?\s+degree\b|\bassociate\s+of\b"),
+    (3, r"\bbachelor|\bb\.\s?s\b\.?|(?-i:\bBS\b)|\bb\.?\s?sc\b|\bb\.?\s?tech\b|\bb\.\s?e\b\.?|(?-i:\bBE\b)|\bb\.\s?a\b\.?|(?-i:\bBA\b)"
+        r"|\bbca\b|\bbba\b|\bb\.?\s?com\b|\bdegree in\b|\bundergraduate\b|\bgraduate degree\b"),
+    (1, r"\bhigh school\b|\bsecondary school\b|\bhsc\b|\bssc\b"),
+    (2, r"\bdiploma\b"),
 ]
 
 
@@ -57,15 +71,64 @@ def _degree_level(text: str) -> int | None:
     return None
 
 
+_HEADINGS = "|".join(SECTION_PATTERNS.values())
+# "… Django, AWS. Nice to have: Kafka" -> the heading starts a new line. Only after a sentence end and only when
+# followed by ":", so ordinary words inside a sentence ("experience with AWS preferred") are left alone.
+_INLINE_HEADING = re.compile(rf"(?<=[.!?;])\s+(?=(?:{_HEADINGS})\s*:)", re.I)
+# "Nice to have: Kafka, Terraform" on one line -> heading + content
+_LEADING_HEADING = re.compile(rf"^\W*(?P<head>(?:{_HEADINGS})[^:\n]{{0,30}}?)\s*[:\-–—]\s+(?P<body>\S.*)$", re.I)
+_SENTENCE_END = re.compile(r"(?<!e\.g\.)(?<!i\.e\.)(?<=[.;])\s+(?=[A-Z0-9])")
+
+
+def _section_of(heading: str) -> str | None:
+    for key, pat in SECTION_PATTERNS.items():
+        if re.fullmatch(rf"\W*{pat}\W*.*", heading, re.I) and len(heading.split()) <= 7:
+            return key
+    return None
+
+
+def _items(text: str) -> list[str]:
+    """Split pasted prose into requirement-sized items.
+
+    Each sentence is an item; a sentence that is a comma list of short phrases ("5+ years Python, FastAPI or
+    Django, PostgreSQL") becomes one item per phrase. Longer clauses stay whole so their meaning survives."""
+    out = []
+    for sent in _SENTENCE_END.split(text):
+        sent = sent.strip().rstrip(".;").strip()
+        if not sent:
+            continue
+        parts = [p.strip() for p in sent.split(",") if p.strip()]
+        if len(parts) >= 2 and all(len(p.split()) <= 6 for p in parts):
+            out.extend(parts)
+        else:
+            out.append(sent)
+    return out
+
+
+def _clean_title(line: str) -> str:
+    return line.strip().rstrip(".:;-–— ").strip()[:150]
+
+
 def extract_jd(text: str) -> dict:
     tax = get_taxonomy()
-    lines = [ln.strip() for ln in text.replace("\r", "").split("\n")]
+    text = _INLINE_HEADING.sub("\n", text.replace("\r", ""))
+    lines = [ln.strip() for ln in text.split("\n")]
     title = None
     m = re.search(r"(?:job title|position|role)\s*[:\-]\s*(.+)", text, re.I)
     if m:
-        title = m.group(1).strip()[:150]
+        title = _clean_title(m.group(1))
     else:
-        title = next((ln for ln in lines if ln and len(ln) < 90 and not re.match(SECTION_PATTERNS["about"], ln, re.I)), None)
+        # first short line that is not a bullet, a section heading ("Requirements") or "Heading: content"
+        def can_be_title(ln: str) -> bool:
+            if not ln or len(ln) >= 90 or BULLET_RE.match(ln):
+                return False
+            if _section_of(re.sub(r"[:\-–—*#]+$", "", ln).strip()):
+                return False
+            lead = _LEADING_HEADING.match(ln)
+            return not (lead and _section_of(lead.group("head")))
+
+        first = next((ln for ln in lines if can_be_title(ln)), None)
+        title = _clean_title(first) if first else None
     company = None
     cm = re.search(r"(?:company|employer)\s*[:\-]\s*(.+)", text, re.I)
     if cm:
@@ -77,25 +140,30 @@ def extract_jd(text: str) -> dict:
     for ln in lines:
         if not ln:
             continue
-        bare = re.sub(r"[:\-–—*#]+$", "", ln).strip()
-        if len(bare) < 60 and not BULLET_RE.match(ln):
-            for key, pat in SECTION_PATTERNS.items():
-                if re.fullmatch(rf"\W*{pat}\W*.*", bare, re.I) and len(bare.split()) <= 7:
-                    section = key
-                    break
-            else:
-                pass
-            if re.fullmatch(rf"\W*({'|'.join(SECTION_PATTERNS.values())})\W*", bare, re.I):
+        is_bullet = bool(BULLET_RE.match(ln))
+        lead = None if is_bullet else _LEADING_HEADING.match(ln)
+        if lead and _section_of(lead.group("head")):
+            # "Nice to have: Kafka, Terraform" -> section "preferred", items Kafka and Terraform
+            section = _section_of(lead.group("head")) or section
+            items = _items(lead.group("body"))
+        else:
+            bare = re.sub(r"[:\-–—*#]+$", "", ln).strip()
+            if len(bare) < 60 and not is_bullet:
+                section = _section_of(bare) or section
+                if re.fullmatch(rf"\W*({_HEADINGS})\W*", bare, re.I):
+                    continue
+            item = BULLET_RE.sub("", ln).strip()
+            # un-bulleted prose inside a requirements/responsibilities section is split into items
+            items = _items(item) if (not is_bullet and section in ("required", "preferred", "responsibilities")) else [item]
+        for item in items:
+            if len(item) < 4 and not tax.find_skills(item):  # keep short skill lines like "dbt", "AWS", "Go"
                 continue
-        item = BULLET_RE.sub("", ln).strip()
-        if len(item) < 4 and not tax.find_skills(item):  # keep short skill lines like "dbt", "AWS", "Go"
-            continue
-        if section == "responsibilities":
-            responsibilities.append(item)
-            continue
-        if section in ("required", "preferred") or (section == "intro" and BULLET_RE.match(ln)):
-            importance = "preferred" if section == "preferred" or re.search(r"\b(preferred|nice to have|bonus|plus|ideally)\b", item, re.I) else "required"
-            reqs.append(_classify_requirement(item, importance, tax))
+            if section == "responsibilities":
+                responsibilities.append(item)
+                continue
+            if section in ("required", "preferred") or (section == "intro" and is_bullet):
+                importance = "preferred" if section == "preferred" or re.search(r"\b(preferred|nice to have|bonus|plus|ideally)\b", item, re.I) else "required"
+                reqs.append(_classify_requirement(item, importance, tax))
 
     # skills mentioned anywhere count toward keyword coverage
     all_skills = list(dict.fromkeys(h.skill for h in tax.find_skills(text)))
@@ -132,9 +200,10 @@ def _classify_requirement(item: str, importance: str, tax) -> dict:
     ym = YEARS_RE.search(item)
     if UNASSESSABLE.search(item):
         req["kind"] = "unassessable"
-    elif ym and re.search(r"experience|exp\b|working|industry|professional", item, re.I):
+    elif ym and (skills or re.search(r"experience|exp\b|working|industry|professional", item, re.I)):
+        # "5+ years Python" / "at least five years of Python": a years requirement tied to the skills named
         req["kind"] = "experience"
-        req["years_min"] = int(ym.group(1))
+        req["years_min"] = _years_value(ym.group(1))
     elif DEGREE_RE.search(item) or re.search(r"\bdegree\b", item, re.I):
         req["kind"] = "education"
         req["degree_level"] = _degree_level(item)
@@ -148,13 +217,18 @@ def _classify_requirement(item: str, importance: str, tax) -> dict:
     return req
 
 
-def match(content: dict | ResumeContent, jd: dict, as_of: str | None = None) -> dict:
+def prepare_resume(content: dict | ResumeContent, as_of: str | None = None) -> dict:
+    """Resume-side work that is the same for every job description. Compute once, pass to `match`
+    as `prepared` when ranking one resume against many openings."""
     c = content if isinstance(content, ResumeContent) else ResumeContent.model_validate(content)
+    return {"c": c, "ev": resume_skill_evidence(c), "units": evidence_units(c), "tl": build_timeline(c, as_of)}
+
+
+def match(content: dict | ResumeContent, jd: dict, as_of: str | None = None, prepared: dict | None = None) -> dict:
+    prep = prepared or prepare_resume(content, as_of)
+    c, ev, units, tl = prep["c"], prep["ev"], prep["units"], prep["tl"]
     tax = get_taxonomy()
     emb = get_embedder()
-    ev = resume_skill_evidence(c)
-    units = evidence_units(c)
-    tl = build_timeline(c, as_of)
     reqs = jd.get("requirements", [])
     unit_texts = [u[1] for u in units] or [" "]
     sim = emb.similarity([r["text"] for r in reqs] or [" "], unit_texts) if reqs else None
@@ -211,6 +285,24 @@ def match(content: dict | ResumeContent, jd: dict, as_of: str | None = None) -> 
             if tl.undated_entries:
                 row["status"] = "unknown" if row["status"] == "missing" else row["status"]
                 row["explanation"] += " Some roles are undated, so this is uncertain."
+            if r.get("skills"):
+                # "5+ years Python": the skill must be in the resume; years per skill can't be measured reliably,
+                # so overall experience stands in for it and the explanation says so
+                demo = [s for s in r["skills"] if s in ev.demonstrated]
+                found = [s for s in r["skills"] if s in ev.all]
+                need_all = not r.get("any_of")
+                missing_sk = [s for s in r["skills"] if s not in ev.all]
+                if not found or (need_all and missing_sk):
+                    row["status"] = "missing" if not found else "partial"
+                    row["gap_type"] = "genuine_gap" if not found else None
+                    row["explanation"] = f"Not found in the resume: {', '.join(missing_sk)}. " + row["explanation"]
+                else:
+                    if not demo and row["status"] == "matched":
+                        row["status"] = "partial"  # listed but never shown in work
+                    row["evidence"] = [e for s in demo for e in ev.evidence.get(s, [])[:1]] + row["evidence"]
+                    row["explanation"] = (f"{', '.join(found)} {'shown in your work' if demo else 'listed only'}; "
+                                          f"about {have} years of experience overall (years per skill can't be measured). "
+                                          f"Requires about {need}+ years.")
         elif kind == "education":
             need_lvl = r.get("degree_level")
             have_lvl = max((_degree_level(f"{e.degree or ''}") or 0 for e in c.education), default=0)

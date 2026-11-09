@@ -53,9 +53,16 @@ def verified_user(user: User = Depends(current_user)) -> User:
     return user
 
 
+def _staff_mfa(user: User) -> None:
+    if get_settings().require_mfa_for_staff and not user.totp_enabled_at:
+        raise err(status.HTTP_403_FORBIDDEN, "mfa_required",
+                  "Turn on two-factor authentication in Settings to use staff tools. Staff accounts can see many people's data.")
+
+
 def admin_user(user: User = Depends(verified_user)) -> User:
     if user.role != "admin":
         raise err(status.HTTP_403_FORBIDDEN, "forbidden", "Administrator access required.")
+    _staff_mfa(user)
     return user
 
 
@@ -63,6 +70,7 @@ def recruiter_user(user: User = Depends(verified_user)) -> User:
     """HR staff who post openings and review applicants. Admins are recruiters too."""
     if user.role not in ("recruiter", "admin"):
         raise err(status.HTTP_403_FORBIDDEN, "forbidden", "Recruiter access required.")
+    _staff_mfa(user)
     return user
 
 
@@ -77,7 +85,7 @@ def get_owned(db: Session, model: type[T], obj_id: str, user: User) -> T:
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 CSRF_EXEMPT = {"/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password",
-               "/api/auth/verify-email", "/api/auth/google/callback"}
+               "/api/auth/verify-email", "/api/auth/google/callback", "/api/auth/login/mfa"}
 
 
 def csrf_ok(request: Request) -> bool:

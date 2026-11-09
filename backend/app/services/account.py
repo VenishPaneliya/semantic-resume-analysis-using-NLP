@@ -15,9 +15,13 @@ from app.models import (
     Application,
     AuditLog,
     CareerArtifact,
+    DemographicSelfId,
     Export,
+    InterviewSession,
     JDMatch,
+    JobAlertSent,
     JobDescription,
+    LearningItem,
     OpeningApplication,
     ProcessingJob,
     Resume,
@@ -30,6 +34,11 @@ from app.models import (
 from app.services.audit import audit
 from app.services.storage import get_storage
 
+# Credentials are never exported: a copy of the export must not let anyone sign in as the user.
+# Includes the two-factor secret, which would let the holder generate valid codes forever.
+EXPORT_EXCLUDED_COLUMNS = frozenset({
+    "password_hash", "token_hash", "totp_secret", "totp_last_step", "recovery_code_hashes",
+})
 
 def delete_resume(db: Session, resume: Resume) -> None:
     """Delete a resume, all versions and every derived artefact, plus stored files. The
@@ -42,7 +51,8 @@ def delete_resume(db: Session, resume: Resume) -> None:
                 storage.delete(e.file_key)
             for job in db.scalars(select(ProcessingJob).where(ProcessingJob.target_id == e.id)):
                 db.delete(job)
-        for model in (Analysis, RoleRecommendation, JDMatch, AISuggestion, Export, CareerArtifact, OpeningApplication):
+        for model in (Analysis, RoleRecommendation, JDMatch, AISuggestion, Export, CareerArtifact, OpeningApplication,
+                      InterviewSession):
             for row in db.scalars(select(model).where(model.version_id.in_(vids))):
                 db.delete(row)
         for app_row in db.scalars(select(Application).where(Application.resume_version_id.in_(vids))):
@@ -63,7 +73,8 @@ def delete_account(db: Session, user: User, ip: str | None = None) -> dict:
         delete_resume(db, r)
         counts["resumes"] += 1
     counts["files_removed"] = storage.delete_prefix(f"users/{user.id}/")
-    for model in (JobDescription, Application, CareerArtifact, OpeningApplication):
+    for model in (JobDescription, Application, CareerArtifact, OpeningApplication, LearningItem, InterviewSession,
+                  JobAlertSent, DemographicSelfId):
         for row in db.scalars(select(model).where(model.user_id == user.id)):
             db.delete(row)
     for ev in db.scalars(select(UsageEvent).where(UsageEvent.user_id == user.id)):
@@ -87,7 +98,7 @@ def export_user_data(db: Session, user: User) -> bytes:
         out = []
         for r in db.scalars(q):
             d = {c.name: getattr(r, c.name) for c in r.__table__.columns}
-            out.append({k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in d.items() if k not in ("password_hash", "token_hash")})
+            out.append({k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in d.items() if k not in EXPORT_EXCLUDED_COLUMNS})
         return out
 
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
@@ -97,7 +108,9 @@ def export_user_data(db: Session, user: User) -> bytes:
         z.writestr("resumes.json", json.dumps(resumes, indent=2, default=str))
         for model, name in ((ResumeVersion, "versions"), (Analysis, "analyses"), (RoleRecommendation, "recommendations"),
                             (JDMatch, "jd_matches"), (JobDescription, "job_descriptions"), (AISuggestion, "ai_suggestions"),
-                            (CareerArtifact, "career_artifacts"), (Application, "applications"), (OpeningApplication, "opening_applications"), (Export, "exports"),
+                            (CareerArtifact, "career_artifacts"), (Application, "applications"), (OpeningApplication, "opening_applications"), (LearningItem, "learning_plan"),
+                            (InterviewSession, "mock_interviews"), (JobAlertSent, "job_alerts_sent"),
+                            (DemographicSelfId, "self_identification"), (Export, "exports"),
                             (UsageEvent, "usage")):
             z.writestr(f"{name}.json", json.dumps(rows(model, user_id=user.id), indent=2, default=str))
         z.writestr("audit_log.json", json.dumps(rows(AuditLog, user_id=user.id), indent=2, default=str))

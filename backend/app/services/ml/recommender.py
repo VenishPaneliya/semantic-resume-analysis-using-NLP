@@ -22,6 +22,7 @@ from app.services.analysis.experience import build_timeline
 from app.services.ml.embeddings import get_embedder
 from app.services.ml.features import evidence_text, resume_skill_evidence
 from app.services.taxonomy import Role, get_taxonomy
+from app.services.text import clip
 from app.versions import RECOMMENDER_VERSION
 
 W_REQ, W_PREF, W_SEM, W_TITLE = 0.40, 0.20, 0.25, 0.15
@@ -153,14 +154,14 @@ def recommend(content: dict | ResumeContent, preferences: dict | None = None, to
         reasons = []
         reasons.append(
             f"Shows {len(req_m)} of {len(role.required_skills)} core skills in experience or projects"
-            + (f" (e.g. {req_m[0]['skill']}: “{req_m[0]['evidence'][0]['text'][:90]}”)" if req_m and req_m[0]["evidence"] else "")
+            + (f" (e.g. {req_m[0]['skill']}: “{clip(req_m[0]['evidence'][0]['text'], 90)}”)" if req_m and req_m[0]["evidence"] else "")
             + "."
         )
         if req_w:
             reasons.append(f"{len(req_w)} core skill(s) are listed but not demonstrated: {', '.join(x['skill'] for x in req_w)}.")
         if title_ev:
             reasons.append(f"Relevant title/project: {title_ev['text']}.")
-        reasons.append(f"Text similarity to the role profile is {'high' if sem > 0.66 else 'moderate' if sem > 0.33 else 'low'} ({emb.name}).")
+        reasons.append(f"Text similarity to the role profile is {'high' if sem > 0.66 else 'moderate' if sem > 0.33 else 'low'}.")
 
         confidence = "high" if (len(req_m) / max(1, len(role.required_skills)) >= 0.6 and n_units >= 6) else "medium" if req >= 0.4 else "low"
         if insufficient:

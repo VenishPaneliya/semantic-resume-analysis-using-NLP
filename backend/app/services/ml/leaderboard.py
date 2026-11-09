@@ -25,6 +25,7 @@ from app.services.ml.embeddings import get_embedder
 from app.services.ml.features import resume_skill_evidence
 from app.services.ml.recommender import recommend
 from app.services.taxonomy import get_taxonomy
+from app.services.text import clip
 from app.versions import LEADERBOARD_VERSION
 
 TIERS = [
@@ -38,6 +39,8 @@ TIPS_MIN = 40.0
 # so a high overall score driven by generic signals (years, degree, wording) can't unlock tips
 CORE_MIN = 1 / 3
 MIN_STANDING_POOL = 3  # don't reveal a rank among fewer than 3 applicants
+MIN_DISTRIBUTION_POOL = 10  # median and score spread describe other people: only from 10 applicants
+MIN_BAND_COUNT = 3  # a score band with 1-2 people shows "a few", not an exact count
 TIER_HELP = {
     "strong": "Your resume already shows most of what this needs.",
     "good": "A solid base. Targeted resume changes can make your fit clearer.",
@@ -116,7 +119,12 @@ def role_leaderboard(content: dict | ResumeContent, preferences: dict | None = N
             "keywords_weak": [w["skill"] for w in r["weak_skills"]],
             "keywords_missing": r["missing_required"] + r["missing_preferred"],
             "missing_required": r["missing_required"],
+            "possibly_unlisted": [{"skill": h["skill"], "because_you_have": h["because_you_have"]} for h in r["possibly_unlisted"]],
             "reasons": r["reasons"],
+            "next_steps": r["next_steps"],
+            # rows are ordered by score + this adjustment (target roles / domains chosen by the user)
+            "preference_adjustment": r["preference_adjustment"],
+            "preference_reasons": r["preference_reasons"],
         })
     return {**base, "status": "ok", "rows": rows}
 
@@ -159,24 +167,33 @@ def opening_row(match_result: dict) -> dict:
 
 
 def standing(my_score: float, all_scores: list[float]) -> dict:
-    """Position of `my_score` among applicants. Ties share the better rank."""
+    """Position of `my_score` among applicants. Ties share the better rank.
+
+    Privacy: rank and "top X%" (about you) appear from MIN_STANDING_POOL applicants. The median and the score
+    spread describe other people, so they appear only from MIN_DISTRIBUTION_POOL applicants; the median is
+    rounded to the nearest 5 and a band with fewer than MIN_BAND_COUNT people shows no exact count. With 3
+    applicants an exact median would simply be another person's score."""
     n = len(all_scores)
     if n < MIN_STANDING_POOL:
         return {"available": False, "applicants": n, "min_pool": MIN_STANDING_POOL,
                 "message": f"Your position appears once at least {MIN_STANDING_POOL} people have applied."}
     rank = 1 + sum(1 for s in all_scores if s > my_score)
     top_pct = max(1, round(100 * rank / n))
-    buckets = [0] * 10
-    for s in all_scores:
-        buckets[min(9, int(max(0.0, s) // 10))] += 1
-    return {
-        "available": True, "rank": rank, "applicants": n, "top_percent": top_pct,
-        "my_score": my_score, "median": float(np.median(all_scores)),
-        # anonymous histogram of scores in 10-point bands; no individual scores are exposed
-        "distribution": [{"from": i * 10, "to": i * 10 + 9, "count": c} for i, c in enumerate(buckets)],
+    out = {
+        "available": True, "rank": rank, "applicants": n, "top_percent": top_pct, "my_score": my_score,
+        "median": None, "distribution": None, "distribution_min_pool": MIN_DISTRIBUTION_POOL,
         "note": "Ranked by the same compatibility indicator you see. Recruiters make the final decision, "
                 "and they also consider things a resume can't show.",
     }
+    if n >= MIN_DISTRIBUTION_POOL:
+        buckets = [0] * 10
+        for s in all_scores:
+            buckets[min(9, int(max(0.0, s) // 10))] += 1
+        out["median"] = float(5 * round(float(np.median(all_scores)) / 5))
+        # anonymous spread in 10-point bands; small bands are reported as "a few" rather than an exact count
+        out["distribution"] = [{"from": i * 10, "to": i * 10 + 9, "count": c if c == 0 or c >= MIN_BAND_COUNT else None}
+                               for i, c in enumerate(buckets)]
+    return out
 
 
 # ---------------------------------------------------------------- D. tailoring tips
@@ -280,12 +297,12 @@ def tailoring_tips(content: dict | ResumeContent, score: float | None, *, core_c
             if first_by_entry.get(entry) != path:
                 add("lead_with_relevant", "medium", f"Move this bullet to the top of “{owner}”",
                     f"This is one of your most relevant points for {t['title']}, but it's not the first thing a reader sees "
-                    f"in that entry: “{text[:140]}”", path=path)
+                    f"in that entry: “{clip(text, 140)}”", path=path)
                 break
         for path, _owner, text in top:
             if not re.search(r"\d", text):
                 add("quantify", "high", "Add a real result to a key bullet",
-                    f"One of your most relevant bullets has no measurable outcome: “{text[:140]}”. If you know the "
+                    f"One of your most relevant bullets has no measurable outcome: “{clip(text, 140)}”. If you know the "
                     "result (time saved, users, accuracy, revenue), add it. The AI editor can insert a placeholder for you to fill in.",
                     path=path, action={"type": "ai", "operation": "rewrite_bullet", "target_path": path})
                 break

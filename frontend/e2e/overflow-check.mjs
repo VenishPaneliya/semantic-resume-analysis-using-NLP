@@ -47,7 +47,7 @@ for (let i = 0; i < 60; i++) {
 }
 
 const pages = ["/dashboard", `/resumes/${rid}/review`];
-const confirmedPages = ["analysis", "roles", "match", "editor", "career"].map((s) => `/resumes/${rid}/${s}`);
+const confirmedPages = ["analysis", "leaderboard", "match", "editor", "career"].map((s) => `/resumes/${rid}/${s}`);
 const results = [];
 async function measure(label) {
   for (const [w, h] of [[1920, 1000], [1280, 800], [375, 800]]) {

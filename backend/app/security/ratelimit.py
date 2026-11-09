@@ -26,6 +26,11 @@ class _MemoryBackend:
             self._counts[key] = (count, reset_at)
             return count
 
+    def peek(self, key: str, window: int) -> int:
+        with self._lock:
+            count, reset_at = self._counts.get(key, (0, 0.0))
+            return 0 if time.time() >= reset_at else count
+
     def reset(self) -> None:
         with self._lock:
             self._counts.clear()
@@ -44,6 +49,9 @@ class _RedisBackend:  # pragma: no cover - exercised in docker/integration
         pipe.expire(bucket, window + 1)
         count, _ = pipe.execute()
         return int(count)
+
+    def peek(self, key: str, window: int) -> int:
+        return int(self._r.get(f"rl:{key}:{int(time.time() // window)}") or 0)
 
     def reset(self) -> None:
         pass
@@ -76,3 +84,21 @@ def enforce(key: str, limit: int, window_seconds: int = 60) -> None:
             detail={"code": "rate_limited", "message": "Too many requests. Please wait and try again."},
             headers={"Retry-After": str(window_seconds)},
         )
+
+
+# --- failure counters -------------------------------------------------------------------------
+# Keyed on the account, never on the client address, so they hold even when the address is spoofed
+# or shared. Only failures count, so a legitimate user who signs in correctly is never slowed down.
+
+def check_failures(key: str, limit: int, window_seconds: int) -> None:
+    """Refuse (429) while `key` has had `limit` or more recorded failures in the current window."""
+    if limit > 0 and backend().peek(key, window_seconds) >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"code": "too_many_failures", "message": "Too many unsuccessful attempts. Please wait and try again later."},
+            headers={"Retry-After": str(window_seconds)},
+        )
+
+
+def record_failure(key: str, window_seconds: int) -> int:
+    return backend().hit(key, window_seconds)

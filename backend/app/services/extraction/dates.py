@@ -13,7 +13,8 @@ MONTHS = {
 _MON = r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?"
 _YEAR = r"(?:19[5-9]\d|20[0-4]\d)"
 _POINT = rf"(?:{_MON}\s*,?\s*{_YEAR}|(?:0?[1-9]|1[0-2])\s*[/.-]\s*{_YEAR}|{_YEAR}\s*[/.-]\s*(?:0[1-9]|1[0-2])|{_YEAR})"
-_PRESENT = r"(?:present|current|now|today|ongoing|till date|to date)"
+# "date" alone covers "2019 to date" / "till date", where the separator has already taken "to"/"till"
+_PRESENT = r"(?:present|current|now|today|ongoing|till date|to date|date\b)"
 _SEP = r"\s*(?:-|–|—|to|until|till|→)\s*"
 
 RANGE_RE = re.compile(rf"(?P<start>{_POINT}){_SEP}(?P<end>{_POINT}|{_PRESENT})", re.IGNORECASE)

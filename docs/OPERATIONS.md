@@ -39,8 +39,14 @@ Runbook entries:
 
 **Recommendations & matching**
 - Role taxonomy covers 12 technology roles; other professions get low-confidence or insufficient-evidence results.
-- Fit scores and compatibility indicators are heuristic and uncalibrated; they compare options for one
-  resume and are not comparable across people.
+- Fit scores and compatibility indicators are heuristic and uncalibrated. Role fit scores compare roles for one
+  resume. For one opening, the compatibility indicator is computed identically for every applicant, so it is
+  used to *order* applicants ("where I stand", recruiter ranking), but differences of a few points are not
+  meaningful and it has not been validated against hiring outcomes. Recruiters are told to use it to
+  prioritise reading, never to auto-reject.
+- Fairness monitoring depends on voluntary self-identification; with low participation, groups under 10, or
+  only one group large enough, it shows nothing. It is a daily snapshot, so today's changes appear tomorrow. The counterfactual test proves identity fields do not move scores, but cannot rule out
+  proxies inside the work history itself (e.g. career gaps).
 - Seniority is inferred from dated experience only.
 - Location and work-arrangement preferences are recorded but not used for ranking (no listings provider).
 
@@ -58,3 +64,7 @@ Runbook entries:
   on Windows only the wall-clock timeout applies. Production containers run on Linux.
 - Prometheus metrics are per process.
 - Google OAuth is implemented with Authlib but was not exercised end-to-end (requires real client credentials).
+- Job alerts are evaluated when an opening is posted or reopened, by scanning opted-in users; fine for
+  thousands of users, but a large deployment should move this to a batched/indexed job.
+- Learning resources are a bundled list of official documentation links, link-checked on 2026-11-08; links
+  can break later. Re-run the check before releases or point `LEARNING_RESOURCES_FILE` at a maintained list.
