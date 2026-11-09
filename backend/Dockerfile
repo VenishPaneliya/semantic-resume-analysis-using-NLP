@@ -26,6 +26,9 @@ ENV HF_HOME=/opt/hf
 RUN if [ "$INSTALL_ML" = "true" ]; then \
       python -c "from sentence_transformers import SentenceTransformer as S; S('sentence-transformers/all-MiniLM-L6-v2', device='cpu')"; \
     else mkdir -p /opt/hf; fi
+# pip is only needed to build the venv. Removing it from the runtime image shrinks the attack surface and
+# drops pip's bundled pkg_resources (pinned to an old setuptools), which scanners flag.
+RUN pip uninstall -y pip
 
 FROM base AS runtime
 ARG INSTALL_OCR=false
@@ -33,6 +36,7 @@ RUN apt-get update \
  && if [ "$INSTALL_OCR" = "true" ]; then apt-get install -y --no-install-recommends tesseract-ocr poppler-utils; fi \
  && apt-get install -y --no-install-recommends tini \
  && rm -rf /var/lib/apt/lists/* \
+ && python -m pip uninstall -y pip \
  && useradd --system --uid 10001 --home /app app
 COPY --from=build /opt/venv /opt/venv
 COPY --from=build /opt/hf /opt/hf
