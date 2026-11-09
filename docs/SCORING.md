@@ -95,8 +95,10 @@ exists elsewhere in the resume) is not detected.
 - **B. Openings:** open vacancies posted by HR staff, ranked by the §3 compatibility indicator.
 - **C. Standing:** `rank = 1 + number of applicants with a strictly higher score` (ties share the better
   rank) and `top % = rank / applicants`. It is shown only when at least 3 people have applied. Candidates see
-  their own rank, the count, the median and a 10-point histogram, never another applicant's identity or
-  score. Scores are recomputed when a candidate re-applies or the recruiter edits the opening.
+  their own rank and the count. The median (rounded to the nearest 5) and a 10-point histogram describe other
+  people, so they appear only from 10 applicants, and a histogram band with 1–2 people shows "a few" rather than
+  a number. With 3 applicants an exact median would simply be another person's score. Candidates never see
+  another applicant's identity or score. Scores are recomputed when a candidate re-applies or the recruiter edits the opening.
 - **Tiers (heuristic bands, not probabilities):** strong ≥ 60, good 40–59, stretch 25–39, not a match < 25.
   The bands were set by inspecting the synthetic personas: their true role scores 60–96 on roles and 78–96 on
   matching demo openings, adjacent roles 35–57, and unrelated roles mostly below 25.

@@ -241,8 +241,11 @@ export const STAGES: ApplicationStage[] = ["submitted", "shortlisted", "intervie
 export type Standing =
   | { available: false; applicants: number; min_pool?: number; message: string }
   | {
-      available: true; rank: number; applicants: number; top_percent: number; my_score: number; median: number;
-      distribution: { from: number; to: number; count: number }[]; note: string;
+      available: true; rank: number; applicants: number; top_percent: number; my_score: number;
+      /** null below distribution_min_pool applicants: with few people these would reveal others' scores */
+      median: number | null; distribution_min_pool: number;
+      /** count is null for a band with 1-2 people ("a few") */
+      distribution: { from: number; to: number; count: number | null }[] | null; note: string;
     };
 export interface OpeningApplicationOut {
   id: string; version_id: string; score: number; tier: Tier; stage: ApplicationStage; applied_at: string; updated_at: string; standing: Standing;

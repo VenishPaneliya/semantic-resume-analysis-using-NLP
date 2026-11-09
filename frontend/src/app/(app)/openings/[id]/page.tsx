@@ -307,7 +307,7 @@ function StandingCard({ app }: { app: OpeningApplicationOut }) {
         </div>
       ) : (
         <div className="space-y-3" data-testid="standing-available">
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className={`grid gap-2 text-center ${s.median != null ? "grid-cols-3" : "grid-cols-2"}`}>
             <div className="rounded-lg bg-paper-2 p-2">
               <p className="num text-2xl font-semibold">#{s.rank}</p>
               <p className="text-[11px] text-muted">{t("opening.of", { count: s.applicants })}</p>
@@ -316,15 +316,21 @@ function StandingCard({ app }: { app: OpeningApplicationOut }) {
               <p className="num text-2xl font-semibold">{s.top_percent}%</p>
               <p className="text-[11px] text-muted">{t("opening.top")}</p>
             </div>
-            <div className="rounded-lg bg-paper-2 p-2">
-              <p className="num text-2xl font-semibold">{Math.round(s.median)}</p>
-              <p className="text-[11px] text-muted">{t("opening.median")}</p>
-            </div>
+            {s.median != null && (
+              <div className="rounded-lg bg-paper-2 p-2">
+                <p className="num text-2xl font-semibold">≈{Math.round(s.median)}</p>
+                <p className="text-[11px] text-muted">{t("opening.median")}</p>
+              </div>
+            )}
           </div>
           <p className="text-sm">
             {t.rich("opening.rankSentence", { b: (c) => <strong>{c}</strong> }, { rank: s.rank ?? "", applicants: s.applicants, top: s.top_percent ?? "" })}
           </p>
-          <Histogram dist={s.distribution} mine={s.my_score} />
+          {s.distribution ? (
+            <Histogram dist={s.distribution} mine={s.my_score} />
+          ) : (
+            <p className="text-xs text-muted" data-testid="spread-later">{t("opening.spreadLater", { min: s.distribution_min_pool })}</p>
+          )}
           <p className="text-xs text-muted">{s.note}</p>
         </div>
       )}
@@ -332,13 +338,17 @@ function StandingCard({ app }: { app: OpeningApplicationOut }) {
   );
 }
 
-function Histogram({ dist, mine }: { dist: { from: number; to: number; count: number }[]; mine: number }) {
+function Histogram({ dist, mine }: { dist: { from: number; to: number; count: number | null }[]; mine: number }) {
   const t = useT();
-  const max = Math.max(1, ...dist.map((d) => d.count));
+  // a band with 1-2 people has count null ("a few"): drawn as a short bar without a number
+  const FEW = 1.5;
+  const n = (c: number | null) => (c === null ? FEW : c);
+  const label = (c: number | null) => (c === null ? t("opening.few") : String(c));
+  const max = Math.max(1, ...dist.map((d) => n(d.count)));
   const myBand = Math.min(9, Math.floor(Math.max(0, mine) / 10));
   const summary = dist
     .filter((d) => d.count)
-    .map((d) => `${d.from}–${d.to}: ${d.count}`)
+    .map((d) => `${d.from}–${d.to}: ${label(d.count)}`)
     .join(", ");
   return (
     <figure>
@@ -351,8 +361,8 @@ function Histogram({ dist, mine }: { dist: { from: number; to: number; count: nu
           <div key={d.from} className="flex h-full flex-1 flex-col justify-end">
             <div
               className={`w-full rounded-t ${i === myBand ? "bg-teal" : "bg-line-strong"}`}
-              style={{ height: d.count ? `${Math.max(6, (d.count / max) * 100)}%` : 0 }}
-              title={`${d.from}–${d.to}: ${d.count}`}
+              style={{ height: d.count !== 0 ? `${Math.max(6, (n(d.count) / max) * 100)}%` : 0 }}
+              title={`${d.from}–${d.to}: ${label(d.count)}`}
             />
           </div>
         ))}

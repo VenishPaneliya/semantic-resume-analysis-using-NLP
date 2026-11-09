@@ -89,7 +89,7 @@ Verification emails print to the API console when `EMAIL_BACKEND=console`.
 ```bash
 cd backend
 ruff check app eval tests
-pytest                                                  # SQLite — 206 tests
+pytest                                                  # SQLite — 211 tests
 TEST_DATABASE_URL=postgresql+psycopg://ri:ri@localhost:<port>/ri pytest   # PostgreSQL
 python -m eval.run_eval --split all                     # synthetic evaluation report -> eval/reports/
 cd ../frontend && npm run lint && npx tsc --noEmit && npm run build
@@ -121,6 +121,15 @@ where possible, reproducing it. Severity: **H** high · **M** medium · **L** lo
 Tick items off here as they are fixed.
 
 ### Fixed
+
+Round 4 (2026-11-09) — leaderboard speed and standing privacy:
+
+- [x] **H** The openings leaderboard re-ran the full matcher, including re-embedding the resume, for every
+  opening on every view: 18 s for 200 openings. Text embeddings are now cached per exact text (bounded, ~30 MB)
+  and the resume side is prepared once per request: **0.13 s** (about 3 s on the first view after a restart).
+  Job alerts reuse each opening's cached requirement embeddings. Tests confirm results are identical.
+- [x] **M** "Where I stand" no longer reveals other applicants' scores in small pools: rank and "top X%" from 3
+  applicants; the median (rounded to 5) and score spread only from 10, and a band with 1–2 people shows "a few".
 
 Round 3 (2026-11-09) — job descriptions:
 
@@ -181,8 +190,6 @@ Round 1 (2026-11-08) — text matching:
   database (only raw text and files are encrypted).
 - [ ] **M** Without `ENCRYPTION_KEYS`, the encryption key comes from `SECRET_KEY`, so changing `SECRET_KEY` makes
   every stored file unreadable (docs say otherwise).
-- [ ] **M** "Where I stand" with only 3 applicants shows a median and histogram that reveal other applicants' scores.
-  Raise the pool size for those. `services/ml/leaderboard.py:179`.
 - [ ] **L** PDF page counting runs inside the API process; bulk upload parses up to 25 files in one request.
 - [ ] **L** Registration says "email already in use" (account enumeration).
 - [ ] **L** Turning on 2FA doesn't sign out other sessions; Google login puts the 2FA token in the URL.
@@ -190,9 +197,6 @@ Round 1 (2026-11-08) — text matching:
 
 ### Scoring and backend logic
 
-- [ ] **H** The openings leaderboard re-runs the full matcher for every opening on every request
-  (~17 s for 200 openings with Sentence Transformers). Cache resume embeddings and per-opening results.
-  Job alerts do the same for every user.
 - [ ] **M** Resume retention deletes the whole resume (versions, applications, recruiter notes) after 365 days
   from upload, even if it is in active use.
 - [ ] **M** One Celery time limit (75 s) for every task; the nightly retention sweep commits once at the end, so a

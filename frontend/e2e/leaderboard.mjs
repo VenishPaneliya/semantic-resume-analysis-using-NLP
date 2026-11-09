@@ -281,7 +281,9 @@ try {
     await s.waitFor({ timeout: 60000 });
     await s.getByText(/of 3$/).waitFor();
     await s.getByText(/top \d+%/).first().waitFor();
-    await s.getByRole("img", { name: /Anonymous score distribution/ }).waitFor();
+    // with only 3 applicants the median and score spread stay hidden (they would reveal the others' scores)
+    await s.getByTestId("spread-later").waitFor();
+    if (await s.getByRole("img", { name: /Anonymous score distribution/ }).count()) throw new Error("score spread shown with 3 applicants");
     await page.getByRole("heading", { name: "How to improve for this opening" }).waitFor();
     await page.getByTestId("tips-content").waitFor({ timeout: 60000 });
     await shot(page, "lb-06-standing-ranked");

@@ -217,13 +217,18 @@ def _classify_requirement(item: str, importance: str, tax) -> dict:
     return req
 
 
-def match(content: dict | ResumeContent, jd: dict, as_of: str | None = None) -> dict:
+def prepare_resume(content: dict | ResumeContent, as_of: str | None = None) -> dict:
+    """Resume-side work that is the same for every job description. Compute once, pass to `match`
+    as `prepared` when ranking one resume against many openings."""
     c = content if isinstance(content, ResumeContent) else ResumeContent.model_validate(content)
+    return {"c": c, "ev": resume_skill_evidence(c), "units": evidence_units(c), "tl": build_timeline(c, as_of)}
+
+
+def match(content: dict | ResumeContent, jd: dict, as_of: str | None = None, prepared: dict | None = None) -> dict:
+    prep = prepared or prepare_resume(content, as_of)
+    c, ev, units, tl = prep["c"], prep["ev"], prep["units"], prep["tl"]
     tax = get_taxonomy()
     emb = get_embedder()
-    ev = resume_skill_evidence(c)
-    units = evidence_units(c)
-    tl = build_timeline(c, as_of)
     reqs = jd.get("requirements", [])
     unit_texts = [u[1] for u in units] or [" "]
     sim = emb.similarity([r["text"] for r in reqs] or [" "], unit_texts) if reqs else None

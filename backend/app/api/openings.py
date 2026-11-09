@@ -14,7 +14,7 @@ from app.api.deps import err, get_owned, verified_user
 from app.db import get_db
 from app.models import JobOpening, OpeningApplication, ResumeVersion, User
 from app.services.audit import audit
-from app.services.ml.jd import match
+from app.services.ml.jd import match, prepare_resume
 from app.services.ml.leaderboard import (
     TIERS,
     TIPS_MIN,
@@ -97,8 +97,9 @@ def openings_for_me(version_id: str, user: User = Depends(verified_user), db: Se
                                .order_by(JobOpening.created_at.desc()).limit(MAX_OPENINGS_RANKED)))
     mine = {a.opening_id: a for a in db.scalars(select(OpeningApplication).where(OpeningApplication.user_id == user.id))}
     rows = []
+    prepared = prepare_resume(v.content)  # resume-side work once, not once per opening
     for o in openings:
-        row = {**opening_out(o), **opening_row(match(v.content, o.extracted))}
+        row = {**opening_out(o), **opening_row(match(v.content, o.extracted, prepared=prepared))}
         a = mine.get(o.id)
         row["application"] = None if not a else {"score": a.score, "stage": a.stage, "version_id": a.version_id}
         rows.append(row)

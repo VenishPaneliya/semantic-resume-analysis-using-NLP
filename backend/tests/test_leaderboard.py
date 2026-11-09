@@ -158,7 +158,8 @@ def test_apply_standing_is_private_and_needs_pool(make_user, recruiter, personas
         assert api.post(f"/api/openings/{o['id']}/apply", json={"version_id": vid, "share_consent": True}).status_code == 201
     st = a_api.get(f"/api/openings/{o['id']}/standing").json()["standing"]
     assert st["available"] and st["applicants"] == 3 and st["rank"] == 1  # the backend developer leads
-    assert sum(b["count"] for b in st["distribution"]) == 3
+    # with 3 applicants an exact median or score histogram would expose the other two people's scores
+    assert st["median"] is None and st["distribution"] is None
     blob = json.dumps(a_api.get(f"/api/openings/{o['id']}").json())
     for _, _, email in people[1:]:
         assert email not in blob, "candidates must never see other applicants"
@@ -258,3 +259,55 @@ def test_role_leaderboard_shows_preference_adjustment_and_seniority(make_user, p
     assert row["preference_adjustment"] > 0 and row["preference_reasons"]
     assert row["score"] == base[target]["score"]  # preferences reorder; they never change the score
     assert all("sentence-transformers" not in x and "tfidf" not in x for r in lb["rows"] for x in r["reasons"])
+
+
+@pytest.mark.parametrize("n", [3, 9])
+def test_standing_hides_other_applicants_scores_in_small_pools(n):
+    from app.services.ml.leaderboard import standing
+
+    scores = [30.0, 50.0, 70.0, 41.0, 44.0, 47.0, 52.0, 58.0, 61.0][:n]
+    st = standing(30.0, scores)
+    assert st["available"] and st["rank"] == n
+    assert st["median"] is None and st["distribution"] is None
+
+
+def test_standing_spread_from_ten_applicants_is_coarse():
+    from app.services.ml.leaderboard import standing
+
+    scores = [12.0, 33.0, 41.0, 43.0, 44.0, 47.0, 48.0, 52.0, 58.0, 91.0]
+    st = standing(47.0, scores)
+    assert st["median"] == 45.0  # 45.5 rounded to the nearest 5
+    bands = {b["from"]: b["count"] for b in st["distribution"]}
+    assert bands[40] == 5          # big enough band: exact count
+    assert bands[90] is None       # one person scored 90+: shown as "a few", not 1
+    assert bands[70] == 0
+
+
+def test_embedding_cache_and_prepared_resume_change_no_result(personas):
+    """Speed-ups for the openings leaderboard must give exactly the same numbers."""
+    import numpy as np
+
+    from app.services.ml.embeddings import get_embedder
+    from app.services.ml.jd import extract_jd, match, prepare_resume
+
+    emb = get_embedder()
+    texts = ["Built REST APIs in Python", "Kubernetes on AWS", "Built REST APIs in Python"]
+    first = emb.encode(texts)
+    assert np.allclose(first, emb._encode(texts)) and np.allclose(first, emb.encode(texts))
+    assert first.shape[0] == 3
+
+    content = personas["p02"]["content"]
+    jd = extract_jd(BACKEND_JD)
+    prep = prepare_resume(content)
+    a, b = match(content, jd), match(content, jd, prepared=prep)
+    assert a["overall"] == b["overall"]
+    assert [(r["text"], r["status"]) for r in a["requirements"]] == [(r["text"], r["status"]) for r in b["requirements"]]
+
+
+def test_embedding_cache_is_bounded(monkeypatch):
+    from app.services.ml import embeddings
+
+    monkeypatch.setattr(embeddings, "CACHE_MAX_TEXTS", 5)
+    emb = embeddings.get_embedder()
+    emb.encode([f"text number {i}" for i in range(12)])
+    assert len(emb._cache) <= 5
