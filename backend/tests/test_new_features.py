@@ -551,3 +551,13 @@ def test_production_config_rejects_public_metrics_console_email_and_http():
     msg = str(e.value)
     for needle in ("METRICS_TOKEN", "EMAIL_BACKEND", "RATE_LIMIT_BACKEND", "PUBLIC_BASE_URL must use https"):
         assert needle in msg
+
+
+def test_real_ai_provider_requires_a_model_id():
+    from pydantic import ValidationError
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError, match="LLM_MODEL is required"):
+        Settings(llm_provider="anthropic", llm_model="")
+    assert Settings(llm_provider="fixture", llm_model="").llm_provider == "fixture"

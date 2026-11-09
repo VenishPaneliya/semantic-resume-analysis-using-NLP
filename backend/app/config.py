@@ -122,6 +122,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _production_guards(self) -> Settings:
+        if self.llm_provider in ("anthropic", "openai") and not self.llm_model.strip():
+            raise ValueError(f"LLM_MODEL is required when LLM_PROVIDER={self.llm_provider} (set it to the provider's model ID)")
         if self.env == "production":
             problems = []
             if self.secret_key.startswith("dev-") or len(self.secret_key) < 32:

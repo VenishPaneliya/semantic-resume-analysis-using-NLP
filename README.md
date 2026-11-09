@@ -59,8 +59,8 @@ docker compose up --build
 - `INSTALL_ML=false docker compose up --build` builds a ~0.9 GB API image with the TF-IDF fallback
   instead of ~2.7 GB with Sentence Transformers.
 - With no AI key configured, `LLM_PROVIDER=fixture` produces deterministic, rule-based edits that the
-  UI labels **"Development fixture — not live AI"**. Set `LLM_PROVIDER=anthropic` and
-  `ANTHROPIC_API_KEY` (or `openai`) to use a real model; users must consent before any resume text is sent.
+  UI labels **"Development fixture — not live AI"**. Set `LLM_PROVIDER=anthropic`,
+  `ANTHROPIC_API_KEY` and `LLM_MODEL` (the provider's model ID), or the `openai` equivalents, to use a real model; users must consent before any resume text is sent.
 - Set `ADMIN_EMAILS=you@example.com` to get the admin dashboard after verifying that email.
 - Set `RECRUITER_EMAILS=hr@yourfirm.com` for HR staff who post job openings and review ranked applicants.
 - **Staff must turn on two-factor login** (Settings) before admin or recruiter pages work. For local
@@ -89,7 +89,7 @@ Verification emails print to the API console when `EMAIL_BACKEND=console`.
 ```bash
 cd backend
 ruff check app eval tests
-pytest                                                  # SQLite — 211 tests
+pytest                                                  # SQLite — 212 tests
 TEST_DATABASE_URL=postgresql+psycopg://ri:ri@localhost:<port>/ri pytest   # PostgreSQL
 python -m eval.run_eval --split all                     # synthetic evaluation report -> eval/reports/
 cd ../frontend && npm run lint && npx tsc --noEmit && npm run build
