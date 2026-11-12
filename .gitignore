@@ -34,3 +34,6 @@ Thumbs.db
 build/
 dist/
 *.egg-info/
+
+# production secrets (deploy/.env is covered by .env above)
+deploy/secrets/

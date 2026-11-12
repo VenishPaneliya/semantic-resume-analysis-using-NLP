@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22-alpine AS deps
+# base image pinned by digest (multi-arch index); refresh with
+#   docker buildx imagetools inspect node:22-alpine --format '{{.Manifest.Digest}}'
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:22-alpine AS build
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS build
 WORKDIR /app
 # rewrites are resolved at build time, so the API location is a build argument
 ARG BACKEND_URL=http://api:8000
@@ -13,7 +15,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 # The runtime only runs `node server.js`. Removing the bundled package managers (npm, npx, corepack, yarn)

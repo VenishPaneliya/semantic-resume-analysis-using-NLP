@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Sans_Devanagari, Noto_Sans_Gujarati } from "next/font/google";
 import { SkipLink } from "@/components/language-switcher";
 import { I18nProvider } from "@/lib/i18n";
-import { getServerLocale, getServerT } from "@/lib/i18n-server";
+import { getDictionary, getServerLocale, getServerT } from "@/lib/i18n-server";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -26,7 +26,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} className={`${inter.variable} ${devanagari.variable} ${gujarati.variable}`}>
       <body className="antialiased">
-        <I18nProvider initialLocale={locale}>
+        {/* only the active language's messages are sent to the browser */}
+        <I18nProvider locale={locale} messages={getDictionary(locale)}>
           <SkipLink />
           <div className="relative z-[1]">{children}</div>
         </I18nProvider>

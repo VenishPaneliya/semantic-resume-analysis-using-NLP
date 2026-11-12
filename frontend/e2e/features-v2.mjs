@@ -3,7 +3,8 @@
 // mock interviews and voluntary self-ID.
 // Usage (from frontend/):
 //   BASE_URL=http://localhost:3011 BACKEND_LOG=<backend log> node e2e/features-v2.mjs
-// Backend: RECRUITER_EMAILS=hr@example.com ADMIN_EMAILS=hr@example.com (the fairness report is admin-only) REQUIRE_MFA_FOR_STAFF=true EMAIL_BACKEND=console LLM_PROVIDER=fixture,
+// Backend: ADMIN_EMAILS=hr@example.com (admins can do everything recruiters can, and the fairness report is admin-only;
+// RECRUITER_EMAILS=hr@example.com alone also works, then the fairness checks are skipped) REQUIRE_MFA_FOR_STAFF=true EMAIL_BACKEND=console LLM_PROVIDER=fixture,
 // demo openings seeded. Verification tokens are read from the backend log; TOTP codes are computed here.
 import { chromium } from "playwright";
 import fs from "node:fs";
@@ -84,18 +85,33 @@ async function ok(r, what) {
   return r.status() === 204 ? null : r.json();
 }
 
+/* Registration answers 201 the same way for new and already-registered addresses and starts no session.
+   Which one it was shows in the email: a verification link, or "…already has an account". Only the part of
+   the log written after `from` (bytes) is read, so links from earlier runs are never reused. */
+async function registrationMail(addr, from) {
+  for (let i = 0; i < 80; i++) {
+    const txt = fs.existsSync(LOG) ? fs.readFileSync(LOG).subarray(from).toString("utf8") : "";
+    const blocks = txt.split("EMAIL to ").filter((b) => b.startsWith(addr));
+    const last = blocks[blocks.length - 1];
+    if (last) {
+      const v = /verify-email\?token=([\w-]+)/.exec(last);
+      if (v) return { token: v[1] };
+      if (/already has an\s+account/.test(last)) return { existing: true };
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`no registration email for ${addr} in ${LOG}`);
+}
+
 async function newUser(browser, email, viewport = { width: 1280, height: 900 }) {
   const ctx = await browser.newContext({ viewport });
+  const from = fs.existsSync(LOG) ? fs.statSync(LOG).size : 0;
   await ok(await call(ctx, "POST", "/api/auth/register", { data: { email, password } }), "register " + email);
-  for (let i = 0; ; i++) {
-    try {
-      await ok(await call(ctx, "POST", "/api/auth/verify-email", { data: { token: tokenFromLog(email) } }), "verify " + email);
-      break;
-    } catch (e) {
-      if (i > 20) throw e;
-      await sleep(250);
-    }
-  }
+  const m = await registrationMail(email, from);
+  if (m.existing) throw new Error(`${email} is already registered`);
+  await ok(await call(ctx, "POST", "/api/auth/verify-email", { data: { token: m.token } }), "verify " + email);
+  // registering no longer signs in: sign in once the address is verified
+  await ok(await call(ctx, "POST", "/api/auth/login", { data: { email, password } }), "sign in " + email);
   return ctx;
 }
 
@@ -170,13 +186,14 @@ function watch(page) {
 let page;
 let rec, recPage;
 let hrSecret = null;
+let hrRole = "recruiter"; // set from /api/auth/me once the HR account is ready
 try {
   // ================================================================ recruiter: 2FA
   await check("recruiter account ready without 2FA", async () => {
     try {
       rec = await newUser(browser, HR_EMAIL);
     } catch (e) {
-      if (!/HTTP 409/.test(e.message)) throw e;
+      if (!/HTTP 409|HTTP 429|already registered/.test(e.message)) throw e; // existing account (or register rate limit on re-runs)
       // re-run against the same database: sign in and turn 2FA off so the flow starts from scratch
       rec = await browser.newContext({ viewport: { width: 1280, height: 900 } });
       await apiLoginHr(rec);
@@ -189,7 +206,9 @@ try {
       }
     }
     const me = await ok(await call(rec, "GET", "/api/auth/me"), "me");
-    assert(me.role === "recruiter" && me.mfa_required_for_role && !me.mfa_enabled, `unexpected HR state ${JSON.stringify(me)}`);
+    // the HR account may be a recruiter or an admin (admin is needed for the fairness report)
+    assert((me.role === "recruiter" || me.role === "admin") && me.mfa_required_for_role && !me.mfa_enabled, `unexpected HR state ${JSON.stringify(me)}`);
+    hrRole = me.role;
   });
 
   await check("staff without 2FA get the friendly 'turn on 2FA' prompt, not an error", async () => {
@@ -386,13 +405,20 @@ try {
     assert((await res.getByTestId("bulk-failed").count()) === 1, "expected 1 failed");
     await res.getByTestId("bulk-failed").getByText("notes.txt").waitFor();
     await shot(recPage, "v2-bulk-upload-desktop");
-    recPage.once("dialog", (d) => d.accept());
     await res.getByTestId("bulk-added").first().getByRole("button", { name: "Remove" }).click();
+    await recPage.getByTestId("confirm-dialog").getByTestId("confirm-ok").click(); // in-app confirm dialog
     await res.getByTestId("bulk-added").first().getByText("Removed").waitFor();
     await recPage.getByRole("button", { name: "Bulk upload" }).click(); // close the panel
     const uploadedRows = recPage.getByTestId("candidate-row").filter({ hasText: "Uploaded" });
-    await uploadedRows.first().waitFor();
-    assert((await uploadedRows.count()) === 1, `expected 1 uploaded row, got ${await uploadedRows.count()}`);
+    // onDone() reloads the candidate list in the background: wait for it to settle on the expected count
+    // instead of counting rows that may still be from before the upload / removal
+    const deadline = Date.now() + 20000;
+    let n = await uploadedRows.count();
+    while (n !== 1 && Date.now() < deadline) {
+      await recPage.waitForTimeout(250);
+      n = await uploadedRows.count();
+    }
+    assert(n === 1, `expected 1 uploaded row, got ${n}`);
     await uploadedRows.first().getByText(/deleted \w/).waitFor();
   });
 
@@ -499,6 +525,13 @@ try {
 
   await check("fairness page renders snapshot date, notes and 'not proof' wording", async () => {
     await go(recPage, `${BASE}/recruiter/fairness`);
+    if (hrRole !== "admin") {
+      // recruiters must not see group outcomes: the page refuses and the API answers 403
+      const r = await call(rec, "GET", "/api/recruiter/fairness");
+      assert(r.status() === 403, `fairness report open to a recruiter (${r.status()})`);
+      console.log("      (HR account is a recruiter, not an admin: fairness content checks skipped)");
+      return;
+    }
     await recPage.getByTestId("fairness-totals").waitFor({ timeout: 60000 });
     await recPage.getByText("Prompts to investigate, not proof").waitFor();
     await recPage.getByTestId("fairness-notes").getByText(/not proof of bias/).waitFor();
@@ -638,7 +671,7 @@ try {
     await checks.getByRole("heading", { name: "Structure checks (rule-based, not AI)" }).waitFor();
     const ai = page.getByTestId("ai-block");
     await ai.waitFor();
-    await ai.getByText("Development fixture — not live AI").waitFor();
+    await ai.getByText("Sample response — not live AI").waitFor();
     await page.getByTestId("past-sessions").getByText("1/").waitFor();
     await shot(page, "v2-interview-desktop");
   });
@@ -654,7 +687,8 @@ try {
       [rp, "compare", `/recruiter/openings/${openingId}/compare?ids=${ids.join(",")}`, (p) => p.getByTestId("compare").waitFor({ timeout: 60000 })],
       [rp, "notes", `/recruiter/applications/${ids[0]}`, (p) => p.getByTestId("notes").waitFor({ timeout: 60000 })],
       [rp, "analytics", `/recruiter/analytics`, (p) => p.getByTestId("analytics-totals").waitFor({ timeout: 60000 })],
-      [rp, "fairness", `/recruiter/fairness`, (p) => p.getByTestId("fairness-totals").waitFor({ timeout: 60000 })],
+      // admin-only page: skipped when the HR account is a recruiter
+      ...(hrRole === "admin" ? [[rp, "fairness", `/recruiter/fairness`, (p) => p.getByTestId("fairness-totals").waitFor({ timeout: 60000 })]] : []),
       [rp, "settings-2fa", `/settings`, (p) => p.getByTestId("mfa-on").waitFor({ timeout: 60000 })],
       [cp, "settings", `/settings`, (p) => p.getByTestId("self-id").getByLabel("Gender (optional)").waitFor({ timeout: 60000 })],
       [cp, "whatif", `/resumes/${A.resumeId}/editor`, (p) => p.getByTestId("what-if").waitFor({ timeout: 60000 })],

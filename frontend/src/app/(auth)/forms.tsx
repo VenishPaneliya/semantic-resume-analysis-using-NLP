@@ -13,6 +13,10 @@ function useSubmit() {
   return { pending, error, setError, setPending };
 }
 
+// After Google sign-in the server keeps the second-step token in a short-lived HttpOnly cookie
+// (never in the URL) and sends the browser to /login?mfa=google.
+const MFA_TOKEN_IN_COOKIE = "cookie";
+
 function safeNext(n: string | null) {
   return n && n.startsWith("/") && !n.startsWith("//") ? n : "/dashboard";
 }
@@ -23,7 +27,7 @@ export function LoginForm() {
   const params = useSearchParams();
   const s = useSubmit();
   const [google, setGoogle] = useState(false);
-  const [mfaToken, setMfaToken] = useState<string | null>(params.get("mfa_token"));
+  const [mfaToken, setMfaToken] = useState<string | null>(params.get("mfa") === "google" ? MFA_TOKEN_IN_COOKIE : null);
   useEffect(() => {
     api<{ google: boolean }>("/api/auth/providers", { noRedirect: true }).then((p) => setGoogle(p.google)).catch(() => {});
   }, []);
@@ -54,7 +58,7 @@ export function LoginForm() {
         onSuccess={() => router.push(safeNext(params.get("next")))}
         onRestart={() => {
           setMfaToken(null);
-          if (params.get("mfa_token")) router.replace("/login");
+          if (params.get("mfa")) router.replace("/login");
         }}
       />
     );
@@ -104,7 +108,7 @@ function MfaStep({ token, onSuccess, onRestart }: { token: string; onSuccess: ()
     s.setPending(true);
     s.setError(null);
     try {
-      const r = await api<{ recovery_codes_left?: number }>("/api/auth/login/mfa", { body: { mfa_token: token, code }, noRedirect: true });
+      const r = await api<{ recovery_codes_left?: number }>("/api/auth/login/mfa", { body: token === MFA_TOKEN_IN_COOKIE ? { code } : { mfa_token: token, code }, noRedirect: true });
       if (typeof r?.recovery_codes_left === "number") {
         setLeft(r.recovery_codes_left);
         s.setPending(false);
@@ -186,8 +190,9 @@ function MfaStep({ token, onSuccess, onRestart }: { token: string; onSuccess: ()
 
 export function RegisterForm() {
   const t = useT();
-  const router = useRouter();
   const s = useSubmit();
+  // the address the link went to; the API answers the same for new and already-registered addresses
+  const [sent, setSent] = useState<string | null>(null);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -198,16 +203,46 @@ export function RegisterForm() {
     s.setPending(true);
     s.setError(null);
     try {
-      await api("/api/auth/register", {
+      // same answer for new and already-registered addresses; no session until the user signs in
+      await api<{ status?: string; message?: string }>("/api/auth/register", {
         body: { email: f.get("email"), password: f.get("password"), display_name: f.get("name") || null },
         noRedirect: true,
       });
-      router.push("/dashboard?welcome=1");
+      // shown in our own translated words rather than the API's English message
+      setSent(String(f.get("email") ?? ""));
+      s.setPending(false);
     } catch (err) {
       s.setError(errMsg(err));
       s.setPending(false);
     }
   }
+  if (sent !== null)
+    return (
+      <div data-testid="register-sent">
+        <h1 className="text-2xl">{t("auth.register.sentTitle")}</h1>
+        <div className="mt-6 space-y-4" aria-live="polite">
+          <Alert tone="info" title={t("auth.register.sentLead", { email: sent })}>
+            <ol className="mt-1 list-decimal space-y-1 pl-4">
+              <li>{t("auth.register.sentStep1")}</li>
+              <li>{t("auth.register.sentStep2")}</li>
+            </ol>
+          </Alert>
+          <p className="text-sm text-ink-2">{t("auth.register.sentExisting")}</p>
+          <Link href="/login" className="btn btn-primary w-full justify-center">
+            {t("common.signIn")}
+          </Link>
+          <p className="text-xs text-muted">
+            {t.rich("auth.register.sentHelp", {
+              forgot: (c) => (
+                <Link href="/forgot-password" className="text-teal underline">
+                  {c}
+                </Link>
+              ),
+            })}
+          </p>
+        </div>
+      </div>
+    );
   return (
     <>
       <h1 className="text-2xl">{t("auth.register.title")}</h1>
@@ -265,7 +300,7 @@ export function VerifyEmail() {
         {state === "working" && <Spinner label={t("auth.verify.working")} />}
         {state === "ok" && (
           <Alert tone="ok" title={t("auth.verify.okTitle")}>
-            {t.rich("auth.verify.okBody", { link: (c) => <Link href="/dashboard">{c}</Link> })}
+            {t.rich("auth.verify.okBody", { link: (c) => <Link href="/login?next=/dashboard">{c}</Link> })}
           </Alert>
         )}
         {state === "error" && (
@@ -288,8 +323,8 @@ export function ForgotForm() {
     s.setPending(true);
     s.setError(null);
     try {
-      const r = await api<{ status: string }>("/api/auth/forgot-password", { body: { email: f.get("email") }, noRedirect: true });
-      setSent(r.status);
+      await api<{ status: string }>("/api/auth/forgot-password", { body: { email: f.get("email") }, noRedirect: true });
+      setSent(t("auth.forgot.sent"));
     } catch (err) {
       s.setError(errMsg(err));
     } finally {

@@ -10,13 +10,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.auth import check_second_factor
-from app.api.deps import current_user, err
+from app.api.deps import current_session, current_user, err
 from app.db import get_db
-from app.models import DemographicSelfId, User, utcnow
+from app.models import DemographicSelfId, User, UserSession, utcnow
 from app.security import totp
 from app.security.crypto import keyed_hash
 from app.security.passwords import verify_password
 from app.security.ratelimit import enforce
+from app.security.sessions import revoke_all_sessions
 from app.services.audit import audit
 
 router = APIRouter(prefix="/api/account", tags=["account"])
@@ -49,7 +50,8 @@ class CodeIn(BaseModel):
 
 
 @router.post("/2fa/enable")
-def mfa_enable(body: CodeIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def mfa_enable(body: CodeIn, user: User = Depends(current_user), sess: UserSession = Depends(current_session),
+               db: Session = Depends(get_db)):
     enforce(f"mfa-enable:{user.id}", 10)
     user = db.merge(user)
     if user.totp_enabled_at:
@@ -62,9 +64,11 @@ def mfa_enable(body: CodeIn, user: User = Depends(current_user), db: Session = D
     codes = totp.new_recovery_codes()
     user.totp_enabled_at, user.totp_last_step = utcnow(), step
     user.recovery_code_hashes = [keyed_hash(c) for c in codes]
+    # like a password change: sessions that signed in with the password alone are signed out
+    revoke_all_sessions(db, user.id, except_id=sess.id)
     audit(db, "account.mfa_enabled", user.id)
     db.commit()
-    return {"enabled": True, "recovery_codes": codes,
+    return {"enabled": True, "recovery_codes": codes, "other_sessions_signed_out": True,
             "note": "Save these recovery codes somewhere safe. Each works once if you lose your phone. They won't be shown again."}
 
 
@@ -74,7 +78,8 @@ class DisableIn(BaseModel):
 
 
 @router.post("/2fa/disable")
-def mfa_disable(body: DisableIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def mfa_disable(body: DisableIn, user: User = Depends(current_user), sess: UserSession = Depends(current_session),
+                db: Session = Depends(get_db)):
     enforce(f"mfa-disable:{user.id}", 5)
     user = db.merge(user)
     if not user.totp_enabled_at:
@@ -86,13 +91,15 @@ def mfa_disable(body: DisableIn, user: User = Depends(current_user), db: Session
     user.totp_secret = None
     user.totp_enabled_at = user.totp_last_step = None
     user.recovery_code_hashes = []
+    revoke_all_sessions(db, user.id, except_id=sess.id)
     audit(db, "account.mfa_disabled", user.id)
     db.commit()
-    return {"enabled": False}
+    return {"enabled": False, "other_sessions_signed_out": True}
 
 
 @router.post("/2fa/recovery-codes")
-def mfa_new_codes(body: CodeIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def mfa_new_codes(body: CodeIn, user: User = Depends(current_user), sess: UserSession = Depends(current_session),
+                  db: Session = Depends(get_db)):
     enforce(f"mfa-codes:{user.id}", 5)
     user = db.merge(user)
     if not user.totp_enabled_at:
@@ -101,9 +108,11 @@ def mfa_new_codes(body: CodeIn, user: User = Depends(current_user), db: Session 
         raise err(400, "invalid_code", "Enter a current code from your authenticator app.")
     codes = totp.new_recovery_codes()
     user.recovery_code_hashes = [keyed_hash(c) for c in codes]
+    # new codes are usually made because old ones may be exposed: sign out everywhere else too
+    revoke_all_sessions(db, user.id, except_id=sess.id)
     audit(db, "account.mfa_codes_regenerated", user.id)
     db.commit()
-    return {"recovery_codes": codes}
+    return {"recovery_codes": codes, "other_sessions_signed_out": True}
 
 
 # ---------------------------------------------------------------- voluntary self-identification

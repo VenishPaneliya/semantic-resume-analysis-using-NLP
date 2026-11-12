@@ -1,10 +1,11 @@
-"use client";
-
 import Link from "next/link";
-import { useT } from "@/lib/i18n";
+import { getServerT, pageTitle } from "@/lib/i18n-server";
+import type { Metadata } from "next";
 
-export default function NotFound() {
-  const t = useT();
+export const generateMetadata = (): Promise<Metadata> => pageTitle("notFound.title");
+
+export default async function NotFound() {
+  const t = await getServerT();
   return (
     <main id="main" className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center gap-3 px-4 text-center">
       <p className="eyebrow">404</p>

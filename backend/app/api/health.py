@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-import hmac
-
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
-from app.observability import REGISTRY
+from app.observability import metrics_authorized, render_metrics
 from app.services.jobs import update_queue_gauge
 
 router = APIRouter(prefix="/api", tags=["health"])
@@ -56,7 +53,9 @@ def metrics(authorization: str | None = Header(default=None), db: Session = Depe
     s = get_settings()
     if not s.metrics_enabled:
         raise HTTPException(404)
-    if s.metrics_token and not hmac.compare_digest((authorization or "").encode(), f"Bearer {s.metrics_token}".encode()):
+    if not metrics_authorized(authorization):
         raise HTTPException(401)
     update_queue_gauge(db)
-    return Response(generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
+    # all uvicorn workers' values when PROMETHEUS_MULTIPROC_DIR is set (see app.observability)
+    body, content_type = render_metrics()
+    return Response(body, media_type=content_type)

@@ -1,6 +1,11 @@
 node_modules
 .next
-e2e/screenshots
-e2e/*.log
+.next*
+e2e
+coverage
+*.log
 tsconfig.tsbuildinfo
 .env*
+Dockerfile
+.dockerignore
+README.md

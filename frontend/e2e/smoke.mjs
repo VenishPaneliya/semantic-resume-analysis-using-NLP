@@ -62,16 +62,33 @@ try {
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByLabel("Confirm password").fill(password);
     await page.getByRole("button", { name: "Create account" }).click();
-    await page.waitForURL(/\/dashboard/);
-    await page.getByText("Verify your email to start uploading").waitFor();
-    await shot(page, "02-dashboard-unverified");
+    // registration no longer signs in: the form is replaced by "check your email" (same answer for new and
+    // existing addresses), and the account can be used after verifying and signing in
+    await page.getByRole("button", { name: "Create account" }).waitFor({ state: "detached" });
+    await shot(page, "02-register-sent");
   });
 
   await check("verify email via token from backend log", async () => {
-    await page.waitForTimeout(500);
-    const tok = tokenFromLog(email);
+    // the email is sent by a background worker: give it a few seconds to reach the log
+    let tok = null;
+    for (let i = 0; i < 40 && !tok; i++) {
+      await page.waitForTimeout(500);
+      try {
+        tok = tokenFromLog(email);
+      } catch (e) {
+        if (i === 39) throw e;
+      }
+    }
     await page.goto(`${BASE}/verify-email?token=${tok}`);
     await page.getByText("Email verified").waitFor();
+  });
+
+  await check("sign in after verifying", async () => {
+    await page.goto(BASE + "/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL(/\/dashboard/);
   });
 
   let resumeUrl = "";
@@ -102,7 +119,7 @@ try {
 
   await check("role leaderboard (old /roles link redirects)", async () => {
     await page.goto(resumeUrl + "/roles");
-    await page.waitForURL(//leaderboard$/);
+    await page.waitForURL(/\/leaderboard$/);
     await page.getByTestId("role-row").first().waitFor();
     await page.getByText("Seniority estimate").waitFor();
     await shot(page, "06-roles");
@@ -123,7 +140,7 @@ try {
     await page.getByRole("group", { name: "AI tools for this bullet" }).first().getByRole("button", { name: "Rewrite" }).click();
     const card = page.locator("article[aria-label^='AI suggestion']").first();
     await card.waitFor({ timeout: 30000 });
-    await card.getByText("Development fixture — not live AI").waitFor();
+    await card.getByText("Sample response — not live AI").waitFor();
     await card.getByText(/AI suggestion — not applied/).waitFor();
     await shot(page, "08-editor-suggestion", false);
     await card.getByRole("button", { name: /^Accept/ }).click();

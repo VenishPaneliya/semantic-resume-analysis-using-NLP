@@ -2,18 +2,104 @@
    carry the double-submit CSRF token read from the non-HttpOnly `ri_csrf` cookie.
    Messages from the API stay in English; only the frontend's own fallback messages are translated. */
 
-import { translateNow } from "./i18n";
+import { translateNow, type MessageKey } from "./i18n";
+
+export interface FieldError {
+  /** dotted path of the field, without the leading "body" ("email", "career_prefs.locations.0") */
+  field: string;
+  /** the API's (English) explanation, e.g. "String should have at least 10 characters" */
+  message: string;
+}
 
 export class ApiError extends Error {
   status: number;
   code: string;
   details?: unknown;
+  /** per-field problems from a 422 validation error (empty for other errors) */
+  fields: FieldError[];
   constructor(status: number, code: string, message: string, details?: unknown) {
     super(message);
     this.status = status;
     this.code = code;
     this.details = details;
+    this.fields = fieldErrors(details);
   }
+}
+
+/* The API answers invalid input with 422 { code: "validation_error", message: "Some fields are invalid.",
+   errors: [{ loc: ["body", "email"], msg: "value is not a valid email address: ..." }] }. Turn that into
+   "Please check: Email — value is not a valid email address" so people know what to fix. Field names are
+   translated where the interface has a label for them; the API's explanation stays English. */
+function fieldErrors(details: unknown): FieldError[] {
+  if (!Array.isArray(details)) return [];
+  const out: FieldError[] = [];
+  for (const e of details) {
+    if (!e || typeof e !== "object") continue;
+    const loc = Array.isArray((e as { loc?: unknown }).loc) ? ((e as { loc: unknown[] }).loc as unknown[]) : [];
+    const path = loc.filter((x, i) => !(i === 0 && (x === "body" || x === "query" || x === "path"))).map(String);
+    let message = String((e as { msg?: unknown }).msg ?? "");
+    message = message.replace(/^Value error, /, "").replace(/^Assertion failed, /, "");
+    out.push({ field: path.join("."), message });
+  }
+  return out;
+}
+
+const FIELD_LABEL: Record<string, MessageKey> = {
+  email: "field.email",
+  password: "field.password",
+  new_password: "field.newPassword",
+  current_password: "field.currentPassword",
+  display_name: "field.displayName",
+  title: "field.title",
+  company: "field.company",
+  role: "field.role",
+  location: "field.location",
+  url: "field.url",
+  notes: "field.notes",
+  description: "field.description",
+  text: "field.text",
+  code: "field.code",
+  name: "field.name",
+  summary: "field.summary",
+  experience: "field.experience",
+  education: "field.education",
+  projects: "field.projects",
+  degree: "field.degree",
+  field_of_study: "field.fieldOfStudy",
+  institution: "field.institution",
+  organization: "field.organization",
+};
+
+function humanize(name: string): string {
+  const key = FIELD_LABEL[name];
+  if (key) return translateNow(key);
+  const words = name.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Human label for a field path: "email" -> "Email", "content.education.0.degree" -> "Education 1 › Degree". */
+export function fieldLabel(path: string): string {
+  const parts = path.split(".").filter((p) => p && p !== "content");
+  if (!parts.length) return translateNow("field.request");
+  const out: string[] = [];
+  for (const p of parts) {
+    if (/^\d+$/.test(p) && out.length) out[out.length - 1] += ` ${Number(p) + 1}`;
+    else if (!/^\d+$/.test(p)) out.push(humanize(p));
+  }
+  return out.slice(-2).join(" › ");
+}
+
+/** "Email — value is not a valid email address; Password — String should have at least 10 characters" */
+export function describeFieldErrors(fields: FieldError[]): string {
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const f of fields) {
+    const s = `${fieldLabel(f.field)} — ${f.message}`;
+    if (seen.has(s)) continue;
+    seen.add(s);
+    parts.push(s);
+  }
+  return parts.join("; ");
 }
 
 export function getCookie(name: string): string | null {
@@ -50,7 +136,11 @@ export async function parseError(res: Response): Promise<ApiError> {
     /* non-JSON error */
   }
   if (res.status >= 500 && code.startsWith("http_")) message = translateNow("common.serverError");
-  return new ApiError(res.status, code, message, details);
+  // two requests changed the same thing at once (unique-constraint race): ask for a reload, not a retry loop
+  if (res.status === 409 && code === "conflict") message = translateNow("common.conflict");
+  const err = new ApiError(res.status, code, message, details);
+  if (err.fields.length) err.message = translateNow("common.checkFields", { fields: describeFieldErrors(err.fields) });
+  return err;
 }
 
 /** Staff endpoints answer 403 `mfa_required` until two-factor login is on. The app shell listens for
@@ -117,9 +207,11 @@ export function uploadWithProgress<T>(path: string, form: FormData, onProgress: 
       }
       if (xhr.status >= 200 && xhr.status < 300) return resolve(body as T);
       if (xhr.status === 401) redirectToLogin();
-      const d = (body as { detail?: { code?: string; message?: string } } | null)?.detail;
+      const d = (body as { detail?: { code?: string; message?: string; errors?: unknown } } | null)?.detail;
       if (xhr.status === 403 && d?.code === "mfa_required") announceMfaRequired(d.message ?? "");
-      reject(new ApiError(xhr.status, d?.code ?? `http_${xhr.status}`, d?.message ?? translateNow("common.uploadFailed")));
+      const err = new ApiError(xhr.status, d?.code ?? `http_${xhr.status}`, d?.message ?? translateNow("common.uploadFailed"), d?.errors);
+      if (err.fields.length) err.message = translateNow("common.checkFields", { fields: describeFieldErrors(err.fields) });
+      reject(err);
     };
     xhr.send(form);
   });

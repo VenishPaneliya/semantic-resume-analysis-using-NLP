@@ -4,11 +4,13 @@ import { ArrowDown, ArrowUp, CopyPlus, Download, GitCompareArrows, History, Rota
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useConfirm } from "@/components/confirm";
 import { ContentForm, SECTION_LABEL_KEY } from "@/components/content-form";
 import { DiffView, ResumePreview } from "@/components/preview";
 import { SuggestionCard } from "@/components/suggestion-card";
 import { WhatIfPanel } from "@/components/what-if";
-import { Alert, Badge, Empty, EnglishNote, ErrorState, Field, fmtDate, LiveRegion, LoadingBlock, Spinner } from "@/components/ui";
+import { Alert, Badge, Empty, EnglishNote, ErrorState, Field, fmtDate, LiveRegion, LoadingBlock, Spinner, useTabs } from "@/components/ui";
+import { categoryName, roleTitle } from "@/lib/labels";
 import { api, ApiError, downloadSigned, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
@@ -16,6 +18,7 @@ import type { Bullet, Compare, ExportRow, JD, ResumeContent, Role, Suggestion, T
 import { useResume } from "../context";
 
 type Panel = "preview" | "suggestions" | "history" | "export";
+const PANELS: readonly Panel[] = ["preview", "suggestions", "history", "export"];
 type Op = "rewrite_bullet" | "grammar" | "shorten" | "tone" | "tailor" | "improve_summary";
 type Tone = "confident" | "formal" | "concise" | "friendly";
 const TONES: Tone[] = ["confident", "formal", "concise", "friendly"];
@@ -42,8 +45,9 @@ export default function EditorPage() {
   const [tailor, setTailor] = useState<{ kind: "role" | "jd"; id: string }>({ kind: "role", id: resume.target_role ?? "" });
   const [template, setTemplate] = useState("professional");
   const [live, setLive] = useState("");
-  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles");
+  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles", [], { static: true });
   const jds = useApi<JD[]>("/api/job-descriptions");
+  const tabs = useTabs(PANELS, panel, setPanel, "ed");
 
   const loadVersion = useCallback(async (vid: string) => {
     setLoadErr(null);
@@ -72,7 +76,7 @@ export default function EditorPage() {
     return () => window.removeEventListener("beforeunload", h);
   }, [dirty]);
 
-  if (!versionId) return <Empty title={t("resume.confirmFirst")} />;
+  if (!versionId) return <Empty level={2} title={t("resume.confirmFirst")} />;
   if (loadErr) return <ErrorState message={loadErr} onRetry={() => loadVersion(versionId)} />;
   if (!version || !draft) return <LoadingBlock label={t("editor.loading")} />;
 
@@ -215,7 +219,7 @@ export default function EditorPage() {
             <optgroup label={t("editor.rolesGroup")}>
               {roles.data?.roles.map((r) => (
                 <option key={r.id} value={`role:${r.id}`}>
-                  {r.title}
+                  {roleTitle(t, r.id, r.title)}
                 </option>
               ))}
             </optgroup>
@@ -269,17 +273,31 @@ export default function EditorPage() {
                 ["export", t("editor.tab.export")],
               ] as [Panel, string][]
             ).map(([p, l]) => (
-              <button key={p} role="tab" aria-selected={panel === p} aria-controls={`panel-${p}`} className="flex-1 whitespace-nowrap rounded px-2 py-1.5 text-sm font-medium aria-selected:bg-card aria-selected:shadow-sm" onClick={() => setPanel(p)}>
+              <button key={p} {...tabs.tab(p)} className="flex-1 whitespace-nowrap rounded px-2 py-1.5 text-sm font-medium text-ink-2 aria-selected:bg-card aria-selected:text-ink aria-selected:shadow-sm">
                 {l}
               </button>
             ))}
           </div>
-          <div id={`panel-${panel}`} role="tabpanel" className="max-h-[calc(100vh-12rem)] overflow-y-auto rounded-lg">
+          {/* only the wide two-column layout needs its own scroll area; below that the panel uses the page height */}
+          <div {...tabs.panel(panel)} className="rounded-lg xl:max-h-[calc(100vh-12rem)] xl:overflow-y-auto">
             {panel === "preview" && (
-              <div className="space-y-4">
-                <div className="card p-4">
-                  <p className="label">{t("editor.sectionOrder")}</p>
-                  <ol className="space-y-1">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-0 flex-1">
+                    <label className="label" htmlFor="prev-tpl">
+                      {t("editor.previewTemplate")}
+                    </label>
+                    <select id="prev-tpl" className="input" value={template} onChange={(e) => setTemplate(e.target.value)}>
+                      <option value="student">{t("editor.tpl.student")}</option>
+                      <option value="professional">{t("editor.tpl.professional")}</option>
+                      <option value="technical">{t("editor.tpl.technical")}</option>
+                    </select>
+                  </div>
+                </div>
+                {/* section order is used now and then: folded away so the preview gets the space */}
+                <details className="card group p-3" data-testid="section-order">
+                  <summary className="cursor-pointer text-sm font-semibold">{t("editor.sectionOrder")}</summary>
+                  <ol className="mt-2 space-y-1">
                     {draft.section_order.map((k, i) => (
                       <li key={k} className="flex items-center justify-between rounded border border-line bg-paper px-2 py-1 text-sm">
                         <span>
@@ -297,17 +315,7 @@ export default function EditorPage() {
                       </li>
                     ))}
                   </ol>
-                  <div className="mt-3">
-                    <label className="label" htmlFor="prev-tpl">
-                      {t("editor.previewTemplate")}
-                    </label>
-                    <select id="prev-tpl" className="input" value={template} onChange={(e) => setTemplate(e.target.value)}>
-                      <option value="student">{t("editor.tpl.student")}</option>
-                      <option value="professional">{t("editor.tpl.professional")}</option>
-                      <option value="technical">{t("editor.tpl.technical")}</option>
-                    </select>
-                  </div>
-                </div>
+                </details>
                 <EnglishNote kind="resume" />
                 <div className="rounded-lg bg-paper-2 p-3">
                   <ResumePreview c={draft} template={template} />
@@ -352,9 +360,10 @@ export default function EditorPage() {
 
 function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; current: Version; onRestored: (vid: string) => Promise<void> }) {
   const t = useT();
+  const confirm = useConfirm();
   const router = useRouter();
   const { data, error, loading, reload } = useApi<Version[]>(`/api/resumes/${resumeId}/versions`, [current.id]);
-  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles");
+  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles", [], { static: true });
   const [sel, setSel] = useState<string[]>([]);
   const [cmp, setCmp] = useState<Compare | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -362,7 +371,7 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
   const [variant, setVariant] = useState({ title: "", role: "" });
 
   async function restore(v: Version) {
-    if (!window.confirm(t("editor.restoreConfirm", { n: v.number }))) return;
+    if (!(await confirm({ title: t("editor.restoreConfirm", { n: v.number }), confirmLabel: t("editor.restore"), tone: "default" }))) return;
     setBusy(v.id);
     try {
       const nv = await api<Version>(`/api/versions/${v.id}/restore`, { method: "POST" });
@@ -454,7 +463,7 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
             <tbody>
               {cmp.categories.map((c) => (
                 <tr key={c.id} className="border-b border-line">
-                  <td className="py-1">{c.name}</td>
+                  <td className="py-1">{categoryName(t, c.id, c.name)}</td>
                   <td className="num py-1 text-right">{c.a ?? "—"}</td>
                   <td className="num py-1 text-right">{c.b ?? "—"}</td>
                   <td className={`num py-1 text-right ${c.delta && c.delta > 0 ? "text-ok" : c.delta && c.delta < 0 ? "text-bad" : "text-muted"}`}>
@@ -496,7 +505,7 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
               <option value="">{t("common.none")}</option>
               {roles.data?.roles.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.title}
+                  {roleTitle(t, r.id, r.title)}
                 </option>
               ))}
             </select>
@@ -512,7 +521,7 @@ function HistoryPanel({ resumeId, current, onRestored }: { resumeId: string; cur
 
 function ExportPanel({ resumeId, dirty }: { resumeId: string; dirty: boolean }) {
   const t = useT();
-  const templates = useApi<Template[]>("/api/templates");
+  const templates = useApi<Template[]>("/api/templates", [], { static: true });
   const [opts, setOpts] = useState({ format: "pdf", template: "professional", page_size: "A4" });
   const [exp, setExp] = useState<ExportRow | null>(null);
   const [err, setErr] = useState<string | null>(null);

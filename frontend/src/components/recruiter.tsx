@@ -3,12 +3,14 @@
 import { CalendarClock, FileUp, Filter, GripVertical, Lock, MessageSquare, Trash2, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, type DragEvent, type FormEvent } from "react";
-import { api, errMsg } from "@/lib/api";
-import { useT, type TFunction } from "@/lib/i18n";
-import { STAGES, type ApplicationStage, type BulkUploadResult, type CandidateRow, type CandidateSource, type Note } from "@/lib/types";
+import { useConfirm } from "./confirm";
+import { fileErrorMessage } from "@/lib/labels";
 import { KeywordChips, ScoreBar, TierBadge } from "./leaderboard";
 import { STAGE_KEY, StageSelect } from "./stage-select";
 import { Alert, Badge, cx, Field, fmtDate, Spinner } from "./ui";
+import { api, errMsg } from "@/lib/api";
+import { useT, type TFunction } from "@/lib/i18n";
+import { STAGES, type ApplicationStage, type BulkUploadResult, type CandidateRow, type CandidateSource, type Note } from "@/lib/types";
 
 // ---------------------------------------------------------------- badges
 
@@ -375,6 +377,7 @@ export function PipelineBoard({ rows, onStage }: { rows: CandidateRow[]; onStage
 
 export function BulkUpload({ openingId, onDone }: { openingId: string; onDone: () => void }) {
   const t = useT();
+  const confirm = useConfirm();
   const [files, setFiles] = useState<File[]>([]);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -408,7 +411,7 @@ export function BulkUpload({ openingId, onDone }: { openingId: string; onDone: (
   }
 
   async function remove(aid: string, name: string) {
-    if (!window.confirm(t("rec.confirmRemove", { name }))) return;
+    if (!(await confirm({ title: t("rec.confirmRemove", { name }), confirmLabel: t("common.remove") }))) return;
     try {
       await api(`/api/recruiter/applications/${aid}`, { method: "DELETE" });
       setRemoved((r) => [...r, aid]);
@@ -489,7 +492,7 @@ export function BulkUpload({ openingId, onDone }: { openingId: string; onDone: (
                 <Badge tone="bad">{t("rec.u.failed")}</Badge>
                 <span className="min-w-0 flex-1">
                   <span className="block break-all font-medium">{f.file}</span>
-                  <span className="text-xs text-ink-2">{f.message}</span>
+                  <span className="text-xs text-ink-2">{fileErrorMessage(t, f.code, f.message)}</span>
                 </span>
               </li>
             ))}
@@ -511,6 +514,7 @@ export function NotesPanel({ applicationId, notes, currentUserId, isAdmin, onCha
   onChange: (n: Note[]) => void;
 }) {
   const t = useT();
+  const confirm = useConfirm();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -531,7 +535,7 @@ export function NotesPanel({ applicationId, notes, currentUserId, isAdmin, onCha
     }
   }
   async function del(n: Note) {
-    if (!window.confirm(t("rec.n.confirmDelete"))) return;
+    if (!(await confirm({ title: t("rec.n.confirmDelete") }))) return;
     try {
       await api(`/api/recruiter/notes/${n.id}`, { method: "DELETE" });
       onChange(notes.filter((x) => x.id !== n.id));

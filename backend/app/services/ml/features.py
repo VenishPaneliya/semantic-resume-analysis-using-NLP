@@ -64,6 +64,19 @@ def resume_skill_evidence(c: ResumeContent) -> SkillEvidence:
     return ev
 
 
+# One rule for "how much does this skill count", used by the rubric, the role recommender and job matching:
+# shown in experience/projects = 1, only listed in the skills section = half, absent = 0.
+LISTED_CREDIT = 0.5
+
+
+def skill_credit(skill: str, ev: SkillEvidence) -> float:
+    return 1.0 if skill in ev.demonstrated else LISTED_CREDIT if skill in ev.listed else 0.0
+
+
+def coverage(skills: list[str], ev: SkillEvidence) -> float | None:
+    return sum(skill_credit(s, ev) for s in skills) / len(skills) if skills else None
+
+
 def evidence_text(c: ResumeContent) -> str:
     """Text used for semantic embedding — see FAIRNESS CONSTRAINT above."""
     parts: list[str] = []

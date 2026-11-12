@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # urlsafe base64 32-byte Fernet key(s), comma separated; first is used for encryption,
     # all are tried for decryption (key rotation).
     encryption_keys: str = ""
+    # earlier SECRET_KEY values whose derived keys may still protect data (installs that ran without
+    # ENCRYPTION_KEYS); comma separated, used for decryption only
+    encryption_fallback_secret_keys: str = ""
     session_cookie_name: str = "ri_session"
     csrf_cookie_name: str = "ri_csrf"
     session_ttl_hours: int = 24 * 7
@@ -108,6 +111,8 @@ class Settings(BaseSettings):
     unverified_account_retention_days: int = 30
     bulk_upload_retention_days: int = 90  # recruiter-uploaded candidates without an account
     bulk_upload_max_files: int = 25
+    bulk_upload_time_budget_seconds: int = 120  # files not parsed within this time are reported as "upload again"
+    processing_job_retention_days: int = 30  # finished (succeeded/failed) job rows are purged after this
 
     # --- observability ---
     log_level: str = "INFO"
@@ -115,6 +120,7 @@ class Settings(BaseSettings):
     sentry_dsn: str | None = None
     metrics_enabled: bool = True
     metrics_token: str | None = None  # if set, /api/metrics requires Bearer token
+    worker_metrics_port: int = 0  # Celery worker: serve /metrics on this port (same token); 0 = off
 
     admin_emails: str = Field(default="", description="comma separated emails promoted to admin on verify")
     require_mfa_for_staff: bool = Field(default=True, description="recruiters/admins must enable two-factor login")
@@ -128,8 +134,12 @@ class Settings(BaseSettings):
             problems = []
             if self.secret_key.startswith("dev-") or len(self.secret_key) < 32:
                 problems.append("SECRET_KEY must be a random value of >= 32 chars")
-            if not self.encryption_keys:
-                problems.append("ENCRYPTION_KEYS is required")
+            if not self.encryption_key_list:
+                # without it the data key is derived from SECRET_KEY, so rotating SECRET_KEY would make
+                # every encrypted file and column unreadable
+                problems.append("ENCRYPTION_KEYS is required (Fernet keys, newest first)")
+            elif not all(_is_fernet_key(k) for k in self.encryption_key_list):
+                problems.append("ENCRYPTION_KEYS must contain only Fernet keys (32 url-safe base64-encoded bytes each)")
             if not self.cookie_secure:
                 problems.append("COOKIE_SECURE must be true")
             if self.task_always_eager:
@@ -156,6 +166,10 @@ class Settings(BaseSettings):
         return self
 
     @property
+    def encryption_key_list(self) -> list[str]:
+        return [k.strip() for k in self.encryption_keys.split(",") if k.strip()]
+
+    @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
@@ -170,6 +184,16 @@ class Settings(BaseSettings):
     @property
     def google_oauth_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret)
+
+
+def _is_fernet_key(key: str) -> bool:
+    import base64
+    import binascii
+
+    try:
+        return len(base64.urlsafe_b64decode(key.encode())) == 32
+    except (binascii.Error, ValueError):
+        return False
 
 
 @lru_cache

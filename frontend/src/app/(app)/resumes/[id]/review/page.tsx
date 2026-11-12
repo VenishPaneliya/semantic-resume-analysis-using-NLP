@@ -3,6 +3,7 @@
 import { AlertTriangle, CheckCircle2, FileSearch, Quote, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useIsStaff } from "@/components/shell";
 import { ContentForm, SECTION_LABEL, SECTION_LABEL_KEY } from "@/components/content-form";
 import { Alert, Badge, EnglishNote, ErrorState, LoadingBlock, Section, Spinner } from "@/components/ui";
 import { api, errMsg } from "@/lib/api";
@@ -20,6 +21,7 @@ const WARNINGS: Record<string, { tone: "warn" | "bad" | "info"; text: MessageKey
 
 export default function ReviewPage() {
   const t = useT();
+  const staff = useIsStaff();
   const { resume, reload } = useResume();
   const router = useRouter();
   const [ex, setEx] = useState<Extraction | null>(null);
@@ -177,7 +179,7 @@ export default function ReviewPage() {
             <Row k={t("review.textLayer")} v={ex.ocr_used ? t("review.ocrUsed") : t("common.yes")} />
             {typeof layout.body_font_size_pt === "number" && <Row k={t("review.bodyFont")} v={`${layout.body_font_size_pt} pt`} />}
             {typeof layout.distinct_font_count === "number" && <Row k={t("review.distinctFonts")} v={String(layout.distinct_font_count)} />}
-            <Row k={t("review.parser")} v={`${ex.parser_version} · ${ex.extractor_version}`} />
+            {staff && <Row k={t("review.parser")} v={`${ex.parser_version} · ${ex.extractor_version}`} />}
           </dl>
           <p className="mt-3 text-xs text-muted">{t("review.measuredNote")}</p>
           <button

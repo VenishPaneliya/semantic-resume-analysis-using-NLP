@@ -4,9 +4,11 @@ import { ArrowRight, CopyPlus, FileText, FileUp, RotateCcw, Trash2 } from "lucid
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { useConfirm } from "@/components/confirm";
 import { useUser } from "@/components/shell";
 import { Alert, Badge, Empty, ErrorState, fmtDate, LiveRegion, LoadingBlock, PageHeader, Spinner } from "@/components/ui";
-import { api, errMsg, uploadWithProgress } from "@/lib/api";
+import { fileErrorMessage, isPermanentFileError, resumeTitle, resumeTitleLang } from "@/lib/labels";
+import { api, ApiError, errMsg, uploadWithProgress } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
 import type { Resume } from "@/lib/types";
@@ -23,6 +25,7 @@ const ACCEPT = ".pdf,.docx,application/pdf,application/vnd.openxmlformats-office
 
 function Dashboard() {
   const t = useT();
+  const confirm = useConfirm();
   const { user } = useUser();
   const params = useSearchParams();
   const { data, setData, error, loading, reload } = useApi<Resume[]>(user.email_verified ? "/api/resumes" : null);
@@ -31,6 +34,8 @@ function Dashboard() {
   const [live, setLive] = useState("");
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // greet by first name ("Priya" rather than "Priya Sharma"); accounts without a name get a neutral welcome
+  const firstName = user.display_name?.trim().split(/\s+/)[0] ?? "";
 
   const processing = (data ?? []).filter((r) => r.status === "processing" || r.status === "uploaded");
 
@@ -42,8 +47,8 @@ function Dashboard() {
         const updated = await Promise.all(processing.map((r) => api<Resume>(`/api/resumes/${r.id}`)));
         setData((prev) => (prev ?? []).map((r) => updated.find((u) => u.id === r.id) ?? r));
         updated.forEach((u) => {
-          if (u.status === "needs_review") setLive(t("dash.live.readyForReview", { title: u.title }));
-          if (u.status === "failed") setLive(t("dash.live.couldNotProcess", { title: u.title }));
+          if (u.status === "needs_review") setLive(t("dash.live.readyForReview", { title: resumeTitle(t, u) }));
+          if (u.status === "failed") setLive(t("dash.live.couldNotProcess", { title: resumeTitle(t, u) }));
         });
       } catch {
         /* keep polling */
@@ -74,9 +79,9 @@ function Dashboard() {
           if (p % 25 === 0) setLive(t("dash.live.uploadPct", { pct: p }));
         });
         setData((prev) => [r, ...(prev ?? [])]);
-        setLive(r.status === "needs_review" ? t("dash.live.uploadedReview", { title: r.title }) : t("dash.live.uploadedProcessing", { title: r.title }));
+        setLive(r.status === "needs_review" ? t("dash.live.uploadedReview", { title: resumeTitle(t, r) }) : t("dash.live.uploadedProcessing", { title: resumeTitle(t, r) }));
       } catch (e) {
-        setUploadError(errMsg(e));
+        setUploadError(e instanceof ApiError ? fileErrorMessage(t, e.code, e.message) : errMsg(e));
         setLive(t("dash.live.uploadFailed"));
       } finally {
         setProgress(null);
@@ -97,11 +102,11 @@ function Dashboard() {
   }
 
   async function remove(r: Resume) {
-    if (!window.confirm(t("dash.confirmDelete", { title: r.title }))) return;
+    if (!(await confirm({ title: t("dash.confirmDelete", { title: resumeTitle(t, r) }) }))) return;
     try {
       await api(`/api/resumes/${r.id}`, { method: "DELETE" });
       setData((prev) => (prev ?? []).filter((x) => x.id !== r.id));
-      setLive(t("dash.live.deleted", { title: r.title }));
+      setLive(t("dash.live.deleted", { title: resumeTitle(t, r) }));
     } catch (e) {
       setUploadError(errMsg(e));
     }
@@ -116,8 +121,13 @@ function Dashboard() {
 
   return (
     <>
-      <PageHeader eyebrow={t("dash.eyebrow")} title={user.display_name ? t("dash.helloName", { name: user.display_name }) : t("dash.hello")}>
+      <PageHeader eyebrow={t("dash.eyebrow")} title={firstName ? t("dash.helloName", { name: firstName }) : t("dash.welcome")}>
         {t("dash.intro")}
+        {!firstName && (
+          <span className="mt-1 block text-xs text-muted">
+            {t.rich("dash.addName", { link: (c) => <Link href="/settings#profile" className="text-teal underline">{c}</Link> })}
+          </span>
+        )}
       </PageHeader>
       <LiveRegion message={live} />
 
@@ -202,7 +212,9 @@ function Dashboard() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate text-lg">{r.title}</h3>
+                    <h3 className="truncate text-lg" lang={resumeTitleLang(t, r)}>
+                      {resumeTitle(t, r)}
+                    </h3>
                     <Badge tone={STATUS[r.status].tone}>{t(STATUS[r.status].label)}</Badge>
                     {r.source_resume_id && (
                       <Badge tone="teal">
@@ -221,9 +233,10 @@ function Dashboard() {
                     </div>
                   )}
                   {r.status === "failed" && (
-                    <p className="mt-2 text-sm text-bad">
-                      {r.error_message ?? r.job?.error_message ?? t("dash.processingFailed")}
-                      {r.job && ` ${t("dash.attempt", { n: r.job.attempts, max: r.job.max_attempts })}`}
+                    <p className="mt-2 text-sm text-bad" data-testid="processing-error">
+                      {fileErrorMessage(t, r.error_code ?? r.job?.error_code, r.error_message ?? r.job?.error_message ?? t("dash.processingFailed"))}
+                      {r.job && !isPermanentFileError(r.error_code ?? r.job.error_code) && ` ${t("dash.attempt", { n: r.job.attempts, max: r.job.max_attempts })}`}
+                      {isPermanentFileError(r.error_code ?? r.job?.error_code) && <span className="mt-0.5 block text-xs text-ink-2">{t("dash.uploadFixed")}</span>}
                     </p>
                   )}
                 </div>
@@ -243,12 +256,12 @@ function Dashboard() {
                       </Link>
                     </>
                   )}
-                  {r.status === "failed" && r.job && (
+                  {r.status === "failed" && r.job && !isPermanentFileError(r.error_code ?? r.job.error_code) && (
                     <button className="btn btn-secondary btn-sm" onClick={() => retry(r)}>
                       <RotateCcw className="h-3.5 w-3.5" aria-hidden /> {t("common.retry")}
                     </button>
                   )}
-                  <button className="btn btn-ghost btn-sm" onClick={() => remove(r)} aria-label={t("dash.deleteAria", { title: r.title })}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => remove(r)} aria-label={t("dash.deleteAria", { title: resumeTitle(t, r) })}>
                     <Trash2 className="h-4 w-4" aria-hidden />
                   </button>
                 </div>

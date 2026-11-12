@@ -3,13 +3,14 @@
 import { BookmarkPlus, Check, Compass, GraduationCap, Lightbulb, ShieldCheck, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, errMsg } from "@/lib/api";
-import { useApi } from "@/lib/hooks";
-import { useT, type MessageKey } from "@/lib/i18n";
-import type { Suggestion, Tip, Tips } from "@/lib/types";
 import { TierBadge } from "./leaderboard";
 import { SuggestionCard } from "./suggestion-card";
 import { Alert, Badge, EnglishNote, ErrorState, LoadingBlock, Spinner } from "./ui";
+import { api, ApiError, errMsg } from "@/lib/api";
+import { useApi } from "@/lib/hooks";
+import { useT, type MessageKey } from "@/lib/i18n";
+import { roleTitle } from "@/lib/labels";
+import type { Suggestion, Tip, Tips } from "@/lib/types";
 
 export type TipsTarget = { kind: "role" | "opening"; id: string; title: string };
 
@@ -280,7 +281,7 @@ export function TipsDrawer({ target, versionId, onClose, onVersionChange }: {
           <div className="min-w-0">
             <p className="eyebrow">{target.kind === "role" ? t("tips.improveRole") : t("tips.improveOpening")}</p>
             <h2 id="tips-title" className="text-xl leading-tight">
-              {target.title}
+              {target.kind === "role" ? roleTitle(t, target.id, target.title) : target.title}
             </h2>
           </div>
           <button ref={closeRef} className="btn btn-ghost btn-sm shrink-0" onClick={onClose} aria-label={t("tips.close")}>

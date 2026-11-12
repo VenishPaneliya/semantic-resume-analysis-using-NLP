@@ -2,23 +2,33 @@
 
 import { CheckCircle2, ChevronLeft, ChevronRight, ListChecks, MessageSquareQuote, Play, Sparkles, Trash2, XCircle } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useConfirm } from "@/components/confirm";
 import { AIBadge, Alert, Badge, Empty, EnglishNote, ErrorState, Field, FixtureBadge, fmtDate, LoadingBlock, Section, Spinner } from "@/components/ui";
+import { roleTitle } from "@/lib/labels";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
-import { useT } from "@/lib/i18n";
-import type { AiFeedback, AnswerChecks, InterviewAnswer, InterviewSession, InterviewSummary, Opening, RoleLeaderboard } from "@/lib/types";
+import { useT, type MessageKey, type TFunction } from "@/lib/i18n";
+import type { AiFeedback, AnswerChecks, InterviewAnswer, InterviewSession, InterviewSummary, Opening, RoleLeaderboard, Version } from "@/lib/types";
 import { useResume } from "../context";
 
 export default function InterviewPage() {
   const t = useT();
-  const { versionId } = useResume();
+  const confirm = useConfirm();
+  const { versionId, resume } = useResume();
   const sessions = useApi<InterviewSummary[]>("/api/interviews");
+  // the API lists every practice session on the account; show only this resume's (any of its versions)
+  const versions = useApi<Version[]>(`/api/resumes/${resume.id}/versions`, [versionId]);
+  const mine = useMemo(() => {
+    if (!sessions.data || !versions.data) return null;
+    const ids = new Set(versions.data.map((v) => v.id));
+    return sessions.data.filter((s) => ids.has(s.version_id));
+  }, [sessions.data, versions.data]);
   const [active, setActive] = useState<InterviewSession | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  if (!versionId) return <Empty title={t("resume.confirmFirst")}>{t("interview.emptyBody")}</Empty>;
+  if (!versionId) return <Empty level={2} title={t("resume.confirmFirst")}>{t("interview.emptyBody")}</Empty>;
 
   async function open(id: string) {
     setOpening(id);
@@ -32,7 +42,7 @@ export default function InterviewPage() {
     }
   }
   async function remove(s: InterviewSummary) {
-    if (!window.confirm(t("interview.confirmDelete"))) return;
+    if (!(await confirm({ title: t("interview.confirmDelete") }))) return;
     try {
       await api(`/api/interviews/${s.id}`, { method: "DELETE" });
       if (active?.id === s.id) setActive(null);
@@ -53,18 +63,18 @@ export default function InterviewPage() {
           }}
         />
         <Section title={t("interview.past")} id="past">
-          {sessions.loading && !sessions.data ? (
+          {sessions.error || versions.error ? (
+            <ErrorState message={(sessions.error ?? versions.error)!} onRetry={() => void Promise.all([sessions.reload(), versions.reload()])} />
+          ) : !mine ? (
             <LoadingBlock />
-          ) : sessions.error ? (
-            <ErrorState message={sessions.error} onRetry={sessions.reload} />
-          ) : !sessions.data?.length ? (
+          ) : !mine.length ? (
             <p className="text-sm text-muted">{t("interview.noSessions")}</p>
           ) : (
             <ul className="space-y-2" data-testid="past-sessions">
-              {sessions.data.map((s) => (
+              {mine.map((s) => (
                 <li key={s.id} className={`flex items-start gap-2 rounded-md border p-2 text-sm ${active?.id === s.id ? "border-teal bg-teal-soft/50" : "border-line"}`}>
                   <button className="min-w-0 flex-1 text-left" onClick={() => open(s.id)} disabled={opening === s.id}>
-                    <span className="block truncate font-medium">{s.target.title ?? t("interview.general")}</span>
+                    <span className="block truncate font-medium">{targetTitle(t, s.target)}</span>
                     <span className="text-xs text-muted">
                       {fmtDate(s.created_at)} · {t("interview.answered", { done: s.answered, total: s.questions })}
                     </span>
@@ -90,6 +100,11 @@ export default function InterviewPage() {
       </div>
     </div>
   );
+}
+
+function targetTitle(t: TFunction, target: InterviewSession["target"]) {
+  if (!target.title && !target.id) return t("interview.general");
+  return target.kind === "role" ? roleTitle(t, target.id, target.title) : (target.title ?? t("interview.general"));
 }
 
 function StartCard({ versionId, onStarted }: { versionId: string; onStarted: (s: InterviewSession) => void }) {
@@ -125,7 +140,7 @@ function StartCard({ versionId, onStarted }: { versionId: string; onStarted: (s:
               <optgroup label={t("interview.topRoles")}>
                 {top.map((r) => (
                   <option key={r.role_id} value={`role:${r.role_id}`}>
-                    {r.title}
+                    {roleTitle(t, r.role_id, r.title)}
                   </option>
                 ))}
               </optgroup>
@@ -199,7 +214,7 @@ function Practice({ session, onAnswered }: { session: InterviewSession; onAnswer
       <div className="card p-5 sm:p-6">
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted">
           <span className="eyebrow">{t("interview.questionOf", { n: idx + 1, total: s.questions.length })}</span>
-          <span>· {s.target.title ?? t("interview.general")}</span>
+          <span>· {targetTitle(t, s.target)}</span>
           {s.is_fixture && <FixtureBadge />}
           {s.questions_source === "template" && <Badge>{t("interview.templateQs")}</Badge>}
         </div>
@@ -264,6 +279,18 @@ function Practice({ session, onAnswered }: { session: InterviewSession; onAnswer
   );
 }
 
+/* The rule-based answer checks have fixed ids (backend/app/services/interview.py), so their names are
+   translated here; the tips under them stay in English like the rest of the API's text. */
+const CHECK_KEY: Record<string, MessageKey> = {
+  situation: "interview.check.situation",
+  action: "interview.check.action",
+  result: "interview.check.result",
+  measurable: "interview.check.measurable",
+  length: "interview.check.length",
+  ownership: "interview.check.ownership",
+  evidence: "interview.check.evidence",
+};
+
 function ChecksBlock({ c }: { c: AnswerChecks }) {
   const t = useT();
   const passed = c.items.filter((i) => i.ok).length;
@@ -282,7 +309,7 @@ function ChecksBlock({ c }: { c: AnswerChecks }) {
           <li key={i.id} className="flex gap-2 text-sm">
             {i.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-ok" aria-label={t("interview.pass")} /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-bad" aria-label={t("interview.fail")} />}
             <span className="min-w-0">
-              <span className="font-medium">{i.label.replace(/\*/g, "")}</span>
+              <span className="font-medium">{CHECK_KEY[i.id] ? t(CHECK_KEY[i.id]) : i.label.replace(/\*/g, "")}</span>
               {!i.ok && <span className="block text-xs text-ink-2">{i.tip}</span>}
             </span>
           </li>
@@ -326,7 +353,7 @@ function AiBlock({ ai }: { ai: AiFeedback }) {
         <h3 id="ai-h" className="flex items-center gap-1.5 text-base text-ai">
           <Sparkles className="h-4 w-4" aria-hidden /> {t("interview.aiCoaching")}
         </h3>
-        {ai.is_fixture ? <FixtureBadge /> : <AIBadge>{ai.label}</AIBadge>}
+        {ai.is_fixture ? <FixtureBadge /> : <AIBadge>{t("interview.aiCoaching")}</AIBadge>}
       </div>
       {ai.strengths.length > 0 && (
         <>

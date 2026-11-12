@@ -4,6 +4,7 @@ private notes, pipeline stages, and consent-attested bulk upload."""
 from __future__ import annotations
 
 import json
+import time
 from collections import Counter
 from datetime import datetime
 from typing import Literal
@@ -79,6 +80,10 @@ def _app(db: Session, application_id: str) -> OpeningApplication:
     if not a:
         raise err(404, "not_found", "Candidate not found.")
     return a
+
+
+CANDIDATE_PAGE_DEFAULT = 100
+CANDIDATE_PAGE_MAX = 500
 
 
 def _pipeline(db: Session, opening_id: str) -> list[OpeningApplication]:
@@ -178,11 +183,17 @@ def r_candidates(
     min_score: float | None = Query(default=None, ge=0, le=100),
     stage: list[Stage] = Query(default=[]),
     source: Literal["applied", "uploaded"] | None = None,
+    limit: int = Query(default=CANDIDATE_PAGE_DEFAULT, ge=1, le=CANDIDATE_PAGE_MAX),
+    offset: int = Query(default=0, ge=0),
     user: User = Depends(recruiter_user),
     db: Session = Depends(get_db),
 ):
     """Ranked pipeline for one opening, with shortlisting filters. Only people who applied (and consented)
-    or were uploaded with recruiter-attested consent appear."""
+    or were uploaded with recruiter-attested consent appear.
+
+    Paginated: `candidates` holds at most `limit` rows starting at `offset` of the filtered, ranked list;
+    `matched` is the size of that list, `has_more` says whether another page exists, and `total` is
+    everyone in the pipeline (unfiltered). `rank` is always the position in the whole pipeline."""
     o = _opening(db, opening_id)
     tax = get_taxonomy()
     wanted = []
@@ -191,23 +202,29 @@ def r_candidates(
         if not canon:
             raise err(422, "unknown_skill", f"Unknown skill: {s}")
         wanted.append(canon)
-    apps = sorted(_pipeline(db, o.id), key=lambda a: (-a.score, a.created_at))
-    rows, total = [], len(apps)
-    for i, a in enumerate(apps, 1):
+    apps = sorted(_pipeline(db, o.id), key=lambda a: (-a.score, a.created_at, a.id))
+    total = len(apps)
+    ranked = [(i, a) for i, a in enumerate(apps, 1)
+              if (min_score is None or a.score >= min_score) and (not stage or a.stage in stage)
+              and (not source or a.source == source)]
+    needs_facts = bool(wanted) or min_years is not None
+
+    def facts_for(a: OpeningApplication) -> dict | None:
         content = application_content(db, a)
-        facts = candidate_facts(content) if content else None
-        if min_score is not None and a.score < min_score:
-            continue
-        if stage and a.stage not in stage:
-            continue
-        if source and a.source != source:
-            continue
-        if wanted and (not facts or not set(wanted) <= set(facts["skills"])):
-            continue
-        if min_years is not None and (not facts or facts["years"] < min_years):
-            continue
-        rows.append(_row(db, a, i, facts))
-    return {"opening": opening_out(o), "candidates": rows, "total": total,
+        return candidate_facts(content) if content else None
+
+    if needs_facts:  # these filters need every candidate's resume facts; otherwise only the page's
+        with_facts = [(i, a, facts_for(a)) for i, a in ranked]
+        matched = [(i, a, f) for i, a, f in with_facts
+                   if (not wanted or (f and set(wanted) <= set(f["skills"])))
+                   and (min_years is None or (f and f["years"] >= min_years))]
+        page = matched[offset:offset + limit]
+    else:
+        matched = ranked  # type: ignore[assignment]
+        page = [(i, a, facts_for(a)) for i, a in ranked[offset:offset + limit]]
+    rows = [_row(db, a, i, f) for i, a, f in page]
+    return {"opening": opening_out(o), "candidates": rows, "total": total, "matched": len(matched),
+            "limit": limit, "offset": offset, "has_more": offset + len(rows) < len(matched),
             "filters": {"must_have": wanted, "min_years": min_years, "min_score": min_score, "stage": stage, "source": source},
             "stages": list(STAGES), "note": FAIRNESS_NOTE}
 
@@ -351,12 +368,19 @@ def bulk_upload(
     o = _opening(db, opening_id)
     now = utcnow()
     added, failed = [], []
+    deadline = time.monotonic() + s.bulk_upload_time_budget_seconds
     for f in files:
         name = f.filename or "resume"
+        remaining = deadline - time.monotonic()
+        if remaining < 1:
+            failed.append({"file": name, "code": "time_budget_exceeded",
+                           "message": "Not processed: this upload took too long. Upload this file again."})
+            continue
         data = f.file.read(s.max_upload_bytes + 1)
         try:
+            # cheap byte-level checks here; the file is opened only by the sandboxed parser
             v = validate_upload(name, f.content_type, data)
-            content, contact = parse_uploaded_resume(v.kind, data)
+            content, contact = parse_uploaded_resume(v.kind, data, timeout=max(1, min(s.parse_timeout_seconds, int(remaining))))
         except UploadRejected as exc:
             failed.append({"file": name, "code": exc.code, "message": exc.message})
             continue

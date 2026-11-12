@@ -303,6 +303,9 @@ export default defineMessages({
     "admin.col.attempts": "Attempts",
     "admin.col.error": "Error",
     "admin.col.updated": "Updated",
+    "recopen.loadMore": {"one": "Load {count} more", "other": "Load {count} more"},
+    "recopen.loadingMore": "Loading more candidates",
+    "recopen.showingOf": "Showing {shown} of {matched}",
   },
   hi: {
     "rec.eyebrow": "रिक्रूटर",
@@ -591,6 +594,9 @@ export default defineMessages({
     "admin.col.attempts": "प्रयास",
     "admin.col.error": "त्रुटि",
     "admin.col.updated": "अपडेट",
+    "recopen.loadMore": {"one": "{count} और दिखाएँ", "other": "{count} और दिखाएँ"},
+    "recopen.loadingMore": "और उम्मीदवार लोड हो रहे हैं",
+    "recopen.showingOf": "{matched} में से {shown} दिख रहे हैं",
   },
   gu: {
     "rec.eyebrow": "રિક્રૂટર",
@@ -879,5 +885,8 @@ export default defineMessages({
     "admin.col.attempts": "પ્રયાસ",
     "admin.col.error": "ભૂલ",
     "admin.col.updated": "અપડેટ",
+    "recopen.loadMore": {"one": "વધુ {count} બતાવો", "other": "વધુ {count} બતાવો"},
+    "recopen.loadingMore": "વધુ ઉમેદવારો લોડ થઈ રહ્યા છે",
+    "recopen.showingOf": "{matched}માંથી {shown} બતાવ્યા છે",
   },
 });

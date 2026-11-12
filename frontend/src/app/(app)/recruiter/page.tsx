@@ -52,7 +52,7 @@ export default function RecruiterHome() {
       ) : list.error ? (
         <ErrorState message={list.error} onRetry={list.reload} />
       ) : !list.data?.length ? (
-        <Empty icon={<Users className="h-8 w-8" aria-hidden />} title={t("rec.home.empty")}>
+        <Empty level={2} icon={<Users className="h-8 w-8" aria-hidden />} title={t("rec.home.empty")}>
           {t("rec.home.emptyBody")}
         </Empty>
       ) : (

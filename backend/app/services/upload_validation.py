@@ -1,6 +1,7 @@
-"""Upload validation: extension, declared MIME, magic bytes, size, page count, encryption,
-and DOCX container safety (zip bombs, macros, path traversal). Files are never executed;
-these checks reject inputs that are malformed or designed to exhaust resources."""
+"""Upload validation: extension, declared MIME, magic bytes, size, and DOCX container safety (zip
+bombs, macros, path traversal, encryption). Files are never executed; these checks reject inputs that
+are malformed or designed to exhaust resources. PDFs are not opened here: page count and encryption
+are checked after the sandboxed parser has read the file (check_parsed_limits, refine_parse_error)."""
 
 from __future__ import annotations
 
@@ -62,39 +63,32 @@ def validate_upload(filename: str, declared_mime: str | None, data: bytes) -> Va
 
 
 def _validate_pdf(data: bytes) -> ValidatedUpload:
-    s = get_settings()
+    """Byte-level checks only. The API process never opens an untrusted PDF: page count, encryption
+    and structure are checked by the sandboxed parser (see check_parsed_limits / refine_parse_error),
+    in the worker for resume uploads and in a child process for JD and bulk uploads."""
     if b"%PDF-" not in data[:1024]:
         raise UploadRejected("bad_signature", "This file is not a valid PDF (missing PDF header).")
     warnings: list[str] = []
-    try:
-        from pypdf import PdfReader
-        from pypdf.errors import PdfReadError
-
-        reader = PdfReader(io.BytesIO(data), strict=False)
-        if reader.is_encrypted:
-            # an empty user password is common for "permissions-only" PDFs
-            try:
-                ok = reader.decrypt("")
-            except Exception:
-                ok = 0
-            if not ok:
-                raise UploadRejected(
-                    "encrypted_pdf", "This PDF is password-protected. Please upload an unprotected copy."
-                )
-            warnings.append("pdf_permissions_encryption")
-        pages = len(reader.pages)
-    except UploadRejected:
-        raise
-    except (PdfReadError, Exception) as exc:  # noqa: B014 - pypdf raises many types
-        raise UploadRejected("corrupted_pdf", "This PDF could not be read. It may be damaged.") from exc
-    if pages == 0:
-        raise UploadRejected("empty_pdf", "This PDF has no pages.")
-    if pages > s.max_pdf_pages:
-        raise UploadRejected("too_many_pages", f"Resumes must be {s.max_pdf_pages} pages or fewer (this file has {pages}).")
     if b"/JavaScript" in data or b"/JS " in data or b"/Launch" in data:
         # never executed by our parser; flagged so the user knows the file has active content
         warnings.append("pdf_active_content_ignored")
-    return ValidatedUpload("pdf", "application/pdf", len(data), pages, warnings)
+    return ValidatedUpload("pdf", "application/pdf", len(data), None, warnings)
+
+
+def check_parsed_limits(parsed: dict) -> None:
+    """Limits that need the parsed document. Raises UploadRejected."""
+    pages = (parsed.get("layout") or {}).get("page_count")
+    limit = get_settings().max_pdf_pages
+    if pages is not None and pages > limit:
+        raise UploadRejected("too_many_pages", f"Resumes must be {limit} pages or fewer (this file has {pages}).")
+
+
+def refine_parse_error(kind: str, data: bytes, exc):
+    """Give a password-protected PDF its own message instead of "could not be opened". Takes and returns
+    a parsing ParseError; only looks at bytes, never parses."""
+    if kind == "pdf" and exc.code == "corrupted_pdf" and b"/Encrypt" in data:
+        return type(exc)("encrypted_pdf", "This PDF is password-protected. Please upload an unprotected copy.")
+    return exc
 
 
 def _validate_docx(data: bytes) -> ValidatedUpload:

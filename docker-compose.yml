@@ -2,49 +2,53 @@
 # API, Celery worker + beat, and the Next.js frontend.
 #   cp .env.example .env && docker compose up --build
 #   App: http://localhost:3000   API docs: http://localhost:8000/api/docs   Mail: http://localhost:8025
+#
+# Every setting in .env reaches api/worker/beat (env_file). The values under x-backend-env below wire the
+# containers together and take precedence over .env. Production: deploy/docker-compose.prod.yml.
+# Images are pinned by digest; refresh with `docker buildx imagetools inspect <image:tag>`.
 name: resume-intelligence
 
 x-backend-env: &backend-env
   ENV: development
+  # fixed dev key (data and 2FA secrets are encrypted with a key derived from it when ENCRYPTION_KEYS is unset);
+  # earlier dev installs used exactly this value, so keep it stable or set ENCRYPTION_KEYS in .env
+  SECRET_KEY: ${SECRET_KEY:-dev-insecure-change-me-dev-insecure-change-me}
   DATABASE_URL: postgresql+psycopg://ri:${POSTGRES_PASSWORD:-ri-dev-password}@postgres:5432/ri
   REDIS_URL: redis://redis:6379/0
   TASK_ALWAYS_EAGER: "false"
   RATE_LIMIT_BACKEND: redis
   STORAGE_BACKEND: s3
   S3_ENDPOINT_URL: http://s3:8333
-  S3_BUCKET: resume-intelligence-private
-  S3_ACCESS_KEY_ID: ri-s3-dev
-  S3_SECRET_ACCESS_KEY: ri-s3-dev-secret-change-me
+  S3_BUCKET: ${S3_BUCKET:-resume-intelligence-private}
+  # least-privilege identity (Read/Write/List on the bucket only); see deploy/seaweedfs/entrypoint.sh
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-ri-dev-app}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-ri-dev-app-secret}
   S3_SSE: ""
   EMAIL_BACKEND: smtp
   SMTP_HOST: mailpit
   SMTP_PORT: "1025"
   SMTP_STARTTLS: "false"
-  PUBLIC_BASE_URL: http://localhost:3000
-  API_BASE_URL: http://localhost:8000
-  CORS_ORIGINS: http://localhost:3000
-  SECRET_KEY: ${SECRET_KEY:-dev-insecure-change-me-dev-insecure-change-me}
-  ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-}
-  LLM_PROVIDER: ${LLM_PROVIDER:-fixture}
-  LLM_MODEL: ${LLM_MODEL:-}
-  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-  EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-auto}
-  OCR_ENABLED: ${OCR_ENABLED:-false}
-  ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-  RECRUITER_EMAILS: ${RECRUITER_EMAILS:-}
-  REQUIRE_MFA_FOR_STAFF: ${REQUIRE_MFA_FOR_STAFF:-true}
-  BULK_UPLOAD_RETENTION_DAYS: ${BULK_UPLOAD_RETENTION_DAYS:-90}
-  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-  SENTRY_DSN: ${SENTRY_DSN:-}
-  LOG_JSON: "true"
+  PUBLIC_BASE_URL: http://localhost:${FRONTEND_HOST_PORT:-3000}
+  API_BASE_URL: http://localhost:${API_HOST_PORT:-8000}
+  CORS_ORIGINS: http://localhost:${FRONTEND_HOST_PORT:-3000}
   # requests reach the API through the Next.js proxy, which appends X-Forwarded-For
   TRUSTED_PROXIES: "1"
+  # the Celery worker serves its metrics here (same METRICS_TOKEN as /api/metrics); internal network only
+  WORKER_METRICS_PORT: "9100"
+
+x-backend: &backend
+  image: ${BACKEND_IMAGE:-resume-intelligence-backend:dev}
+  env_file:
+    - path: .env
+      required: false
+  environment: *backend-env
+  restart: unless-stopped
+  # PROMETHEUS_MULTIPROC_DIR (set in the image): starts empty on every container start
+  tmpfs: [/tmp/ri-metrics]
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     environment:
       POSTGRES_USER: ri
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ri-dev-password}
@@ -55,72 +59,96 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ri -d ri"]
       interval: 5s
       retries: 20
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "1", memory: 512M } } }
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:7b1753b4c5ad8458906c272a8132b8c15f5557b000379eb115fb239706a384b7
     command: ["redis-server", "--appendonly", "yes"]
     volumes: [redisdata:/data]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 20
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "0.5", memory: 256M } } }
 
   s3:
     # SeaweedFS S3 gateway (Apache-2.0). Any S3-compatible store works; MinIO community
-    # images are no longer published. Anonymous access is disabled by the identities file.
-    image: chrislusf/seaweedfs:3.80
-    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-s3.config=/etc/seaweedfs/s3.json", "-master.volumeSizeLimitMB=256"]
+    # images are no longer published. Identities are written from the environment at start:
+    # an admin (bucket creation only) and the app's least-privilege key. Anonymous access is off.
+    image: chrislusf/seaweedfs:3.80@sha256:1055999e08eed1789b0ae45d235126e4495e23d3fb9d6396293fd42539b1ae6a
+    entrypoint: ["sh", "/etc/seaweedfs/entrypoint.sh"]
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-s3.config=/tmp/s3.json", "-master.volumeSizeLimitMB=256"]
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-resume-intelligence-private}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-ri-dev-app}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-ri-dev-app-secret}
+      S3_ADMIN_ACCESS_KEY_ID: ${S3_ADMIN_ACCESS_KEY_ID:-ri-dev-admin}
+      S3_ADMIN_SECRET_ACCESS_KEY: ${S3_ADMIN_SECRET_ACCESS_KEY:-ri-dev-admin-secret}
     volumes:
       - s3data:/data
-      - ./deploy/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+      - ./deploy/seaweedfs/entrypoint.sh:/etc/seaweedfs/entrypoint.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "nc -z 127.0.0.1 8333"]
       interval: 5s
       retries: 30
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "1", memory: 512M } } }
 
   s3-init:
-    image: amazon/aws-cli:2.22.0
+    # creates the private bucket with the admin key (the app's key cannot create buckets)
+    image: amazon/aws-cli:2.22.0@sha256:de60944022e023e69cc50e3cfc91766d0788c27586b01fb77806bc435b484a35
     depends_on: { s3: { condition: service_healthy } }
     environment:
-      AWS_ACCESS_KEY_ID: ri-s3-dev
-      AWS_SECRET_ACCESS_KEY: ri-s3-dev-secret-change-me
+      AWS_ACCESS_KEY_ID: ${S3_ADMIN_ACCESS_KEY_ID:-ri-dev-admin}
+      AWS_SECRET_ACCESS_KEY: ${S3_ADMIN_SECRET_ACCESS_KEY:-ri-dev-admin-secret}
       AWS_DEFAULT_REGION: us-east-1
-    entrypoint: ["sh", "-c", "aws --endpoint-url http://s3:8333 s3api head-bucket --bucket resume-intelligence-private 2>/dev/null || aws --endpoint-url http://s3:8333 s3 mb s3://resume-intelligence-private"]
+      BUCKET: ${S3_BUCKET:-resume-intelligence-private}
+    entrypoint: ["sh", "-c", "aws --endpoint-url http://s3:8333 s3api head-bucket --bucket \"$$BUCKET\" 2>/dev/null || aws --endpoint-url http://s3:8333 s3 mb \"s3://$$BUCKET\""]
 
   mailpit:
-    image: axllent/mailpit:v1.24
-    ports: ["127.0.0.1:8025:8025"]
+    image: axllent/mailpit:v1.24@sha256:3ad9483ac2dea937ae402b95435ab12c3355d2373a1002a49491db0be536d8fa
+    ports: ["127.0.0.1:${MAILPIT_HOST_PORT:-8025}:8025"]
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "0.5", memory: 128M } } }
 
   api:
+    <<: *backend
     build:
       context: ./backend
       args: { INSTALL_ML: "${INSTALL_ML:-true}", INSTALL_OCR: "${OCR_ENABLED:-false}" }
-    image: resume-intelligence-backend:dev
-    environment: *backend-env
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
       s3-init: { condition: service_completed_successfully }
-    ports: ["127.0.0.1:8000:8000"]
+    ports: ["127.0.0.1:${API_HOST_PORT:-8000}:8000"]
+    # two uvicorn workers, each loading the embedding model (~1.1 GB together when idle)
+    deploy: { resources: { limits: { cpus: "2", memory: 3G } } }
 
   worker:
-    image: resume-intelligence-backend:dev
+    <<: *backend
     command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2", "-O", "fair"]
-    environment: *backend-env
+    expose: ["9100"]
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 || exit 1"]
       interval: 30s
+      # the CLI imports the app before pinging; the image default (5 s) is too short for that
+      timeout: 30s
+      start_period: 60s
       retries: 3
     depends_on:
       api: { condition: service_healthy }
+    # 2 pool children, each may start a parser sandbox limited to PARSE_MEMORY_LIMIT_MB (768 MB)
+    deploy: { resources: { limits: { cpus: "2", memory: 3G } } }
 
   beat:
-    image: resume-intelligence-backend:dev
+    <<: *backend
     command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=INFO", "--schedule", "/tmp/celerybeat-schedule"]
     healthcheck: { disable: true }
-    environment: *backend-env
     depends_on:
       api: { condition: service_healthy }
+    deploy: { resources: { limits: { cpus: "0.5", memory: 512M } } }
 
   frontend:
     build:
@@ -130,7 +158,9 @@ services:
       BACKEND_URL: http://api:8000
     depends_on:
       api: { condition: service_healthy }
-    ports: ["127.0.0.1:3000:3000"]
+    ports: ["127.0.0.1:${FRONTEND_HOST_PORT:-3000}:3000"]
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "1", memory: 512M } } }
 
 volumes:
   pgdata:

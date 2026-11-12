@@ -6,14 +6,16 @@ import { useCallback, useState } from "react";
 import { useUser } from "@/components/shell";
 import { DEFAULT_TIERS, DEFAULT_TIPS_MIN, KeywordChips, OpeningMeta, SampleBadge, ScoreBar, StageBadge, TierBadge, tierHelp, TierLegend } from "@/components/leaderboard";
 import { TipsDrawer, type TipsTarget } from "@/components/tips-panel";
-import { Alert, Badge, Empty, EnglishNote, ErrorState, LoadingBlock, pct, Section, Spinner } from "@/components/ui";
+import { Alert, Badge, Empty, EnglishNote, ErrorState, LoadingBlock, pct, Section, Spinner, useTabs } from "@/components/ui";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
+import { isKnownRole, roleTitle, seniorityLabel } from "@/lib/labels";
 import type { OpeningLeaderboard, OpeningRow, Role, RoleLeaderboard, RoleRow, Seniority, User } from "@/lib/types";
 import { useResume } from "../context";
 
 type View = "roles" | "openings";
+const VIEWS: readonly View[] = ["roles", "openings"];
 
 export default function LeaderboardPage() {
   const t = useT();
@@ -21,8 +23,9 @@ export default function LeaderboardPage() {
   const [view, setView] = useState<View>("roles");
   const [tips, setTips] = useState<TipsTarget | null>(null);
   const closeTips = useCallback(() => setTips(null), []);
+  const tabs = useTabs(VIEWS, view, setView, "lb");
 
-  if (!versionId) return <Empty title={t("resume.confirmFirst")} />;
+  if (!versionId) return <Empty level={2} title={t("resume.confirmFirst")} />;
 
   return (
     <div className="space-y-5">
@@ -35,12 +38,8 @@ export default function LeaderboardPage() {
         ).map(([v, label, Icon]) => (
           <button
             key={v}
-            role="tab"
-            id={`tab-${v}`}
-            aria-selected={view === v}
-            aria-controls={`panel-${v}`}
-            className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium aria-selected:bg-card aria-selected:shadow-sm"
-            onClick={() => setView(v)}
+            {...tabs.tab(v)}
+            className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium text-ink-2 aria-selected:bg-card aria-selected:text-ink aria-selected:shadow-sm"
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden /> {label}
           </button>
@@ -48,7 +47,7 @@ export default function LeaderboardPage() {
       </div>
       <EnglishNote />
 
-      <div role="tabpanel" id={`panel-${view}`} aria-labelledby={`tab-${view}`}>
+      <div {...tabs.panel(view)} className="focus-visible:outline-offset-4">
         {view === "roles" ? (
           <RolesView versionId={versionId} onTips={setTips} />
         ) : (
@@ -107,9 +106,9 @@ function SeniorityCard({ s }: { s: Seniority }) {
   const t = useT();
   return (
     <Section title={t("roles.seniority")} id="seniority">
-      <p className="font-display text-2xl" lang="en">{s.label}</p>
+      <p className="font-display text-2xl">{seniorityLabel(t, s.estimate, s.label)}</p>
       <p className="mt-1 text-sm text-ink-2">
-        {t("roles.plausible")} <strong lang="en">{s.plausible_range.join(" – ")}</strong> · {t("roles.uncertainty")}{" "}
+        {t("roles.plausible")} <strong>{s.plausible_range.map((x) => seniorityLabel(t, x)).join(" – ")}</strong> · {t("roles.uncertainty")}{" "}
         <Badge tone={s.uncertainty === "low" ? "ok" : s.uncertainty === "medium" ? "info" : "warn"}>
           {LEVEL_KEY[s.uncertainty] ? t(LEVEL_KEY[s.uncertainty]) : s.uncertainty}
         </Badge>
@@ -131,7 +130,7 @@ function SeniorityCard({ s }: { s: Seniority }) {
 function PreferencesCard({ onSaved }: { onSaved: () => void }) {
   const t = useT();
   const { user, setUser } = useUser();
-  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles");
+  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles", [], { static: true });
   const [prefs, setPrefs] = useState({ target_roles: user.career_prefs.target_roles ?? [], domains: user.career_prefs.domains ?? [] });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -159,7 +158,7 @@ function PreferencesCard({ onSaved }: { onSaved: () => void }) {
           {roles.data?.roles.map((r) => (
             <label key={r.id} className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={prefs.target_roles.includes(r.id)} onChange={() => toggle("target_roles", r.id)} />
-              <span lang="en">{r.title}</span>
+              <span lang={isKnownRole(r.id) ? undefined : "en"}>{roleTitle(t, r.id, r.title)}</span>
             </label>
           ))}
         </div>
@@ -208,13 +207,15 @@ function RoleItem({ r, onTips }: { r: RoleRow; onTips: (t: TipsTarget) => void }
         </span>
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="font-display text-lg leading-tight" lang="en">{r.title}</span>
+            <span className="font-display text-lg leading-tight" lang={isKnownRole(r.role_id) ? undefined : "en"}>
+              {roleTitle(t, r.role_id, r.title)}
+            </span>
             <TierBadge tier={r.tier} />
             {r.preference_adjustment > 0 && <Badge tone="teal">{t("roles.prefAdj", { n: r.preference_adjustment })}</Badge>}
           </span>
         </span>
         <span className="col-span-3 row-start-2 sm:col-span-1 sm:col-start-3 sm:row-start-1">
-          <ScoreBar score={r.score} tier={r.tier.id} label={t("lb.compatScore", { title: r.title })} />
+          <ScoreBar score={r.score} tier={r.tier.id} label={t("lb.compatScore", { title: roleTitle(t, r.role_id, r.title) })} />
         </span>
         <ChevronDown className={`col-start-3 row-start-1 h-4 w-4 text-muted transition-transform sm:col-start-4 ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
@@ -276,7 +277,7 @@ function OpeningsView({ versionId, resumeId, onTips }: { versionId: string; resu
   if (error || !data) return <ErrorState message={error ?? t("lb.openingsLoadError")} onRetry={reload} />;
   if (data.status === "no_openings" || !data.rows.length)
     return (
-      <Empty icon={<Briefcase className="h-8 w-8" aria-hidden />} title={t("lb.noOpenings")}>
+      <Empty level={2} icon={<Briefcase className="h-8 w-8" aria-hidden />} title={t("lb.noOpenings")}>
         {data.message ?? t("lb.noOpeningsBody")}
       </Empty>
     );

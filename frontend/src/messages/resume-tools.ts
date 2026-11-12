@@ -397,6 +397,8 @@ export default defineMessages({
     "whatif.gained": "Gained: ",
     "whatif.lost": "Lost: ",
     "whatif.compat": "Compatibility indicator against {title}, not a probability.",
+    "analysis.proportional": "Proportional",
+    "match.expLineUser": "Experience alignment: <b>{value}</b>.",
   },
   hi: {
     "review.warn.embedded":
@@ -782,6 +784,8 @@ export default defineMessages({
     "whatif.gained": "जुड़ा: ",
     "whatif.lost": "हटा: ",
     "whatif.compat": "{title} के लिए अनुकूलता का संकेतक, संभावना नहीं।",
+    "analysis.proportional": "अनुपात के हिसाब से",
+    "match.expLineUser": "अनुभव का मेल: <b>{value}</b>।",
   },
   gu: {
     "review.warn.embedded":
@@ -1167,5 +1171,7 @@ export default defineMessages({
     "whatif.gained": "ઉમેરાયું: ",
     "whatif.lost": "ઘટ્યું: ",
     "whatif.compat": "{title} માટે અનુકૂળતાનો સૂચક, સંભાવના નહીં.",
+    "analysis.proportional": "પ્રમાણ મુજબ",
+    "match.expLineUser": "અનુભવનો મેળ: <b>{value}</b>.",
   },
 });

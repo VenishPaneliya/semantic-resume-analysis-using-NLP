@@ -22,7 +22,7 @@ import numpy as np
 
 from app.schemas.resume import ResumeContent
 from app.services.ml.embeddings import get_embedder
-from app.services.ml.features import resume_skill_evidence
+from app.services.ml.features import LISTED_CREDIT, resume_skill_evidence
 from app.services.ml.recommender import recommend
 from app.services.taxonomy import get_taxonomy
 from app.services.text import clip
@@ -73,7 +73,7 @@ def core_coverage_from_match(m: dict) -> float | None:
     rs = [r for r in m.get("requirements", []) if r["kind"] == "skill" and r["importance"] == "required"]
     if not rs:
         return None
-    return sum({"matched": 1.0, "partial": 0.5}.get(r["status"], 0.0) for r in rs) / len(rs)
+    return sum({"matched": 1.0, "partial": LISTED_CREDIT}.get(r["status"], 0.0) for r in rs) / len(rs)
 
 
 def fit_for_role(content: dict | ResumeContent, role_id: str) -> tuple[float | None, float | None]:

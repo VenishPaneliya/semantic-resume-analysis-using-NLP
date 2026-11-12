@@ -111,6 +111,11 @@ _PROSE_BEFORE = {
 _ACRONYM_ONLY = {"bert": "BERT"}
 
 
+def _sentence_start(text: str, start: int) -> bool:
+    before = text[max(0, start - 40) : start].rstrip(" \t\"'(")
+    return not before or before.endswith(("\n", ".", "!", "?", ":", ";", "•", "-", "–", "—", "*", "|"))
+
+
 def _is_prose(text: str, matched: str, start: int, end: int) -> bool:
     """True when a skill-name match is really an ordinary word or abbreviation in a sentence."""
     key = matched.lower()
@@ -121,6 +126,9 @@ def _is_prose(text: str, matched: str, start: int, end: int) -> bool:
         return True
     if key == "swift" and matched.isupper():
         return True  # SWIFT the banking network, not the language
+    if (matched[:1].isupper() and (key in _PROSE_AFTER or key in _PROSE_BEFORE) and not _sentence_start(text, start)
+            and text[end:end + 1] != "-"):  # "Go-to-market" stays prose
+        return False  # capitalised mid-sentence ("Used ES6 and React to …", "migrated to Spark") is the product
     after = _PROSE_AFTER.get(key)
     if after and after.match(text, end):
         return True
@@ -139,7 +147,10 @@ def _build_patterns(skills: dict[str, Skill]) -> list[tuple[re.Pattern, str]]:
     for term, canonical in terms:
         esc = re.escape(term)
         # token boundary that tolerates symbols like + # . in skill names
-        pattern = rf"(?<![A-Za-z0-9+#])({esc})(?![A-Za-z0-9+#]|\.[A-Za-z0-9])"
+        # plurals of longer names ("Dockerfiles", "microservices"), except everyday words ("reacts", "sparks")
+        plural = "(?:e?s)?" if (len(term) >= 5 and term[-1].isalpha() and not term.lower().endswith("s")
+                                and term.lower() not in _PROSE_AFTER and term.lower() not in _PROSE_BEFORE) else ""
+        pattern = rf"(?<![A-Za-z0-9+#])({esc}{plural})(?![A-Za-z0-9+#]|\.[A-Za-z0-9])"
         # matched case-insensitively; _is_prose then rejects lower-case short words ("go", "ml")
         # so "ML", "JS", "S3" and "K6" are found while ordinary prose is not
         flags = re.IGNORECASE
@@ -147,8 +158,10 @@ def _build_patterns(skills: dict[str, Skill]) -> list[tuple[re.Pattern, str]]:
             # single letters need list-like context ("Python, R, SQL") or "in/using/with R." at a
             # clause end; anything else ("Plan C", "R&D") is prose
             pattern = (
-                rf"(?:(?<=[,:/|(•])\s*|^\s*|(?<=\bin )|(?<=\busing )|(?<=\bwith ))({esc})"
-                rf"(?=\s*(?:[,/|);]|\.(?!\w)|$))"
+                rf"(?:(?<=[,:/|(•])\s*|^\s*|(?<=\b[Ii]n )|(?<=\b[Uu]sing )|(?<=\b[Ww]ith )|(?<=\b[Uu]sed )|(?<=\b[Uu]se )|"
+                rf"(?<=\band )|(?<=\bor ))({esc})"
+                # ... or directly followed by another listed name: "Used R and Python", "C or C++"
+                rf"(?=\s*(?:[,/|);]|\.(?!\w)|$)|\s+(?:and|or|&)\s+[A-Z][A-Za-z+#]*\b)"
             )
             flags = re.MULTILINE
         pats.append((re.compile(pattern, flags), canonical))

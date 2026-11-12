@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { OpeningMeta, SampleBadge, StageBadge, TierBadge } from "@/components/leaderboard";
 import { Badge, Empty, ErrorState, fmtDate, LoadingBlock, PageHeader, Section } from "@/components/ui";
+import { resumeTitle } from "@/lib/labels";
 import { useApi } from "@/lib/hooks";
 import { useT } from "@/lib/i18n";
 import type { MyOpeningApplication, Opening, Resume } from "@/lib/types";
@@ -36,7 +37,7 @@ export default function OpeningsPage() {
             <select id="match-resume" className="input" value={resumeId} onChange={(e) => setPicked(e.target.value)}>
               {usable.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.title} (v{r.latest_version_number})
+                  {resumeTitle(t, r)} (v{r.latest_version_number})
                 </option>
               ))}
             </select>
@@ -52,11 +53,22 @@ export default function OpeningsPage() {
             </p>
           )}
         </div>
-        {resumeId && (
-          <Link href={`/resumes/${resumeId}/leaderboard`} className="btn btn-secondary btn-sm">
-            <BarChart3 className="h-4 w-4 shrink-0" aria-hidden /> {t("openings.rankForResume")}
-          </Link>
-        )}
+        {resumeId &&
+          (openings.data && openings.data.length === 0 ? (
+            // nothing to rank yet: a disabled button with the reason, instead of a link to an empty list
+            <span className="flex flex-col items-start gap-1 sm:items-end">
+              <button type="button" className="btn btn-secondary btn-sm" disabled aria-describedby="rank-none">
+                <BarChart3 className="h-4 w-4 shrink-0" aria-hidden /> {t("openings.rankForResume")}
+              </button>
+              <span id="rank-none" className="text-xs text-muted">
+                {t("openings.rankNone")}
+              </span>
+            </span>
+          ) : (
+            <Link href={`/resumes/${resumeId}/leaderboard`} className="btn btn-secondary btn-sm">
+              <BarChart3 className="h-4 w-4 shrink-0" aria-hidden /> {t("openings.rankForResume")}
+            </Link>
+          ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -122,13 +134,10 @@ export default function OpeningsPage() {
               <ul className="divide-y divide-line">
                 {mine.data.map((a) => (
                   <li key={a.id} className="py-3">
-                    {a.opening.status === "open" ? (
-                      <Link href={`/openings/${a.opening.id}`} className="font-medium hover:underline">
-                        {a.opening.title}
-                      </Link>
-                    ) : (
-                      <span className="font-medium">{a.opening.title}</span>
-                    )}
+                    {/* closed openings stay viewable for applicants, so they can follow their stage */}
+                    <Link href={`/openings/${a.opening.id}`} className="font-medium hover:underline">
+                      {a.opening.title}
+                    </Link>
                     <p className="text-xs text-muted">
                       {a.opening.company} · {t("openings.appliedOn", { date: fmtDate(a.applied_at) })}
                       {a.opening.status === "closed" && t("openings.closed")}

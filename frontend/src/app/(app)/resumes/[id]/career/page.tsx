@@ -1,13 +1,14 @@
 "use client";
 
 import { BookOpen, Briefcase, FileSignature, Lightbulb, MessagesSquare } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { WithPlaceholders } from "@/components/preview";
-import { AIBadge, Alert, Badge, Empty, EnglishNote, ErrorState, Field, FixtureBadge, LoadingBlock, Section, Spinner } from "@/components/ui";
+import { AIBadge, Alert, Badge, Empty, EnglishNote, ErrorState, Field, FixtureBadge, fmtDate, LoadingBlock, Section, Spinner } from "@/components/ui";
+import { isKnownRole, roleTitle } from "@/lib/labels";
 import { api, ApiError, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
-import type { CareerArtifact, JD, ResourceLookup, Role, Roadmap, SkillGap } from "@/lib/types";
+import type { CareerArtifact, JD, ResourceLookup, Role, Roadmap, SkillGap, Version } from "@/lib/types";
 import { useResume } from "../context";
 
 const STATE_TONE = { demonstrated: "ok", listed_only: "warn", gap: "bad" } as const;
@@ -21,15 +22,17 @@ const PHASE_KEY: Record<string, MessageKey> = { now: "career.phase.now", next: "
 export default function CareerPage() {
   const t = useT();
   const { versionId, resume } = useResume();
-  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles");
+  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles", [], { static: true });
   const jds = useApi<JD[]>("/api/job-descriptions");
   const [selected, setSelected] = useState<string[]>(resume.target_role ? [resume.target_role] : []);
   const qs = selected.map((r) => `roles=${encodeURIComponent(r)}`).join("&");
   const gap = useApi<{ roles: SkillGap[] }>(versionId ? `/api/versions/${versionId}/skill-gap${qs ? `?${qs}` : ""}` : null, [qs]);
   const road = useApi<Roadmap>(versionId ? `/api/career/roadmap/${versionId}${qs ? `?${qs}` : ""}` : null, [qs]);
-  const listings = useApi<ResourceLookup>("/api/career/job-listings");
+  const listings = useApi<ResourceLookup>("/api/career/job-listings", [], { static: true });
+  // roadmap steps name their role by English title only
+  const roleIdByTitle = new Map((roles.data?.roles ?? []).map((r) => [r.title, r.id]));
 
-  if (!versionId) return <Empty title={t("resume.confirmFirst")} />;
+  if (!versionId) return <Empty level={2} title={t("resume.confirmFirst")} />;
 
   return (
     <div className="space-y-6">
@@ -43,7 +46,7 @@ export default function CareerPage() {
             onClick={() => setSelected((s) => (s.includes(r.id) ? s.filter((x) => x !== r.id) : [...s, r.id].slice(-3)))}
             className="rounded-full border border-line-strong px-2.5 py-0.5 text-xs aria-pressed:border-teal aria-pressed:bg-teal-soft aria-pressed:text-teal"
           >
-            <span lang="en">{r.title}</span>
+            <span lang={isKnownRole(r.id) ? undefined : "en"}>{roleTitle(t, r.id, r.title)}</span>
           </button>
         ))}
         <p className="w-full text-xs text-muted">{t("career.pickUpTo")}</p>
@@ -60,7 +63,9 @@ export default function CareerPage() {
           <div className="grid gap-5 md:grid-cols-2">
             {gap.data.roles.map((g) => (
               <div key={g.role_id} className="rounded-lg border border-line p-4">
-                <h3 className="text-lg" lang="en">{g.title}</h3>
+                <h3 className="text-lg" lang={isKnownRole(g.role_id) ? undefined : "en"}>
+                  {roleTitle(t, g.role_id, g.title)}
+                </h3>
                 <p className="mb-3 text-xs text-muted">
                   {t("career.summary", { demonstrated: g.summary.demonstrated, listed: g.summary.listed_only, gaps: g.summary.gap })}
                 </p>
@@ -98,7 +103,7 @@ export default function CareerPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={s.phase === "now" ? "teal" : s.phase === "next" ? "info" : "neutral"}>{PHASE_KEY[s.phase] ? t(PHASE_KEY[s.phase]) : s.phase}</Badge>
                     <span className="font-medium">{s.skill}</span>
-                    <span className="text-xs text-muted">{t("career.forRole", { role: s.for_role })}</span>
+                    <span className="text-xs text-muted">{t("career.forRole", { role: roleTitle(t, roleIdByTitle.get(s.for_role), s.for_role) })}</span>
                   </div>
                   <p className="mt-1 text-sm text-ink-2">{s.action}</p>
                   <Resources r={s.resources} />
@@ -138,7 +143,7 @@ export default function CareerPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <InterviewQuestions versionId={versionId} jds={jds.data ?? []} />
-        <CoverLetter versionId={versionId} jds={jds.data ?? []} roles={roles.data?.roles ?? []} />
+        <CoverLetter versionId={versionId} resumeId={resume.id} jds={jds.data ?? []} roles={roles.data?.roles ?? []} />
       </div>
 
       <Section title={t("career.listings")} id="listings">
@@ -146,7 +151,7 @@ export default function CareerPage() {
           <div className="flex items-start gap-3 text-sm text-ink-2">
             <Briefcase className="mt-0.5 h-5 w-5 text-muted" aria-hidden />
             <p>
-              {listings.data.message}{" "}
+              {t("career.listingsOff")}{" "}
               {t.rich("career.trackIn", {
                 link: (c) => (
                   <a className="text-teal underline" href="/applications">
@@ -183,7 +188,7 @@ function Resources({ r }: { r: ResourceLookup }) {
             <span lang="en">{x.title}</span>
           </a>{" "}
           <span className="text-muted">
-            · {x.source} · {t("career.retrieved", { date: x.retrieved_on })}
+            · {x.source} · {t("career.retrieved", { date: fmtDate(x.retrieved_on) })}
           </span>
         </li>
       ))}
@@ -195,18 +200,21 @@ function useGenerate(path: string) {
   const [data, setData] = useState<CareerArtifact | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  async function run(body: object) {
+  async function run(body: object): Promise<CareerArtifact | null> {
     setBusy(true);
     setError(null);
     try {
-      setData(await api<CareerArtifact>(path, { body }));
+      const a = await api<CareerArtifact>(path, { body });
+      setData(a);
+      return a;
     } catch (e) {
       setError({ code: e instanceof ApiError ? e.code : "error", message: errMsg(e) });
+      return null;
     } finally {
       setBusy(false);
     }
   }
-  return { data, error, busy, run };
+  return { data, setData, error, busy, run };
 }
 
 function InterviewQuestions({ versionId, jds }: { versionId: string; jds: JD[] }) {
@@ -256,11 +264,19 @@ function InterviewQuestions({ versionId, jds }: { versionId: string; jds: JD[] }
   );
 }
 
-function CoverLetter({ versionId, jds, roles }: { versionId: string; jds: JD[]; roles: Role[] }) {
+function CoverLetter({ versionId, resumeId, jds, roles }: { versionId: string; resumeId: string; jds: JD[]; roles: Role[] }) {
   const t = useT();
   const g = useGenerate("/api/career/cover-letter");
   const [target, setTarget] = useState("");
   const c = g.data?.content;
+  // letters written earlier for this resume (any of its versions), newest first, so they can be reopened
+  const saved = useApi<CareerArtifact[]>("/api/career/artifacts?kind=cover_letter");
+  const versions = useApi<Version[]>(`/api/resumes/${resumeId}/versions`, [versionId]);
+  const mine = useMemo(() => {
+    const ids = new Set((versions.data ?? []).map((v) => v.id));
+    return (saved.data ?? []).filter((a) => a.version_id && ids.has(a.version_id));
+  }, [saved.data, versions.data]);
+  const jdTitle = (id: string | null) => (id ? jds.find((j) => j.id === id)?.title : null);
   return (
     <Section title={t("career.cl")} id="cl" aside={<FileSignature className="h-5 w-5 text-muted" aria-hidden />}>
       <div className="flex flex-wrap items-end gap-2">
@@ -276,8 +292,8 @@ function CoverLetter({ versionId, jds, roles }: { versionId: string; jds: JD[]; 
             </optgroup>
             <optgroup label={t("career.roles")}>
               {roles.map((r) => (
-                <option key={r.id} value={`role:${r.id}`} lang="en">
-                  {r.title}
+                <option key={r.id} value={`role:${r.id}`} lang={isKnownRole(r.id) ? undefined : "en"}>
+                  {roleTitle(t, r.id, r.title)}
                 </option>
               ))}
             </optgroup>
@@ -286,9 +302,9 @@ function CoverLetter({ versionId, jds, roles }: { versionId: string; jds: JD[]; 
         <button
           className="btn btn-ai"
           disabled={g.busy}
-          onClick={() => {
+          onClick={async () => {
             const [k, id] = target.split(":");
-            g.run({ version_id: versionId, jd_id: k === "jd" ? id : null, role_id: k === "role" ? id : null });
+            if (await g.run({ version_id: versionId, jd_id: k === "jd" ? id : null, role_id: k === "role" ? id : null })) void saved.reload();
           }}
         >
           {g.busy ? <Spinner label={t("career.writing")} /> : t("career.draftCl")}
@@ -326,6 +342,26 @@ function CoverLetter({ versionId, jds, roles }: { versionId: string; jds: JD[]; 
           </>
         )}
       </div>
+      {mine.length > 0 && (
+        <div className="mt-5 border-t border-line pt-4">
+          <h3 className="label">{t("career.savedLetters")}</h3>
+          <ul className="space-y-1.5" data-testid="saved-letters">
+            {mine.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm hover:bg-paper-2 ${g.data?.id === a.id ? "border-teal bg-teal-soft/50" : "border-line"}`}
+                  aria-pressed={g.data?.id === a.id}
+                  onClick={() => g.setData(a)}
+                >
+                  <span className="min-w-0 font-medium">{jdTitle(a.jd_id) ?? (a.jd_id ? t("career.forJd") : t("career.general"))}</span>
+                  <span className="text-xs text-muted">{fmtDate(a.created_at)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </Section>
   );
 }

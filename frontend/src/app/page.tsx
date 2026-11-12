@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, FileSearch, GitCompareArrows, ListChecks, ShieldCheck, Sparkles, Target } from "lucide-react";
+import { ArrowRight, Building2, Check, FileSearch, GitCompareArrows, ListChecks, ShieldCheck, Sparkles, Target } from "lucide-react";
 import Link from "next/link";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Logo } from "@/components/shell";
@@ -16,6 +16,7 @@ const FEATURES: { icon: typeof FileSearch; title: MessageKey; body: MessageKey }
 ];
 
 const STEPS: MessageKey[] = ["landing.step1", "landing.step2", "landing.step3", "landing.step4"];
+const HR_POINTS: MessageKey[] = ["landing.hr.p1", "landing.hr.p2", "landing.hr.p3", "landing.hr.p4"];
 
 export default function Landing() {
   const t = useT();
@@ -84,11 +85,13 @@ export default function Landing() {
             </div>
             <div className="card absolute -bottom-8 -left-4 hidden w-60 -rotate-[2deg] p-4 sm:block">
               <p className="eyebrow">{t("landing.specimen.roleFit")}</p>
-              {[
-                ["Data Analyst", 71],
-                ["Data Scientist", 52],
-                ["Data Engineer", 44],
-              ].map(([r, s]) => (
+              {(
+                [
+                  [t("role.data_analyst"), 71],
+                  [t("role.data_scientist"), 52],
+                  [t("role.data_engineer"), 44],
+                ] as const
+              ).map(([r, s]) => (
                 <div key={r} className="mt-2">
                   <div className="flex justify-between text-xs">
                     <span>{r}</span>
@@ -112,6 +115,28 @@ export default function Landing() {
                 <p className="mt-1.5 text-sm leading-relaxed text-ink-2">{t(body)}</p>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 pt-14" aria-labelledby="hr-h" data-testid="landing-hr">
+          <div className="card grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_1.2fr]">
+            <div>
+              <p className="eyebrow flex items-center gap-1.5">
+                <Building2 className="h-4 w-4 shrink-0" aria-hidden /> {t("landing.hr.eyebrow")}
+              </p>
+              <h2 id="hr-h" className="mt-2 text-2xl">
+                {t("landing.hr.title")}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-ink-2">{t("landing.hr.body")}</p>
+              <p className="mt-3 text-xs text-muted">{t("landing.hr.note")}</p>
+            </div>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {HR_POINTS.map((k) => (
+                <li key={k} className="flex gap-2 text-sm text-ink-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden /> <span>{t(k)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 

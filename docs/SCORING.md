@@ -37,8 +37,11 @@ fit = 100 × (0.40·required_coverage + 0.20·preferred_coverage + 0.25·semanti
 1. **Normalise skills** with the versioned taxonomy (`data/taxonomy/skills_v1.json`: canonical names,
    aliases, `related`, `implies`). Short tokens (Go, R, C) use stricter matching to avoid prose hits.
 2. **Evidence weighting:** a skill shown in an experience/project bullet, project technology list or
-   job title counts 1.0; listed only in the skills section counts 0.6; absent counts 0. Demonstrated
+   job title counts 1.0; listed only in the skills section counts 0.5; absent counts 0. The same rule
+   (`features.skill_credit`) is used by the rubric's role coverage, the role recommender and job
+   matching, so "required coverage" means the same thing everywhere. Demonstrated
    tools propagate to implied skills (Tableau ⇒ Data Visualization); listed-only skills do not.
+   Text with no sections at all (no headings, no line breaks) has its skills treated as listed only.
 3. **Semantic signal:** embedding similarity between resume evidence text and the role profile, mapped
    to [0,1] with fixed per-backend anchors. Sentence Transformers (`all-MiniLM-L6-v2`) when installed,
    otherwise TF-IDF (recorded as `embedding_model` on every result). *This is not a probability.*

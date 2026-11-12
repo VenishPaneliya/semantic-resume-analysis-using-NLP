@@ -2,27 +2,34 @@
 
 import { FileUp, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Alert, Badge, Bar, Empty, EnglishNote, ErrorState, Field, fmtDate, LoadingBlock, pct, ScoreDial, Section, Spinner } from "@/components/ui";
-import { api, errMsg, uploadWithProgress } from "@/lib/api";
+import { useIsStaff } from "@/components/shell";
+import { useConfirm } from "@/components/confirm";
+import { Alert, Badge, Bar, Empty, EnglishNote, ErrorState, Field, fmtDate, LoadingBlock, pct, ScoreDial, Section, Spinner, useTabs } from "@/components/ui";
+import { matchCountLabel, ReqRow, STATUS_TONE } from "@/components/match-breakdown";
+import { api, ApiError, errMsg, uploadWithProgress } from "@/lib/api";
+import { fileErrorMessage } from "@/lib/labels";
 import { useApi } from "@/lib/hooks";
 import { useT } from "@/lib/i18n";
-import { matchCountLabel, ReqRow, STATUS_TONE } from "@/components/match-breakdown";
 import type { JD, MatchResult } from "@/lib/types";
 import { useResume } from "../context";
 
 
+const MODES = ["paste", "upload"] as const;
+
 export default function MatchPage() {
   const t = useT();
+  const confirm = useConfirm();
   const { versionId } = useResume();
   const jds = useApi<JD[]>("/api/job-descriptions");
   const [mode, setMode] = useState<"paste" | "upload">("paste");
+  const modeTabs = useTabs(MODES, mode, setMode, "jd");
   const [creating, setCreating] = useState(false);
   const [createErr, setCreateErr] = useState<string | null>(null);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [matching, setMatching] = useState<string | null>(null);
   const [matchErr, setMatchErr] = useState<string | null>(null);
 
-  if (!versionId) return <Empty title={t("resume.confirmFirst")} />;
+  if (!versionId) return <Empty level={2} title={t("resume.confirmFirst")} />;
 
   async function runMatch(jdId: string) {
     setMatching(jdId);
@@ -59,14 +66,14 @@ export default function MatchPage() {
       (e.target as HTMLFormElement).reset();
       await runMatch(jd.id);
     } catch (err) {
-      setCreateErr(errMsg(err));
+      setCreateErr(err instanceof ApiError ? fileErrorMessage(t, err.code, err.message) : errMsg(err));
     } finally {
       setCreating(false);
     }
   }
 
   async function remove(id: string) {
-    if (!window.confirm(t("match.deleteConfirm"))) return;
+    if (!(await confirm({ title: t("match.deleteConfirm") }))) return;
     await api(`/api/job-descriptions/${id}`, { method: "DELETE" });
     jds.setData((jds.data ?? []).filter((j) => j.id !== id));
     if (result?.jd.id === id) setResult(null);
@@ -77,19 +84,17 @@ export default function MatchPage() {
       <aside className="space-y-5">
         <Section title={t("match.add")} id="add-jd">
           <div role="tablist" aria-label={t("match.inputMethod")} className="mb-4 flex gap-1 rounded-md bg-paper-2 p-1">
-            {(["paste", "upload"] as const).map((m) => (
+            {MODES.map((m) => (
               <button
                 key={m}
-                role="tab"
-                aria-selected={mode === m}
-                className="flex-1 rounded px-2 py-1 text-sm font-medium aria-selected:bg-card aria-selected:shadow-sm"
-                onClick={() => setMode(m)}
+                {...modeTabs.tab(m)}
+                className="flex-1 rounded px-2 py-1 text-sm font-medium text-ink-2 aria-selected:bg-card aria-selected:text-ink aria-selected:shadow-sm"
               >
                 {m === "paste" ? t("match.paste") : t("match.upload")}
               </button>
             ))}
           </div>
-          <form className="space-y-3" onSubmit={create}>
+          <form className="space-y-3" onSubmit={create} {...modeTabs.panel(mode)}>
             {createErr && <Alert tone="bad">{createErr}</Alert>}
             <Field label={t("match.titleOpt")} id="jd-title">
               <input className="input" id="jd-title" name="title" maxLength={200} />
@@ -154,6 +159,7 @@ export default function MatchPage() {
 
 function MatchView({ m }: { m: MatchResult }) {
   const t = useT();
+  const staff = useIsStaff();
   const ex = m.jd.extracted;
   return (
     <>
@@ -198,12 +204,14 @@ function MatchView({ m }: { m: MatchResult }) {
             ))}
           </dl>
           <p className="mt-3 text-xs text-muted">
-            {t.rich(
-              "match.expLine",
-              { b: (c) => <strong>{c}</strong> },
-              { value: m.components.experience_alignment.replace("_", " "), formula: m.formula, model: m.embedding_model },
-            )}
+            {t.rich("match.expLineUser", { b: (c) => <strong>{c}</strong> }, { value: m.components.experience_alignment.replace("_", " ") })}
           </p>
+          {/* the scoring formula and model name are for staff checking the system, not for candidates */}
+          {staff && (
+            <p className="mt-1 num text-[11px] text-muted">
+              {m.formula} · {m.embedding_model} · {m.matcher_version}
+            </p>
+          )}
         </div>
       </div>
 

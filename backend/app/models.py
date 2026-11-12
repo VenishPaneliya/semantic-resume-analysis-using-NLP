@@ -1,8 +1,11 @@
 """ORM models. Types are portable (SQLite for tests, PostgreSQL in production); JSON maps to
-JSONB on PostgreSQL. Sensitive free text is encrypted at the application layer."""
+JSONB on PostgreSQL. Resume content, text derived from it (AI suggestions, cover letters, match
+evidence) and other sensitive free text are encrypted at the application layer (EncryptedText /
+EncryptedJSON); those columns are never filtered on in SQL."""
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime
 
@@ -54,6 +57,28 @@ class EncryptedText(TypeDecorator):
         from app.security.crypto import decrypt_str
 
         return decrypt_str(value)
+
+
+class EncryptedJSON(TypeDecorator):
+    """JSON value stored as Fernet-encrypted text. Use for resume content and anything derived
+    from it that is only ever read whole by the application (never filtered on in SQL)."""
+
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        from app.security.crypto import encrypt_str
+
+        return encrypt_str(json.dumps(value, ensure_ascii=False, separators=(",", ":")))
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        from app.security.crypto import decrypt_str
+
+        return json.loads(decrypt_str(value))
 
 
 class TZDateTime(TypeDecorator):
@@ -178,7 +203,7 @@ class Extraction(TimestampMixin, Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     raw_text: Mapped[str] = mapped_column(EncryptedText)
     pages: Mapped[list] = mapped_column(JSONType, default=list)  # [{page, char_start, char_end}]
-    fields: Mapped[dict] = mapped_column(JSONType, default=dict)  # structured with evidence/confidence
+    fields: Mapped[dict] = mapped_column(EncryptedJSON, default=dict)  # structured content with evidence/confidence
     layout: Mapped[dict] = mapped_column(JSONType, default=dict)  # measured properties only
     warnings: Mapped[list] = mapped_column(JSONType, default=list)
     ocr_used: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -198,7 +223,7 @@ class ResumeVersion(Base):
     parent_id: Mapped[str | None] = mapped_column(String(36))
     label: Mapped[str | None] = mapped_column(String(120))
     source: Mapped[str] = mapped_column(String(16))  # extracted | user_edit | ai_accepted | restore
-    content: Mapped[dict] = mapped_column(JSONType)
+    content: Mapped[dict] = mapped_column(EncryptedJSON)
     content_hash: Mapped[str] = mapped_column(String(64))
     target_role: Mapped[str | None] = mapped_column(String(64))
     target_jd_id: Mapped[str | None] = mapped_column(String(36))
@@ -293,19 +318,19 @@ class AISuggestion(TimestampMixin, Base):
     version_id: Mapped[str] = mapped_column(ForeignKey("resume_versions.id", ondelete="CASCADE"), index=True)
     operation: Mapped[str] = mapped_column(String(32))
     target_path: Mapped[str] = mapped_column(String(200))  # e.g. experience/<id>/bullets/<id>
-    before_text: Mapped[str] = mapped_column(Text)
-    after_text: Mapped[str] = mapped_column(Text)
-    explanation: Mapped[str] = mapped_column(Text)
-    questions: Mapped[list] = mapped_column(JSONType, default=list)
-    placeholders: Mapped[list] = mapped_column(JSONType, default=list)
-    grounding: Mapped[dict] = mapped_column(JSONType, default=dict)
+    before_text: Mapped[str] = mapped_column(EncryptedText)
+    after_text: Mapped[str] = mapped_column(EncryptedText)
+    explanation: Mapped[str] = mapped_column(EncryptedText)
+    questions: Mapped[list] = mapped_column(EncryptedJSON, default=list)
+    placeholders: Mapped[list] = mapped_column(EncryptedJSON, default=list)
+    grounding: Mapped[dict] = mapped_column(EncryptedJSON, default=dict)
     # pending | needs_facts | accepted | rejected | superseded
     status: Mapped[str] = mapped_column(String(16), default="pending")
     provider: Mapped[str] = mapped_column(String(32))
     model: Mapped[str] = mapped_column(String(64))
     prompt_version: Mapped[str] = mapped_column(String(32))
     applied_version_id: Mapped[str | None] = mapped_column(String(36))
-    items: Mapped[list] = mapped_column(JSONType, default=list)  # [{target_id, before, after, diff, grounding}]
+    items: Mapped[list] = mapped_column(EncryptedJSON, default=list)  # [{target_id, before, after, diff, grounding}]
     params: Mapped[dict] = mapped_column(JSONType, default=dict)
     cache_key: Mapped[str | None] = mapped_column(String(64), index=True)
 
@@ -335,7 +360,7 @@ class CareerArtifact(TimestampMixin, Base):
     version_id: Mapped[str | None] = mapped_column(ForeignKey("resume_versions.id", ondelete="CASCADE"), index=True)
     jd_id: Mapped[str | None] = mapped_column(ForeignKey("job_descriptions.id", ondelete="SET NULL"))
     kind: Mapped[str] = mapped_column(String(32))  # cover_letter | interview_questions | roadmap
-    content: Mapped[dict] = mapped_column(JSONType)
+    content: Mapped[dict] = mapped_column(EncryptedJSON)
     provider: Mapped[str] = mapped_column(String(32))
     model: Mapped[str] = mapped_column(String(64))
 
@@ -403,7 +428,7 @@ class OpeningApplication(TimestampMixin, Base):
     consent_attested_at: Mapped[datetime | None] = mapped_column(TZDateTime)
     expires_at: Mapped[datetime | None] = mapped_column(TZDateTime, index=True)
     score: Mapped[float] = mapped_column(Float)
-    result: Mapped[dict] = mapped_column(JSONType, default=dict)
+    result: Mapped[dict] = mapped_column(EncryptedJSON, default=dict)  # match details with evidence from the resume
     matcher_version: Mapped[str] = mapped_column(String(32))
     # submitted | shortlisted | interview | offer | hired | rejected  (set by recruiter)
     stage: Mapped[str] = mapped_column(String(16), default="submitted")

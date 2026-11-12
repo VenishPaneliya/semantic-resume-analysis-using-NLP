@@ -3,13 +3,13 @@
 import { BellRing, Check, Copy, Download, KeyRound, RefreshCw, ShieldCheck, ShieldOff, Trash2, UserRound } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useState, type FormEvent } from "react";
+import { useUser } from "./shell";
+import { Alert, Badge, ErrorState, Field, fmtDate, LoadingBlock, Section, Spinner } from "./ui";
+import { ageBandLabel, genderLabel, resumeTitle } from "@/lib/labels";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT } from "@/lib/i18n";
-import { ageBandLabel, genderLabel } from "@/lib/labels";
 import type { MfaSetup, MfaStatus, Resume, SelfId, User } from "@/lib/types";
-import { useUser } from "./shell";
-import { Alert, Badge, ErrorState, Field, fmtDate, LoadingBlock, Section, Spinner } from "./ui";
 
 // ---------------------------------------------------------------- two-factor authentication
 
@@ -95,6 +95,8 @@ export function TwoFactorCard() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  // turning 2FA on/off or replacing recovery codes signs out every other session of the account
+  const [signedOut, setSignedOut] = useState(false);
 
   useEffect(() => {
     if (!setup) return setQr(null);
@@ -107,6 +109,7 @@ export function TwoFactorCard() {
     setBusy(true);
     setErr(null);
     setMsg(null);
+    setSignedOut(false);
     try {
       await fn();
     } catch (e) {
@@ -123,8 +126,9 @@ export function TwoFactorCard() {
   const enable = (e: FormEvent) => {
     e.preventDefault();
     return run(async () => {
-      const r = await api<{ recovery_codes: string[] }>("/api/account/2fa/enable", { body: { code } });
+      const r = await api<{ recovery_codes: string[]; other_sessions_signed_out?: boolean }>("/api/account/2fa/enable", { body: { code } });
       setCodes(r.recovery_codes);
+      setSignedOut(!!r.other_sessions_signed_out);
       setSetup(null);
       setCode("");
       await status.reload();
@@ -134,7 +138,8 @@ export function TwoFactorCard() {
   const disable = (e: FormEvent) => {
     e.preventDefault();
     return run(async () => {
-      await api("/api/account/2fa/disable", { body: { password: user.has_password ? pw : null, code } });
+      const r = await api<{ other_sessions_signed_out?: boolean }>("/api/account/2fa/disable", { body: { password: user.has_password ? pw : null, code } });
+      setSignedOut(!!r?.other_sessions_signed_out);
       setMode("idle");
       setCode("");
       setPw("");
@@ -146,8 +151,9 @@ export function TwoFactorCard() {
   const regen = (e: FormEvent) => {
     e.preventDefault();
     return run(async () => {
-      const r = await api<{ recovery_codes: string[] }>("/api/account/2fa/recovery-codes", { body: { code } });
+      const r = await api<{ recovery_codes: string[]; other_sessions_signed_out?: boolean }>("/api/account/2fa/recovery-codes", { body: { code } });
       setCodes(r.recovery_codes);
+      setSignedOut(!!r.other_sessions_signed_out);
       setMode("idle");
       setCode("");
       await status.reload();
@@ -266,6 +272,11 @@ export function TwoFactorCard() {
           <button className="btn btn-primary btn-sm" onClick={start} disabled={busy}>
             {busy ? <Spinner label={t("account.starting")} /> : (<><KeyRound className="h-4 w-4" aria-hidden /> {t("account.setUp")}</>)}
           </button>
+        </div>
+      )}
+      {signedOut && (
+        <div className="mt-3" data-testid="other-sessions-signed-out">
+          <Alert tone="info">{t("account.otherSessionsOut")}</Alert>
         </div>
       )}
       {err && (
@@ -459,7 +470,7 @@ export function JobAlertsCard() {
                 ?.filter((r) => r.latest_version_id)
                 .map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.title}
+                    {resumeTitle(t, r)}
                   </option>
                 ))}
             </select>

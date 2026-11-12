@@ -2,7 +2,7 @@
 
 fit = 100 × (0.40·required_coverage + 0.20·preferred_coverage + 0.25·semantic + 0.15·title_signal)
 
-- coverage weights: demonstrated in experience/projects = 1.0, listed only = 0.6, absent = 0
+- coverage weights: demonstrated in experience/projects = 1.0, listed only = 0.5, absent = 0 (same rule as the rubric and job matching)
 - semantic: embedding similarity between resume evidence text and the role profile,
   mapped to [0,1] with fixed anchors (heuristic, not a probability)
 - title_signal: 1 if a job title matches the role title/related titles, 0.5 if a project
@@ -20,13 +20,13 @@ import re
 from app.schemas.resume import ResumeContent
 from app.services.analysis.experience import build_timeline
 from app.services.ml.embeddings import get_embedder
-from app.services.ml.features import evidence_text, resume_skill_evidence
+from app.services.ml.features import LISTED_CREDIT, evidence_text, resume_skill_evidence
 from app.services.taxonomy import Role, get_taxonomy
 from app.services.text import clip
 from app.versions import RECOMMENDER_VERSION
 
 W_REQ, W_PREF, W_SEM, W_TITLE = 0.40, 0.20, 0.25, 0.15
-LISTED_ONLY = 0.6
+LISTED_ONLY = LISTED_CREDIT  # same rule as the rubric and job matching
 MIN_SKILLS = 4
 MIN_EVIDENCE_UNITS = 2
 
