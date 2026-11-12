@@ -7,13 +7,14 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import client_ip, current_session, current_user, err
 from app.config import get_settings
 from app.db import get_db
 from app.models import AuthToken, OAuthAccount, User, UserSession, utcnow
-from app.security.crypto import keyed_hash, sha256_hex
+from app.security.crypto import keyed_hash_candidates, sha256_hex
 from app.security.passwords import hash_password, needs_rehash, password_problems, verify_password
 from app.security.ratelimit import check_failures, enforce, record_failure
 from app.security.sessions import (
@@ -23,7 +24,7 @@ from app.security.sessions import (
     set_session_cookies,
 )
 from app.services.audit import audit
-from app.services.email import send_password_reset, send_verification
+from app.services.email import send_existing_account_notice, send_password_reset, send_verification
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -97,24 +98,49 @@ def _start_session(db: Session, user: User, request: Request, response: Response
     set_session_cookies(response, token)
 
 
-@router.post("/register", status_code=201, response_model=UserOut)
-def register(body: RegisterIn, request: Request, response: Response, db: Session = Depends(get_db)):
+REGISTER_MESSAGE = ("Check your email. If this address can be used for a new account, we sent a link to verify it; "
+                    "if it already has an account, we sent instructions to sign in or reset your password.")
+
+
+class RegisterOut(BaseModel):
+    status: str = "verification_sent"
+    message: str = REGISTER_MESSAGE
+
+
+@router.post("/register", status_code=201, response_model=RegisterOut)
+def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
+    """Create an account and email a verification link.
+
+    The response is the same whether or not the address already has an account, and no session is
+    started, so the endpoint cannot be used to find out who is registered. The owner of an existing
+    account gets an email instead ("someone tried to register with your address"). Sign in after
+    verifying."""
     problems = password_problems(body.password)
     if problems:
         raise err(422, "weak_password", " ".join(problems))
     email = body.email.lower()
-    if db.scalar(select(User).where(User.email == email)):
-        # do not reveal registration status; send a notice to the existing address instead
-        raise err(409, "email_in_use", "An account with this email may already exist. Try signing in or resetting your password.")
-    user = User(email=email, password_hash=hash_password(body.password), display_name=body.display_name,
+    # caps the emails one address can receive from this form, whatever the client IP
+    enforce(f"register-email:{email}", 3, 3600)
+    password_hash = hash_password(body.password)  # hashed in both branches so timing matches
+    existing = db.scalar(select(User).where(User.email == email))
+    if existing:
+        audit(db, "auth.register_existing", existing.id, ip=client_ip(request))
+        db.commit()
+        send_existing_account_notice(existing.email)
+        return RegisterOut()
+    user = User(email=email, password_hash=password_hash, display_name=body.display_name,
                 notification_prefs={"product_updates": False, "processing_complete": True})
     db.add(user)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:  # registered by a concurrent request: answer exactly as for an existing account
+        db.rollback()
+        return RegisterOut()
     raw = _issue_token(db, user, "verify", timedelta(hours=24))
     audit(db, "auth.registered", user.id, ip=client_ip(request))
-    _start_session(db, user, request, response)
+    db.commit()
     send_verification(user.email, raw)
-    return user_out(user)
+    return RegisterOut()
 
 
 @router.post("/login", response_model=UserOut)
@@ -134,7 +160,7 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
         user.password_hash = hash_password(body.password)
     if user.totp_enabled_at:
         # second step required: hand back a short-lived single-use token instead of a session
-        tok = _issue_token(db, user, "mfa", timedelta(minutes=5))
+        tok = _issue_token(db, user, "mfa", MFA_TOKEN_TTL)
         audit(db, "auth.login_mfa_pending", user.id, ip=client_ip(request))
         db.commit()
         return JSONResponse({"mfa_required": True, "mfa_token": tok})
@@ -144,10 +170,14 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
 
 
 class MfaLoginIn(BaseModel):
-    mfa_token: str = Field(max_length=128)
+    # omitted after Google sign-in: the token is then in the HttpOnly MFA_COOKIE, never in a URL
+    mfa_token: str | None = Field(default=None, max_length=128)
     code: str = Field(min_length=6, max_length=32, description="6-digit authenticator code or a recovery code")
 
 
+MFA_COOKIE = "ri_mfa"
+MFA_COOKIE_PATH = "/api/auth/login/mfa"
+MFA_TOKEN_TTL = timedelta(minutes=5)
 LOGIN_FAIL_WINDOW = 15 * 60
 SECOND_FACTOR_FAIL_WINDOW = 60 * 60
 MFA_TOKEN_MAX_FAILURES = 5
@@ -176,9 +206,10 @@ def _match_second_factor(user: User, code: str) -> str | None:
         if step is not None and (user.totp_last_step is None or step > user.totp_last_step):
             user.totp_last_step = step
             return "totp"
-    h = keyed_hash(code.strip().lower())
-    if h in (user.recovery_code_hashes or []):
-        user.recovery_code_hashes = [x for x in user.recovery_code_hashes if x != h]
+    stored = user.recovery_code_hashes or []
+    h = next((c for c in keyed_hash_candidates(code.strip().lower()) if c in stored), None)
+    if h is not None:
+        user.recovery_code_hashes = [x for x in stored if x != h]
         return "recovery_code"
     return None
 
@@ -186,7 +217,8 @@ def _match_second_factor(user: User, code: str) -> str | None:
 @router.post("/login/mfa")
 def login_mfa(body: MfaLoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
     enforce(f"mfa:{client_ip(request)}", get_settings().login_rate_per_minute)
-    tok = db.scalar(select(AuthToken).where(AuthToken.token_hash == sha256_hex(body.mfa_token), AuthToken.purpose == "mfa"))
+    raw = body.mfa_token or request.cookies.get(MFA_COOKIE) or ""
+    tok = db.scalar(select(AuthToken).where(AuthToken.token_hash == sha256_hex(raw), AuthToken.purpose == "mfa")) if raw else None
     if not tok or tok.used_at is not None or tok.expires_at <= utcnow():
         raise err(400, "invalid_token", "Your sign-in expired. Enter your email and password again.")
     user = db.get(User, tok.user_id)
@@ -203,10 +235,22 @@ def login_mfa(body: MfaLoginIn, request: Request, response: Response, db: Sessio
     tok.used_at = utcnow()
     audit(db, "auth.login", user.id, ip=client_ip(request), mfa=method)
     _start_session(db, user, request, response)
+    _clear_mfa_cookie(response)
     out = user_out(user).model_dump()
     if method == "recovery_code":
         out["recovery_codes_left"] = len(user.recovery_code_hashes)
     return out  # returned as a plain dict so the session cookies set on `response` are kept
+
+
+def set_mfa_cookie(response: Response, token: str) -> None:
+    s = get_settings()
+    response.set_cookie(MFA_COOKIE, token, max_age=int(MFA_TOKEN_TTL.total_seconds()), httponly=True, secure=s.cookie_secure,
+                        samesite="lax", domain=s.cookie_domain, path=MFA_COOKIE_PATH)
+
+
+def _clear_mfa_cookie(response: Response) -> None:
+    s = get_settings()
+    response.delete_cookie(MFA_COOKIE, domain=s.cookie_domain, path=MFA_COOKIE_PATH)
 
 
 @router.post("/logout", status_code=204)
@@ -340,9 +384,13 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):  # p
         db.add(OAuthAccount(user_id=user.id, provider="google", subject=info["sub"]))
     assert user
     if user.totp_enabled_at:
-        tok = _issue_token(db, user, "mfa", timedelta(minutes=5))
+        # the second-step token goes in a short-lived HttpOnly cookie scoped to the MFA endpoint, not
+        # the URL, so it never reaches browser history, logs or Referer headers
+        tok = _issue_token(db, user, "mfa", MFA_TOKEN_TTL)
         db.commit()
-        return RedirectResponse(f"{s.public_base_url}/login?mfa_token={tok}", status_code=302)
+        resp = RedirectResponse(f"{s.public_base_url}/login?mfa=google", status_code=302)
+        set_mfa_cookie(resp, tok)
+        return resp
     resp = RedirectResponse(f"{s.public_base_url}/dashboard", status_code=302)
     _start_session(db, user, request, resp)
     return resp

@@ -70,18 +70,33 @@ async function ok(r, what) {
   if (!r.ok()) throw new Error(`${what}: HTTP ${r.status()} ${await r.text()}`);
   return r.status() === 204 ? null : r.json();
 }
+/* Registration answers 201 the same way for new and already-registered addresses and starts no session.
+   Which one it was shows in the email: a verification link, or "…already has an account". Only the part of
+   the log written after `from` (bytes) is read, so links from earlier runs are never reused. */
+async function registrationMail(addr, from) {
+  for (let i = 0; i < 80; i++) {
+    const txt = fs.existsSync(LOG) ? fs.readFileSync(LOG).subarray(from).toString("utf8") : "";
+    const blocks = txt.split("EMAIL to ").filter((b) => b.startsWith(addr));
+    const last = blocks[blocks.length - 1];
+    if (last) {
+      const v = /verify-email\?token=([\w-]+)/.exec(last);
+      if (v) return { token: v[1] };
+      if (/already has an\s+account/.test(last)) return { existing: true };
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`no registration email for ${addr} in ${LOG}`);
+}
+
 async function newUser(browser, email) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const from = fs.existsSync(LOG) ? fs.statSync(LOG).size : 0;
   await ok(await call(ctx, "POST", "/api/auth/register", { data: { email, password } }), "register " + email);
-  for (let i = 0; ; i++) {
-    try {
-      await ok(await call(ctx, "POST", "/api/auth/verify-email", { data: { token: tokenFromLog(email) } }), "verify " + email);
-      break;
-    } catch (e) {
-      if (i > 20) throw e;
-      await sleep(250);
-    }
-  }
+  const m = await registrationMail(email, from);
+  if (m.existing) throw new Error(`${email} is already registered`);
+  await ok(await call(ctx, "POST", "/api/auth/verify-email", { data: { token: m.token } }), "verify " + email);
+  // registering no longer signs in: sign in once the address is verified
+  await ok(await call(ctx, "POST", "/api/auth/login", { data: { email, password } }), "sign in " + email);
   return ctx;
 }
 async function uploadConfirmed(ctx, persona) {
@@ -219,7 +234,7 @@ try {
     appA = (await applyTo(a, openingId, A.versionId)).id;
     appB = (await applyTo(b, openingId, B.versionId)).id;
     rec = await newUser(browser, HR_EMAIL).catch(async (e) => {
-      if (!/HTTP 409|already/i.test(e.message)) throw e;
+      if (!/HTTP 409|HTTP 429|already/i.test(e.message)) throw e; // existing account (or register rate limit on re-runs)
       const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
       await ok(await call(ctx, "POST", "/api/auth/login", { data: { email: HR_EMAIL, password } }), "recruiter login");
       return ctx;

@@ -2,7 +2,9 @@
 
 import { Briefcase, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
+import { useConfirm } from "@/components/confirm";
 import { Alert, Badge, Empty, ErrorState, Field, fmtDate, LoadingBlock, PageHeader, Spinner } from "@/components/ui";
+import { resumeTitle } from "@/lib/labels";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
@@ -24,6 +26,7 @@ type VersionOpt = { id: string; label: string };
 
 export default function ApplicationsPage() {
   const t = useT();
+  const confirm = useConfirm();
   const apps = useApi<Application[]>("/api/applications");
   const resumes = useApi<Resume[]>("/api/resumes");
   const [versions, setVersions] = useState<VersionOpt[]>([]);
@@ -37,7 +40,7 @@ export default function ApplicationsPage() {
         ready.map(async (r) => {
           try {
             const vs = await api<Version[]>(`/api/resumes/${r.id}/versions`);
-            return vs.map((v) => ({ id: v.id, label: `${r.title} · v${v.number}${v.label ? ` (${v.label})` : ""}` }));
+            return vs.map((v) => ({ id: v.id, label: `${resumeTitle(t, r)} · v${v.number}${v.label ? ` (${v.label})` : ""}` }));
           } catch {
             return [];
           }
@@ -45,13 +48,13 @@ export default function ApplicationsPage() {
       );
       setVersions(all.flat());
     })();
-  }, [resumes.data]);
+  }, [resumes.data, t]);
 
   const versionLabel = (id: string | null) => (id ? versions.find((v) => v.id === id)?.label ?? t("apps.versionUnavailable") : null);
   const list = (apps.data ?? []).filter((a) => filter === "all" || a.status === filter);
 
   async function remove(a: Application) {
-    if (!window.confirm(t("apps.confirmDelete", { company: a.company }))) return;
+    if (!(await confirm({ title: t("apps.confirmDelete", { company: a.company }) }))) return;
     await api(`/api/applications/${a.id}`, { method: "DELETE" });
     apps.setData((apps.data ?? []).filter((x) => x.id !== a.id));
   }
@@ -101,7 +104,7 @@ export default function ApplicationsPage() {
       ) : apps.error ? (
         <ErrorState message={apps.error} onRetry={apps.reload} />
       ) : !list.length ? (
-        <Empty icon={<Briefcase className="h-8 w-8" />} title={filter === "all" ? t("apps.empty") : t("apps.emptyFiltered", { status: t(STATUS_LABEL[filter]) })}>
+        <Empty level={2} icon={<Briefcase className="h-8 w-8" />} title={filter === "all" ? t("apps.empty") : t("apps.emptyFiltered", { status: t(STATUS_LABEL[filter]) })}>
           {t("apps.emptyBody")}
         </Empty>
       ) : (

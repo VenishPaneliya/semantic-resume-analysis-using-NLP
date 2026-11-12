@@ -4,10 +4,12 @@ import { ChevronLeft, Columns3, GitCompareArrows, Lock, PencilLine, Rows3, Trash
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
+import { useConfirm } from "@/components/confirm";
 import { OpeningMeta, SampleBadge } from "@/components/leaderboard";
 import { OpeningForm } from "@/components/opening-form";
 import { activeFilterCount, BulkUpload, CandidateFilterBar, CandidateTable, EMPTY_FILTERS, filterQuery, PipelineBoard, type FilterState } from "@/components/recruiter";
 import { Alert, Badge, cx, Empty, ErrorState, LoadingBlock, Section, Spinner } from "@/components/ui";
+import { roleTitle } from "@/lib/labels";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
@@ -28,11 +30,12 @@ function RecruiterOpening() {
   const params = useSearchParams();
   const router = useRouter();
   const t = useT();
+  const confirm = useConfirm();
   const op = useApi<RecruiterOpeningFull>(`/api/recruiter/openings/${id}`);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const fq = filterQuery(filters);
   const cands = useApi<CandidateList>(`/api/recruiter/openings/${id}/candidates${fq ? `?${fq}` : ""}`);
-  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles");
+  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles", [], { static: true });
   const allSkills = useMemo(
     () => Array.from(new Set((roles.data?.roles ?? []).flatMap((r) => [...r.required_skills, ...r.preferred_skills]))).sort((a, b) => a.localeCompare(b)),
     [roles.data],
@@ -44,6 +47,7 @@ function RecruiterOpening() {
   const [notice, setNotice] = useState<string | null>(params.get("created") ? t("recopen.published") : null);
   const [busy, setBusy] = useState<"status" | "delete" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   if (op.loading && !op.data) return <LoadingBlock label={t("recopen.loading")} />;
   if (op.error || !op.data) return <ErrorState message={op.error ?? t("recopen.notFound")} onRetry={op.reload} />;
@@ -65,7 +69,7 @@ function RecruiterOpening() {
   }
 
   async function remove() {
-    if (!window.confirm(t("recopen.confirmDelete", { title: o.title, count: o.applicants }))) return;
+    if (!(await confirm({ title: t("recopen.confirmDelete", { title: o.title, count: o.applicants }) }))) return;
     setBusy("delete");
     setError(null);
     try {
@@ -77,13 +81,33 @@ function RecruiterOpening() {
     }
   }
 
+  /** Next page of the filtered, ranked list, appended to what is shown. */
+  async function loadMore() {
+    if (!cands.data) return;
+    const shown = cands.data.candidates;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const q = new URLSearchParams(fq);
+      q.set("offset", String(shown.length));
+      q.set("limit", String(cands.data.limit));
+      const next = await api<CandidateList>(`/api/recruiter/openings/${id}/candidates?${q}`);
+      const have = new Set(shown.map((c) => c.application_id));
+      cands.setData({ ...next, candidates: [...shown, ...next.candidates.filter((c) => !have.has(c.application_id))], offset: 0 });
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   function setStage(aid: string, stage: ApplicationStage) {
     if (!cands.data) return;
     cands.setData({ ...cands.data, candidates: cands.data.candidates.map((c) => (c.application_id === aid ? { ...c, stage } : c)) });
   }
 
   async function removeUploaded(c: CandidateRow) {
-    if (!window.confirm(t("rec.confirmRemove", { name: c.name }))) return;
+    if (!(await confirm({ title: t("rec.confirmRemove", { name: c.name }), confirmLabel: t("common.remove") }))) return;
     setError(null);
     try {
       await api(`/api/recruiter/applications/${c.application_id}`, { method: "DELETE" });
@@ -109,7 +133,7 @@ function RecruiterOpening() {
               {o.is_demo && <SampleBadge />}
             </div>
             <OpeningMeta o={o} className="mt-1" />
-            {o.role_title && <p className="mt-1 text-xs text-muted">{t("recopen.closestRole", { role: o.role_title })}</p>}
+            {o.role_title && <p className="mt-1 text-xs text-muted">{t("recopen.closestRole", { role: roleTitle(t, o.role_id, o.role_title) })}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
             <button className="btn btn-secondary btn-sm" onClick={() => setEditing((e) => !e)} aria-expanded={editing}>
@@ -168,7 +192,7 @@ function RecruiterOpening() {
             {cands.data && (
               <span className="num ml-2 text-base font-normal text-muted">
                 {cands.data.candidates.length}
-                {cands.data.candidates.length !== cands.data.total ? ` ${t("recopen.ofTotal", { total: cands.data.total })}` : ""}
+                {cands.data.candidates.length !== cands.data.matched ? ` ${t("recopen.ofTotal", { total: cands.data.matched })}` : ""}
               </span>
             )}
           </h2>
@@ -260,6 +284,16 @@ function RecruiterOpening() {
           />
         ) : (
           <PipelineBoard rows={cands.data.candidates} onStage={setStage} />
+        )}
+        {cands.data?.has_more && (
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-1" data-testid="load-more">
+            <span className="text-xs text-muted">
+              {t("recopen.showingOf", { shown: cands.data.candidates.length, matched: cands.data.matched })}
+            </span>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? <Spinner label={t("recopen.loadingMore")} /> : t("recopen.loadMore", { count: Math.min(cands.data.limit, cands.data.matched - cands.data.candidates.length) })}
+            </button>
+          </div>
         )}
       </section>
 

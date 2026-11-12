@@ -81,5 +81,9 @@ jobs:
         with: { image-ref: "ri-backend:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1" }
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with: { image-ref: "ri-frontend:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1" }
-      - name: Validate compose file
-        run: docker compose config -q
+      - name: Validate compose files
+        run: |
+          docker compose config -q
+          # production file with the template and placeholder secrets (the real values live in deploy/.env)
+          POSTGRES_PASSWORD=ci REDIS_PASSWORD=ci S3_SECRET_ACCESS_KEY=ci APP_ENV_FILE=env.production.example \
+            docker compose -f deploy/docker-compose.prod.yml --env-file deploy/env.production.example config -q

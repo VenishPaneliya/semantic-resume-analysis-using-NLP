@@ -3,7 +3,9 @@
 import { BookOpen, CheckCircle2, ExternalLink, GraduationCap, PencilLine, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useConfirm } from "@/components/confirm";
 import { Alert, Badge, Bar, Empty, ErrorState, fmtDate, LoadingBlock, PageHeader } from "@/components/ui";
+import { roleTitle } from "@/lib/labels";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
@@ -17,6 +19,7 @@ const COLUMNS: { id: LearningStatus; label: MessageKey; help: MessageKey }[] = [
 
 export default function LearningPage() {
   const t = useT();
+  const confirm = useConfirm();
   const { data, setData, error, loading, reload } = useApi<LearningPlan>("/api/learning");
   const resumes = useApi<Resume[]>("/api/resumes");
   const [err, setErr] = useState<string | null>(null);
@@ -39,7 +42,7 @@ export default function LearningPage() {
     }
   }
   async function remove(item: LearningItem) {
-    if (!window.confirm(t("learning.confirmRemove", { skill: item.skill }))) return;
+    if (!(await confirm({ title: t("learning.confirmRemove", { skill: item.skill }), confirmLabel: t("common.remove") }))) return;
     setErr(null);
     try {
       await api(`/api/learning/${item.id}`, { method: "DELETE" });
@@ -60,7 +63,7 @@ export default function LearningPage() {
       ) : error || !data ? (
         <ErrorState message={error ?? t("learning.loadError")} onRetry={reload} />
       ) : data.items.length === 0 ? (
-        <Empty
+        <Empty level={2}
           icon={<GraduationCap className="h-8 w-8" aria-hidden />}
           title={t("learning.empty")}
           action={
@@ -122,7 +125,7 @@ function ItemCard({ item, editorHref, onMove, onRemove }: { item: LearningItem; 
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-base leading-tight">{item.skill}</h3>
-          {item.target.title && <p className="mt-0.5 text-xs text-muted">{t("learning.for", { title: item.target.title })}</p>}
+          {item.target.title && <p className="mt-0.5 text-xs text-muted">{t("learning.for", { title: item.target.kind === "role" ? roleTitle(t, item.target.id, item.target.title) : item.target.title })}</p>}
         </div>
         <button className="btn btn-ghost btn-sm !p-1 text-muted" onClick={onRemove} aria-label={t("learning.removeAria", { skill: item.skill })}>
           <Trash2 className="h-4 w-4" aria-hidden />
@@ -156,7 +159,7 @@ function ItemCard({ item, editorHref, onMove, onRemove }: { item: LearningItem; 
             ))}
           </ul>
         ) : r.status === "unavailable" ? (
-          <p className="text-xs text-muted">{r.message ?? t("learning.off")}</p>
+          <p className="text-xs text-muted">{t("learning.off")}</p>
         ) : (
           <p className="text-xs text-muted" data-testid="no-resource">
             {t("learning.noResource", { skill: item.skill })}

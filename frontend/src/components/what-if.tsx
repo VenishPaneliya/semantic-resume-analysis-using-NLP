@@ -2,12 +2,13 @@
 
 import { ArrowRight, Gauge, Minus, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { TierBadge } from "./leaderboard";
+import { cx, Spinner } from "./ui";
+import { roleTitle } from "@/lib/labels";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT } from "@/lib/i18n";
 import type { Opening, ResumeContent, RoleLeaderboard, WhatIf } from "@/lib/types";
-import { TierBadge } from "./leaderboard";
-import { cx, Spinner } from "./ui";
 
 const DEBOUNCE_MS = 800;
 
@@ -85,7 +86,7 @@ export function WhatIfPanel({ versionId, draft, dirty }: { versionId: string; dr
             <optgroup label={t("whatif.topRoles")}>
               {topRoles.map((r) => (
                 <option key={r.role_id} value={`role:${r.role_id}`}>
-                  {r.title} ({Math.round(r.score)})
+                  {roleTitle(t, r.role_id, r.title)} ({Math.round(r.score)})
                 </option>
               ))}
             </optgroup>
@@ -149,7 +150,7 @@ export function WhatIfPanel({ versionId, draft, dirty }: { versionId: string; dr
               </ul>
             )}
             <p className="text-xs text-muted">
-              {res.note} {t("whatif.compat", { title: res.target.title })}
+              {res.note} {t("whatif.compat", { title: res.target.kind === "role" ? roleTitle(t, res.target.id, res.target.title) : res.target.title })}
             </p>
           </div>
         )}

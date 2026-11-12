@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from pydantic import BaseModel
+
 from app.schemas.resume import (
     Bullet,
     Certification,
@@ -24,6 +26,7 @@ from app.schemas.resume import (
     Skills,
 )
 from app.services.extraction.dates import find_range, find_single
+from app.services.extraction.recover import Recovered, recover
 from app.services.taxonomy import get_taxonomy
 from app.versions import EXTRACTOR_VERSION
 
@@ -37,7 +40,7 @@ HEADINGS: dict[str, list[str]] = {
                   "academic qualifications"],
     "projects": ["projects", "personal projects", "academic projects", "key projects", "selected projects",
                  "project experience", "side projects"],
-    "skills": ["skills", "technical skills", "core skills", "key skills", "skills and tools", "technologies",
+    "skills": ["skills", "highlights", "skill highlights", "technical skills", "core skills", "key skills", "skills and tools", "technologies",
                "tech stack", "core competencies", "competencies", "tools", "skills & tools", "technical proficiencies"],
     "certifications": ["certifications", "certificates", "licenses", "licenses and certifications",
                        "certifications and licenses", "courses", "certifications & courses"],
@@ -58,7 +61,8 @@ URL_RE = re.compile(
     re.I,
 )
 DEGREE_RE = re.compile(
-    r"\b(b\.?\s?tech|m\.?\s?tech|b\.?\s?e\.?|m\.?\s?e\.?|b\.?\s?sc|m\.?\s?sc|b\.?\s?s\.?|m\.?\s?s\.?|b\.?\s?a\.?|m\.?\s?a\.?|"
+    r"\b(b\.?\s?tech|m\.?\s?tech|b\.?\s?ed|m\.?\s?ed|b\.?\s?des|m\.?\s?des|b\.?\s?pharm|m\.?\s?pharm|b\.?\s?arch|"
+    r"m\.?\s?arch|mbbs|llb|llm|bds|b\.?\s?e\.?|m\.?\s?e\.?|b\.?\s?sc|m\.?\s?sc|b\.?\s?s\.?|m\.?\s?s\.?|b\.?\s?a\.?|m\.?\s?a\.?|"
     r"bca|mca|bba|mba|ph\.?\s?d|bachelor(?:'s)?|master(?:'s)?|doctorate|associate(?:'s)? degree|diploma|"
     r"high school|secondary school|hsc|ssc|class xii|class x|a-levels|b\.?com|m\.?com)\b",
     re.I,
@@ -218,10 +222,34 @@ class Extractor:
             content.certifications = self._certifications(by_key["certifications"])
         if "achievements" in by_key:
             content.achievements = [
-                SimpleItem(text=t) for t in self._items(by_key["achievements"], "achievements")
+                SimpleItem(text=t[:600]) for t in self._items(by_key["achievements"], "achievements")
             ]
         if "languages" in by_key:
             content.languages = self._languages(by_key["languages"])
+
+        # No sections at all (text without headings or line breaks): keep what can honestly be said. Skills
+        # named anywhere count as *mentioned* (listed), never as shown in work, and the text is kept as the
+        # summary so job matching has something to compare.
+        if not (content.experience or content.projects or content.education) and not (
+            content.skills.technical or content.skills.soft
+        ) and len(self.text.split()) >= 80:
+            tech, soft = [], []
+            for h in self.tax.find_skills(self.text):
+                (soft if self.tax.skills[h.skill].is_soft else tech).append(h.skill)
+            content.skills.technical = list(dict.fromkeys(tech))
+            content.skills.soft = list(dict.fromkeys(soft))
+            if content.skills.technical or content.skills.soft:
+                self.report.confidence["skills"] = 0.4
+                self._uncertain("skills", "No sections found; skills were picked up from anywhere in the text and "
+                                          "are treated as mentioned, not shown in work.")
+            if not content.summary:
+                body = [ln for ln in lines if ln.text and not EMAIL_RE.search(ln.text)]
+                if body:
+                    content.summary = " ".join(ln.text for ln in body)[:3000]
+                    self._ev("summary", (body[0].start, body[-1].end))
+                    self.report.confidence["summary"] = 0.3
+                    self._uncertain("summary", "No sections found; the whole text is used as the summary.")
+            self.report.warnings.append("no_sections_found")
 
         # detected-but-empty => "could not reliably extract", not "missing"
         for key in order:
@@ -359,7 +387,19 @@ class Extractor:
 
     _TITLE_WORDS = re.compile(
         r"\b(engineer|developer|analyst|scientist|intern|manager|lead|consultant|architect|designer|associate|"
-        r"specialist|administrator|assistant|researcher|tester|officer|coordinator|director|head|trainee|sde|programmer)\b",
+        r"specialist|administrator|assistant|researcher|tester|officer|coordinator|director|head|trainee|sde|sdet|programmer|"
+        r"teacher|lecturer|professor|instructor|tutor|nurse|accountant|auditor|executive|representative|technician|clerk|"
+        r"writer|editor|therapist|pharmacist|physician|chef|supervisor|agent|advisor|adviser|planner|banker|operator|"
+        r"recruiter|paralegal|attorney|counsel|founder|owner|president|vp|cto|ceo|cfo|principal|staff|"
+        r"secretary|receptionist|cashier|driver|mechanic|electrician|librarian|counsellor|counselor|pilot|fellow)\b",
+        re.I,
+    )
+    # words that mark the employer side of "Company — Title"
+    _ORG_WORDS = re.compile(
+        r"\b(inc|ltd|llc|llp|plc|gmbh|corp|corporation|company|pvt|limited|labs?|systems|technologies|solutions|"
+        r"group|holdings|bank|hospital|clinic|health|university|college|school|schools|institute|academy|agency|"
+        r"retail|analytics|fintech|logistics|media|energy|manufacturing|services|software|consulting|partners|"
+        r"foundation|ministry|department|council|studio|studios|ventures|capital|enterprises|industries)\b\.?",
         re.I,
     )
 
@@ -396,7 +436,10 @@ class Extractor:
                     t1, _ = head_texts[1]
                     b2, loc = self._split_title_org(t1)
                     b, exp.location = b2, loc
-                if a and b and not self._TITLE_WORDS.search(a) and self._TITLE_WORDS.search(b):
+                if a and b and (
+                    (not self._TITLE_WORDS.search(a) and self._TITLE_WORDS.search(b))
+                    or (self._ORG_WORDS.search(a) and not self._ORG_WORDS.search(b))
+                ):
                     a, b = b, a  # "Company — Title" ordering
                 exp.title, exp.organization = a, b
                 self._ev(f"{path}/title", l0)
@@ -417,7 +460,7 @@ class Extractor:
             elif exp.title:
                 exp.employment_type = "full_time"
             for ln, txt in bullets:
-                b = Bullet(text=txt)
+                b = Bullet(text=txt[:800])
                 exp.bullets.append(b)
                 self._ev(f"{path}/bullets/{b.id}", ln)
             if exp.title or exp.organization or exp.bullets:
@@ -512,7 +555,7 @@ class Extractor:
             nonlocal cur, pending
             if cur is not None:
                 for ln, txt in self._bullet_lines(pending, skip=[]):
-                    b = Bullet(text=txt)
+                    b = Bullet(text=txt[:800])
                     cur.bullets.append(b)
                     self._ev(f"projects/{cur.id}/bullets/{b.id}", ln)
                 out.append(cur)
@@ -630,13 +673,57 @@ class Extractor:
             pm = PROFICIENCY_RE.search(part)
             name = re.sub(r"[()\-:]", " ", PROFICIENCY_RE.sub("", part)).strip()
             if name and len(name) <= 40:
-                out.append(LanguageItem(name=name.split()[0] if len(name.split()) > 2 else name,
+                out.append(LanguageItem(name=(name.split()[0] if len(name.split()) > 2 else name)[:60],
                                         proficiency=pm.group(1).title() if pm else None))
         return out
 
 
+def _clip_to_schema(obj: BaseModel) -> int:
+    """Truncate strings and lists that exceed the schema's max_length, so extraction never produces
+    content that fails its own validation (e.g. a 200-character education line as `degree`)."""
+    clipped = 0
+    for name, info in type(obj).model_fields.items():
+        val = getattr(obj, name)
+        limit = next((m.max_length for m in info.metadata if getattr(m, "max_length", None) is not None), None)
+        if isinstance(val, str) and limit is not None and len(val) > limit:
+            setattr(obj, name, val[: limit - 1].rstrip() + "…")
+            clipped += 1
+        elif isinstance(val, list):
+            if limit is not None and len(val) > limit:
+                setattr(obj, name, val[:limit])
+                clipped += 1
+            for item in getattr(obj, name):
+                if isinstance(item, BaseModel):
+                    clipped += _clip_to_schema(item)
+        elif isinstance(val, BaseModel):
+            clipped += _clip_to_schema(val)
+    return clipped
+
+
+def _pages_for(rec: Recovered, pages: list[dict]) -> list[dict]:
+    """Page character ranges re-expressed in the recovered text's positions."""
+    out = []
+    for p in pages:
+        s, e = p.get("char_start", 0), p.get("char_end", 0)
+        ns = next((i for i, o in enumerate(rec.index) if o >= s), len(rec.index))
+        ne = next((i for i in range(len(rec.index) - 1, -1, -1) if rec.index[i] <= e), ns)
+        out.append({**p, "char_start": ns, "char_end": ne})
+    return out
+
+
 def extract(text: str, pages: list[dict]) -> dict:
-    content, evidence, report = Extractor(text, pages).run()
+    rec = recover(text)
+    if rec.changed:
+        content, evidence, report = Extractor(rec.text, _pages_for(rec, pages)).run()
+        for ev in evidence.values():  # point evidence back at the user's original text
+            s, e = ev["start"], ev["end"]
+            os_, oe = rec.to_original(s), (rec.to_original(e - 1) + 1 if e > s else rec.to_original(s))
+            ev.update(start=os_, end=oe, text=text[os_:oe][:300])
+        report.warnings.append("layout_recovered")
+    else:
+        content, evidence, report = Extractor(text, pages).run()
+    if _clip_to_schema(content):
+        report.warnings.append("fields_truncated")
     return {
         "content": content.model_dump(),
         "evidence": evidence,

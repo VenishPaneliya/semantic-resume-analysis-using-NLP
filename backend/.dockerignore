@@ -1,12 +1,21 @@
+# Only what the API / worker / beat need at runtime goes into the image:
+# app/, alembic/, alembic.ini, data/, scripts/, pyproject.toml, constraints.txt.
 .venv
 var
+tests
+eval
+htmlcov
+.coverage
+coverage.xml
 **/__pycache__
 **/*.pyc
 .pytest_cache
 .ruff_cache
 .mypy_cache
 .env
+.env.*
 *.db
-eval/reports
-htmlcov
-.coverage
+*.sqlite3
+*.log
+Dockerfile
+.dockerignore

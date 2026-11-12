@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 
 import app.services.pipeline  # noqa: F401 - registers job handlers
 from app.api import (
@@ -127,6 +128,14 @@ def create_app() -> FastAPI:
     async def _llm(_, exc: LLMUnavailable):
         code = {"ai_consent_required": 403, "ai_daily_limit": 429, "ai_monthly_limit": 429, "ai_disabled": 503}.get(exc.code, 503)
         return JSONResponse(status_code=code, content={"detail": {"code": exc.code, "message": exc.message}})
+
+    @app.exception_handler(IntegrityError)
+    async def _conflict(request: Request, exc: IntegrityError):
+        # two requests raced to create the same thing (e.g. a double-clicked Apply or Save); the
+        # request's session is closed by get_db, which rolls the failed transaction back
+        log.info("integrity_conflict", path=request.url.path, error=type(exc.orig).__name__ if exc.orig else None)
+        return JSONResponse(status_code=409, content={"detail": {
+            "code": "conflict", "message": "This was just changed by another request. Reload and try again."}})
 
     @app.exception_handler(RequestValidationError)
     async def _val(_, exc: RequestValidationError):

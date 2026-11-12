@@ -131,6 +131,9 @@ PHONE_RE = re.compile(r"(?<!\w)\+?\d[\d\s().-]{7,}\d(?!\w)")
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 
+_ID_KEYS = frozenset({"id", "target_id"})
+
+
 def scrub_value(v, content: ResumeContent | None):
     """Recursively remove contact details from any structure sent to a provider."""
     if isinstance(v, str):
@@ -141,7 +144,9 @@ def scrub_value(v, content: ResumeContent | None):
     if isinstance(v, list):
         return [scrub_value(x, content) for x in v]
     if isinstance(v, dict):
-        return {k: scrub_value(x, content) for k, x in v.items()}
+        # identifiers are random hex ("4815162342" is a valid id): scrubbing one as a phone number would
+        # make the model's reply point at an id that does not exist
+        return {k: x if k in _ID_KEYS and isinstance(x, str) else scrub_value(x, content) for k, x in v.items()}
     return v
 
 

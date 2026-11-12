@@ -4,6 +4,7 @@ import { ChevronLeft, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import { useConfirm } from "@/components/confirm";
 import { TierBadge } from "@/components/leaderboard";
 import { MatchBreakdown } from "@/components/match-breakdown";
 import { ResumePreview } from "@/components/preview";
@@ -21,6 +22,7 @@ export default function RecruiterApplicationPage() {
   const router = useRouter();
   const { user } = useUser();
   const t = useT();
+  const confirm = useConfirm();
   const { data: a, setData, error, loading, reload } = useApi<RecruiterApplication>(`/api/recruiter/applications/${id}`);
   const [removeErr, setRemoveErr] = useState<string | null>(null);
 
@@ -28,7 +30,7 @@ export default function RecruiterApplicationPage() {
   if (error || !a) return <ErrorState message={error ?? t("recapp.notFound")} onRetry={reload} />;
 
   async function remove() {
-    if (!a || !window.confirm(t("rec.confirmRemove", { name: a.name }))) return;
+    if (!a || !(await confirm({ title: t("rec.confirmRemove", { name: a.name }), confirmLabel: t("common.remove") }))) return;
     try {
       await api(`/api/recruiter/applications/${a.id}`, { method: "DELETE" });
       router.push(`/recruiter/openings/${a.opening_id}`);

@@ -110,6 +110,10 @@ def make_user(app):
             tok = _token_from_outbox(email, "verify-email")
             r = api.post("/api/auth/verify-email", json={"token": tok})
             assert r.status_code == 200, r.text
+        # registering never signs in (it must not reveal whether the address was taken)
+        r = api.post("/api/auth/login", json={"email": email, "password": PASSWORD})
+        assert r.status_code == 200, r.text
+        reset_rate_limits()  # creating users is setup, not part of what a test measures
         return api
     return _make
 

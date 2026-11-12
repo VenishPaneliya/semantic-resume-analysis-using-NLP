@@ -27,7 +27,7 @@ export default function AdminPage() {
   const [rec, setRec] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (user.role !== "admin") return <Empty title={t("admin.only")}>{t("admin.noAccess")}</Empty>;
+  if (user.role !== "admin") return <Empty level={2} title={t("admin.only")}>{t("admin.noAccess")}</Empty>;
 
   async function recover() {
     setBusy(true);

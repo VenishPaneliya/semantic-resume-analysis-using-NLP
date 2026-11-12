@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import worker_init
 
 from app.config import get_settings
 
@@ -24,8 +25,20 @@ celery_app.conf.update(
         "recover-stale-jobs": {"task": "ri.recover_stale_jobs", "schedule": 120.0},
         "queue-depth": {"task": "ri.queue_depth", "schedule": 30.0},
         "retention-sweep": {"task": "ri.retention_sweep", "schedule": crontab(hour=3, minute=15)},
+        # after a deploy that changes the matcher, rescore openings and applications overnight
+        "refresh-stale-openings": {"task": "ri.refresh_stale_openings", "schedule": crontab(hour=2, minute=30)},
     },
 )
+
+
+@worker_init.connect
+def _start_metrics_exporter(**_kwargs) -> None:
+    # runs in the worker's main process before the pool forks; off unless WORKER_METRICS_PORT is set
+    from app.observability import start_worker_metrics_server
+
+    start_worker_metrics_server()
+
+
 celery_app.autodiscover_tasks(["app.worker"], related_name="tasks", force=True)
 
 import app.worker.tasks  # noqa: E402,F401  - register tasks

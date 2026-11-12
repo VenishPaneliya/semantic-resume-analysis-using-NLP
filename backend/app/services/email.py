@@ -59,3 +59,14 @@ def send_password_reset(to: str, token: str) -> None:
         f"A password reset was requested for this account. Open the link below to choose a new password:\n\n{url}\n\n"
         "This link expires in 1 hour. If you did not request this, you can ignore this email.",
     )
+
+
+def send_existing_account_notice(to: str) -> None:
+    base = get_settings().public_base_url
+    send_email(
+        to,
+        "Someone tried to create an account with your email",
+        "Someone (perhaps you) tried to create a new account with this email address, but it already has an "
+        f"account.\n\nTo sign in: {base}/login\nForgot your password? Reset it here: {base}/forgot-password\n\n"
+        "If this wasn't you, you can ignore this email. Your account has not been changed.",
+    )

@@ -1,0 +1,3037 @@
+{
+ "meta": {
+  "date": "2026-11-12",
+  "generated_at": "2026-11-12T15:35:46+00:00",
+  "embedding_model": "st:sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_backend_setting": "auto",
+  "extractor_version": "extractor-1.2.0",
+  "jd_matcher_version": "jd-matcher-1.3.0",
+  "recommender_version": "hybrid-recommender-1.2.0",
+  "taxonomy_version": "skills-2026.11-v1+roles-2026.11-v1",
+  "seed": 20261110,
+  "seconds": 1813.6,
+  "note_jobs_rerun": "jobs section re-run after the JD section fixes (same snapshot)"
+ },
+ "skills": {
+  "dataset": "jjzha/skillspan (test split)",
+  "n_sentences": 3569,
+  "n_documents": 65,
+  "n_gold_spans": 2265,
+  "gold_span_kinds": {
+   "knowledge": 1174,
+   "skill": 1091
+  },
+  "share_gold_in_taxonomy_exact": 0.137,
+  "share_gold_in_taxonomy_contains": 0.204,
+  "share_knowledge_gold_in_taxonomy_contains": 0.329,
+  "matching_rule": "(span overlap): a sentence is rebuilt by joining its tokens with single spaces so\nevery token has a character span. Gold spans are the BIO spans of `tags_skill` and\n`tags_knowledge`. A predicted hit is correct if its character span overlaps any gold span in the\nsame sentence; a gold span is recalled if any predicted hit overlaps it.\n\n\"In taxonomy\" subsets of the gold spans (what find_skills is designed to find):\n  exact    \u2014 the normalised span equals a taxonomy name or alias\n  contains \u2014 the normalised span contains a taxonomy name or alias as a whole-word substring\nNormalisation: lower case, every character other than a-z 0-9 + # . / replaced by a space,\nwhitespace collapsed. These subsets are defined by plain string matching, not by find_skills.",
+  "find_skills": {
+   "all_gold": {
+    "precision": 0.753,
+    "recall": 0.19,
+    "f1": 0.304,
+    "n_pred": 590,
+    "n_gold": 2265,
+    "pred_correct": 444,
+    "gold_recalled": 431,
+    "f1_ci95": [
+     0.258,
+     0.354
+    ],
+    "recall_ci95": [
+     0.156,
+     0.227
+    ]
+   },
+   "in_taxonomy_exact": {
+    "precision": 0.753,
+    "recall": 0.913,
+    "f1": 0.825,
+    "n_pred": 590,
+    "n_gold": 310,
+    "pred_correct": 444,
+    "gold_recalled": 283,
+    "f1_ci95": [
+     0.778,
+     0.864
+    ],
+    "recall_ci95": [
+     0.86,
+     0.96
+    ]
+   },
+   "in_taxonomy_contains": {
+    "precision": 0.753,
+    "recall": 0.924,
+    "f1": 0.83,
+    "n_pred": 590,
+    "n_gold": 461,
+    "pred_correct": 444,
+    "gold_recalled": 426,
+    "f1_ci95": [
+     0.782,
+     0.869
+    ],
+    "recall_ci95": [
+     0.883,
+     0.965
+    ]
+   },
+   "knowledge_spans_only": {
+    "precision": 0.753,
+    "recall": 0.304,
+    "f1": 0.433,
+    "n_pred": 590,
+    "n_gold": 1174,
+    "pred_correct": 444,
+    "gold_recalled": 357,
+    "f1_ci95": [
+     0.379,
+     0.486
+    ],
+    "recall_ci95": [
+     0.258,
+     0.355
+    ]
+   },
+   "skill_spans_only": {
+    "precision": 0.753,
+    "recall": 0.068,
+    "f1": 0.124,
+    "n_pred": 590,
+    "n_gold": 1091,
+    "pred_correct": 444,
+    "gold_recalled": 74,
+    "f1_ci95": [
+     0.099,
+     0.155
+    ],
+    "recall_ci95": [
+     0.053,
+     0.086
+    ]
+   },
+   "precision_ci95": [
+    0.686,
+    0.814
+   ],
+   "precision_vs_knowledge_spans_only": 0.625
+  },
+  "by_source": {
+   "tech": {
+    "all_gold": {
+     "precision": 0.767,
+     "recall": 0.278,
+     "f1": 0.409,
+     "n_pred": 464,
+     "n_gold": 1246,
+     "pred_correct": 356,
+     "gold_recalled": 347
+    },
+    "in_taxonomy_exact": {
+     "precision": 0.767,
+     "recall": 0.897,
+     "f1": 0.827,
+     "n_pred": 464,
+     "n_gold": 263,
+     "pred_correct": 356,
+     "gold_recalled": 236
+    }
+   },
+   "house": {
+    "all_gold": {
+     "precision": 0.698,
+     "recall": 0.082,
+     "f1": 0.147,
+     "n_pred": 126,
+     "n_gold": 1019,
+     "pred_correct": 88,
+     "gold_recalled": 84
+    },
+    "in_taxonomy_exact": {
+     "precision": 0.698,
+     "recall": 1.0,
+     "f1": 0.822,
+     "n_pred": 126,
+     "n_gold": 47,
+     "pred_correct": 88,
+     "gold_recalled": 47
+    }
+   }
+  },
+  "baseline_canonical_names_only": {
+   "all_gold": {
+    "precision": 0.765,
+    "recall": 0.156,
+    "f1": 0.259,
+    "n_pred": 469,
+    "n_gold": 2265,
+    "pred_correct": 359,
+    "gold_recalled": 353
+   },
+   "in_taxonomy_exact": {
+    "precision": 0.765,
+    "recall": 0.748,
+    "f1": 0.757,
+    "n_pred": 469,
+    "n_gold": 310,
+    "pred_correct": 359,
+    "gold_recalled": 232
+   },
+   "in_taxonomy_contains": {
+    "precision": 0.765,
+    "recall": 0.764,
+    "f1": 0.765,
+    "n_pred": 469,
+    "n_gold": 461,
+    "pred_correct": 359,
+    "gold_recalled": 352
+   }
+  },
+  "bootstrap": "500 resamples of documents (cluster bootstrap)",
+  "top_false_positives": [
+   [
+    "Java ('Java')",
+    10
+   ],
+   [
+    "Agile ('agile')",
+    8
+   ],
+   [
+    "Communication ('communication')",
+    8
+   ],
+   [
+    "A/B Testing ('experimentation')",
+    7
+   ],
+   [
+    "Collaboration ('collaboration')",
+    6
+   ],
+   [
+    "Android ('Android')",
+    6
+   ],
+   [
+    "Security ('security')",
+    5
+   ],
+   [
+    "Machine Learning ('machine learning')",
+    5
+   ],
+   [
+    "Collaboration ('cross-functional')",
+    5
+   ],
+   [
+    "Azure ('Azure')",
+    4
+   ],
+   [
+    "Python ('Python')",
+    4
+   ],
+   [
+    "Agile ('Agile')",
+    4
+   ],
+   [
+    "Leadership ('leadership')",
+    4
+   ],
+   [
+    "Collaboration ('teamwork')",
+    4
+   ],
+   [
+    "Leadership ('mentoring')",
+    3
+   ]
+  ],
+  "top_missed_in_taxonomy": [
+   [
+    ". net",
+    8
+   ],
+   [
+    ". NET",
+    5
+   ],
+   [
+    "amazon-web-services",
+    4
+   ],
+   [
+    "R",
+    3
+   ],
+   [
+    "r",
+    2
+   ],
+   [
+    ". net-core",
+    2
+   ],
+   [
+    ". NET Core",
+    2
+   ],
+   [
+    "Micro Services",
+    1
+   ]
+  ],
+  "top_out_of_taxonomy_knowledge_spans": [
+   [
+    "english",
+    31
+   ],
+   [
+    "financial services",
+    13
+   ],
+   [
+    "automation",
+    11
+   ],
+   [
+    "cloud",
+    10
+   ],
+   [
+    "testing",
+    9
+   ],
+   [
+    "financial technology",
+    8
+   ],
+   [
+    "qa",
+    8
+   ],
+   [
+    "software development lifecycle",
+    6
+   ],
+   [
+    "bs/ba degree",
+    6
+   ],
+   [
+    "architecture",
+    6
+   ],
+   [
+    "web services",
+    6
+   ],
+   [
+    "german",
+    6
+   ],
+   [
+    "information technology",
+    6
+   ],
+   [
+    "rest",
+    6
+   ],
+   [
+    "spring",
+    5
+   ],
+   [
+    "artificial intelligence",
+    5
+   ],
+   [
+    "software development",
+    5
+   ],
+   [
+    "computer science",
+    5
+   ],
+   [
+    "dynamics 365",
+    5
+   ],
+   [
+    "danish",
+    5
+   ],
+   [
+    "business analysis",
+    4
+   ],
+   [
+    "development",
+    4
+   ],
+   [
+    "maintenance",
+    4
+   ],
+   [
+    "powershell",
+    4
+   ],
+   [
+    "devops",
+    4
+   ]
+  ],
+  "fp_examples": [
+   {
+    "skill": "Java",
+    "sentence": "Full Stack Software Engineer - Java / JavaScript"
+   },
+   {
+    "skill": "Big Data",
+    "sentence": "In 20 technology centers worldwide our team of 50,000 technologists design build and deploy everything from enterprise technology initiatives to big data and mobile solutions as well as innovations in"
+   },
+   {
+    "skill": "Leadership",
+    "sentence": "Industry Certifications ( ITIL DevOps MS portfolio etc) full additional benefit program like private health care <ORGANIZATION> Dynamic Living programs like sport cards in-office fitness center <ORGAN"
+   },
+   {
+    "skill": "React",
+    "sentence": "Generally speaking our front-end apps are written in variations of React ."
+   },
+   {
+    "skill": "Manual Testing",
+    "sentence": "<ORGANIZATION> has a deep blockchain tech stack and complex product delivered to demanding users so both automatic and manual/exploratory testing is equally important ."
+   },
+   {
+    "skill": "Security",
+    "sentence": "In 14 technology hubs worldwide our team of 40,000+ technologists design build and deploy everything from enterprise technology initiatives to big data and mobile solutions as well as innovations in e"
+   },
+   {
+    "skill": "A/B Testing",
+    "sentence": "We embrace a culture of experimentation and constantly strive for improvement and learning ."
+   },
+   {
+    "skill": "Machine Learning",
+    "sentence": "The opportunity to contribute to cutting edge developments in the field of machine learning ."
+   },
+   {
+    "skill": "Docker",
+    "sentence": "We run on Azure/Docker/Kubernetes and configure and auto-deploy our applications with helm and flux ."
+   },
+   {
+    "skill": "Android",
+    "sentence": "( SENIOR ) ANDROID DEVELOPER ( full-time m/f) ."
+   },
+   {
+    "skill": "Communication",
+    "sentence": "As a promoter for <ORGANIZATION> <ORGANIZATION> you will improve your skills within communication marketing and sales ."
+   },
+   {
+    "skill": "Java",
+    "sentence": "Asa senior Java Developer you will gain broad business knowledge of the company\u0092s activities globally as well as understand how the complexity of IT supports the transport and logistics business ."
+   }
+  ],
+  "fn_examples": [
+   {
+    "gold": ". net",
+    "sentence": "azure . net asp.net-web-api powershell json.net"
+   },
+   {
+    "gold": ". NET",
+    "sentence": "Ability to troubleshoot Azure AppService hosted websites and services ( identify app issues vs configuration/environment issues) preferably . NET technology stack"
+   },
+   {
+    "gold": "R",
+    "sentence": "\u2022 Working on cutting edge technologies including JAVA frameworks REST/Web services R Pentaho Oracle and noSQL in an Agile setting"
+   },
+   {
+    "gold": ". net",
+    "sentence": ". net agile rest microservices"
+   },
+   {
+    "gold": "Micro Services",
+    "sentence": "practice know-how in Micro Services"
+   },
+   {
+    "gold": ". NET Core",
+    "sentence": "C# . NET Core . NET Framework"
+   },
+   {
+    "gold": ". NET",
+    "sentence": ". NET development experience within an MS Dynamics 365 environment"
+   },
+   {
+    "gold": ". NET",
+    "sentence": "Design write code and modify . NET services and APIs according to"
+   }
+  ]
+ },
+ "jobs": {
+  "fetched_at": "2026-11-09T23:38:50+00:00",
+  "fetch_errors": {},
+  "n_postings_fetched": 711,
+  "n_evaluated": 250,
+  "parse_errors": [],
+  "runtime_seconds_total": 14.89,
+  "runtime_ms_per_posting_mean": 59.3,
+  "runtime_ms_per_posting_p95": 117.7,
+  "summary": {
+   "all": {
+    "n": 250,
+    "share_title_found": 0.744,
+    "share_api_title_appears_in_text": 0.392,
+    "share_title_equals_api_title_when_in_text": 0.143,
+    "share_title_equals_api_title": 0.056,
+    "share_title_shares_a_word_with_api_title": 0.228,
+    "share_ge1_requirement": 0.904,
+    "share_structured_requirements": 0.824,
+    "share_skill_fallback_only": 0.08,
+    "mean_requirements": 15.704,
+    "median_requirements": 13.0,
+    "share_years_extracted": 0.332,
+    "share_degree_extracted": 0.428,
+    "mean_taxonomy_skills_mentioned": 3.796,
+    "share_zero_taxonomy_skills": 0.164,
+    "share_title_found_ci95": [
+     0.692,
+     0.792
+    ],
+    "share_ge1_requirement_ci95": [
+     0.868,
+     0.94
+    ],
+    "share_years_extracted_ci95": [
+     0.272,
+     0.388
+    ],
+    "share_degree_extracted_ci95": [
+     0.368,
+     0.492
+    ]
+   },
+   "source=arbeitnow": {
+    "n": 139,
+    "share_title_found": 0.813,
+    "share_api_title_appears_in_text": 0.331,
+    "share_title_equals_api_title_when_in_text": 0.152,
+    "share_title_equals_api_title": 0.05,
+    "share_title_shares_a_word_with_api_title": 0.237,
+    "share_ge1_requirement": 0.878,
+    "share_structured_requirements": 0.791,
+    "share_skill_fallback_only": 0.086,
+    "mean_requirements": 14.165,
+    "median_requirements": 11,
+    "share_years_extracted": 0.23,
+    "share_degree_extracted": 0.353,
+    "mean_taxonomy_skills_mentioned": 3.36,
+    "share_zero_taxonomy_skills": 0.194
+   },
+   "source=remoteok": {
+    "n": 99,
+    "share_title_found": 0.657,
+    "share_api_title_appears_in_text": 0.475,
+    "share_title_equals_api_title_when_in_text": 0.128,
+    "share_title_equals_api_title": 0.061,
+    "share_title_shares_a_word_with_api_title": 0.192,
+    "share_ge1_requirement": 0.929,
+    "share_structured_requirements": 0.848,
+    "share_skill_fallback_only": 0.081,
+    "mean_requirements": 17.081,
+    "median_requirements": 14,
+    "share_years_extracted": 0.475,
+    "share_degree_extracted": 0.525,
+    "mean_taxonomy_skills_mentioned": 4.253,
+    "share_zero_taxonomy_skills": 0.131
+   },
+   "source=remotive": {
+    "n": 12,
+    "share_title_found": 0.667,
+    "share_api_title_appears_in_text": 0.417,
+    "share_title_equals_api_title_when_in_text": 0.2,
+    "share_title_equals_api_title": 0.083,
+    "share_title_shares_a_word_with_api_title": 0.417,
+    "share_ge1_requirement": 1.0,
+    "share_structured_requirements": 1.0,
+    "share_skill_fallback_only": 0.0,
+    "mean_requirements": 22.167,
+    "median_requirements": 21.0,
+    "share_years_extracted": 0.333,
+    "share_degree_extracted": 0.5,
+    "mean_taxonomy_skills_mentioned": 5.083,
+    "share_zero_taxonomy_skills": 0.083
+   },
+   "lang=en": {
+    "n": 193,
+    "share_title_found": 0.689,
+    "share_api_title_appears_in_text": 0.425,
+    "share_title_equals_api_title_when_in_text": 0.122,
+    "share_title_equals_api_title": 0.052,
+    "share_title_shares_a_word_with_api_title": 0.218,
+    "share_ge1_requirement": 0.964,
+    "share_structured_requirements": 0.907,
+    "share_skill_fallback_only": 0.057,
+    "mean_requirements": 17.808,
+    "median_requirements": 15,
+    "share_years_extracted": 0.43,
+    "share_degree_extracted": 0.508,
+    "mean_taxonomy_skills_mentioned": 4.503,
+    "share_zero_taxonomy_skills": 0.083
+   },
+   "lang=de": {
+    "n": 38,
+    "share_title_found": 0.947,
+    "share_api_title_appears_in_text": 0.342,
+    "share_title_equals_api_title_when_in_text": 0.308,
+    "share_title_equals_api_title": 0.105,
+    "share_title_shares_a_word_with_api_title": 0.368,
+    "share_ge1_requirement": 0.658,
+    "share_structured_requirements": 0.526,
+    "share_skill_fallback_only": 0.132,
+    "mean_requirements": 9.342,
+    "median_requirements": 4.0,
+    "share_years_extracted": 0.0,
+    "share_degree_extracted": 0.132,
+    "mean_taxonomy_skills_mentioned": 1.316,
+    "share_zero_taxonomy_skills": 0.526
+   },
+   "lang=fr": {
+    "n": 14,
+    "share_title_found": 0.857,
+    "share_api_title_appears_in_text": 0.214,
+    "share_title_equals_api_title_when_in_text": 0.0,
+    "share_title_equals_api_title": 0.0,
+    "share_title_shares_a_word_with_api_title": 0.071,
+    "share_ge1_requirement": 0.857,
+    "share_structured_requirements": 0.643,
+    "share_skill_fallback_only": 0.214,
+    "mean_requirements": 8.786,
+    "median_requirements": 6.5,
+    "share_years_extracted": 0.0,
+    "share_degree_extracted": 0.143,
+    "mean_taxonomy_skills_mentioned": 1.643,
+    "share_zero_taxonomy_skills": 0.214
+   },
+   "lang=nl": {
+    "n": 5,
+    "share_title_found": 1.0,
+    "share_api_title_appears_in_text": 0.0,
+    "share_title_equals_api_title_when_in_text": 0.0,
+    "share_title_equals_api_title": 0.0,
+    "share_title_shares_a_word_with_api_title": 0.0,
+    "share_ge1_requirement": 0.6,
+    "share_structured_requirements": 0.4,
+    "share_skill_fallback_only": 0.2,
+    "mean_requirements": 2.2,
+    "median_requirements": 2,
+    "share_years_extracted": 0.0,
+    "share_degree_extracted": 0.4,
+    "mean_taxonomy_skills_mentioned": 1.4,
+    "share_zero_taxonomy_skills": 0.4
+   }
+  },
+  "requirement_kinds": {
+   "education": 193,
+   "skill": 687,
+   "experience": 119,
+   "other": 2875,
+   "certification": 14,
+   "unassessable": 38
+  },
+  "examples_no_requirement": [
+   {
+    "key": "remoteok:1137545",
+    "api_title": "Senior Software Engineer",
+    "lang": "en"
+   },
+   {
+    "key": "remoteok:1137544",
+    "api_title": "Senior Backend Engineer",
+    "lang": "en"
+   },
+   {
+    "key": "remoteok:1137539",
+    "api_title": "Commercial Account Manager LATAM",
+    "lang": "en"
+   },
+   {
+    "key": "remoteok:1137427",
+    "api_title": "Software Engineer",
+    "lang": "en"
+   },
+   {
+    "key": "remoteok:1137224",
+    "api_title": "AI Engineer Data APIs",
+    "lang": "en"
+   },
+   {
+    "key": "remoteok:1137114",
+    "api_title": "Senior Backend Engineer Build AI Agents",
+    "lang": "en"
+   },
+   {
+    "key": "remoteok:1136950",
+    "api_title": "Marketing Operations Specialist",
+    "lang": "en"
+   },
+   {
+    "key": "arbeitnow:pentester-senior-paris-406407",
+    "api_title": "Pentester senior",
+    "lang": "fr"
+   }
+  ],
+  "examples_title_mismatch": [
+   {
+    "key": "remotive:2091045",
+    "api_title": "Tier III Service Desk Engineer",
+    "extracted": null
+   },
+   {
+    "key": "remotive:1185979",
+    "api_title": "Freelance Writer",
+    "extracted": null
+   },
+   {
+    "key": "remotive:1749306",
+    "api_title": "Freelance Copywriter",
+    "extracted": null
+   },
+   {
+    "key": "remotive:2091165",
+    "api_title": "Full-Stack Developer",
+    "extracted": "based access for clinician, admin, and other user workflows"
+   },
+   {
+    "key": "remotive:2091135",
+    "api_title": "Senior Back-end Developer",
+    "extracted": "Experience with distributed systems"
+   },
+   {
+    "key": "remotive:2091134",
+    "api_title": "Head of Engineering",
+    "extracted": "Product-minded, business-first"
+   },
+   {
+    "key": "remotive:2091158",
+    "api_title": "Software Engineer, AI Coding Tasks",
+    "extracted": null
+   },
+   {
+    "key": "remoteok:1137706",
+    "api_title": "Revenue Cycle Manager",
+    "extracted": "Accounts receivable and collections"
+   },
+   {
+    "key": "remoteok:1137705",
+    "api_title": "Senior Product Manager",
+    "extracted": null
+   },
+   {
+    "key": "remoteok:1137704",
+    "api_title": "UI Developer",
+    "extracted": "\\n"
+   }
+  ],
+  "hand_labelled": {
+   "annotator_note": "Labelled by an AI assistant, single annotator, from the plain posting text only, before any extract_jd output for these postings was viewed. Not adjudicated.",
+   "labelled_on": "2026-11-10",
+   "n_postings": 30,
+   "gold_skill_mentions": 326,
+   "gold_in_taxonomy": 149,
+   "requirement_skills_vs_gold_in_taxonomy": {
+    "precision": 0.88,
+    "recall": 0.785,
+    "f1": 0.83,
+    "tp": 117,
+    "fp": 16,
+    "fn": 32,
+    "f1_ci95": [
+     0.744,
+     0.882
+    ]
+   },
+   "requirement_skills_vs_all_gold": {
+    "precision": 0.88,
+    "recall": 0.359,
+    "f1": 0.51,
+    "tp": 117,
+    "fp": 16,
+    "fn": 209,
+    "f1_ci95": [
+     0.39,
+     0.596
+    ]
+   },
+   "all_mentioned_skills_vs_gold_in_taxonomy": {
+    "precision": 0.768,
+    "recall": 0.846,
+    "f1": 0.805,
+    "tp": 126,
+    "fp": 38,
+    "fn": 23
+   },
+   "all_mentioned_skills_vs_all_gold": {
+    "precision": 0.768,
+    "recall": 0.387,
+    "f1": 0.514,
+    "tp": 126,
+    "fp": 38,
+    "fn": 200
+   },
+   "years_accuracy": 0.833,
+   "years_n": 30,
+   "years_accuracy_ci95": [
+    0.7,
+    0.967
+   ],
+   "years_with_gold_stated": 16,
+   "years_errors": [
+    {
+     "key": "arbeitnow:remote-head-of-gtm-systems-ai-121843",
+     "gold": 5,
+     "pred": null
+    },
+    {
+     "key": "arbeitnow:front-end-design-engineer-london-255575",
+     "gold": null,
+     "pred": 3
+    },
+    {
+     "key": "arbeitnow:senior-scrum-master-utrecht-398767",
+     "gold": 7,
+     "pred": null
+    },
+    {
+     "key": "arbeitnow:research-and-development-engineer-in-formal-methods-12-months-contract-palaiseau-434482",
+     "gold": null,
+     "pred": 4
+    },
+    {
+     "key": "arbeitnow:presales-engineer-paris-29937",
+     "gold": 3,
+     "pred": null
+    }
+   ],
+   "per_posting": [
+    {
+     "key": "remoteok:1137701",
+     "gold": [
+      "AWS",
+      "Azure",
+      "Azure DevOps",
+      "Bash",
+      "C++",
+      "CI/CD",
+      "CUDA",
+      "Collaboration",
+      "Communication",
+      "DevSecOps",
+      "Docker",
+      "Git",
+      "Go",
+      "ISO 27001",
+      "Kafka",
+      "Kubernetes",
+      "LLMs",
+      "Linux",
+      "MCP",
+      "Model Quantization",
+      "Monitoring",
+      "Ollama",
+      "PowerShell",
+      "Problem Solving",
+      "Python",
+      "Rust",
+      "SOC 2",
+      "Terraform",
+      "Vector Databases",
+      "Windows Administration",
+      "llama.cpp"
+     ],
+     "pred_req": [
+      "AWS",
+      "Azure",
+      "Bash",
+      "C++",
+      "CI/CD",
+      "Collaboration",
+      "Communication",
+      "Docker",
+      "Git",
+      "Go",
+      "Kafka",
+      "Kubernetes",
+      "LLMs",
+      "Leadership",
+      "Linux",
+      "Machine Learning",
+      "Monitoring",
+      "Problem Solving",
+      "Python",
+      "Rust",
+      "Security",
+      "System Design",
+      "Terraform"
+     ],
+     "tp": 19,
+     "fp": [
+      "Leadership",
+      "Machine Learning",
+      "Security",
+      "System Design"
+     ],
+     "fn_in_taxonomy": [],
+     "years_gold": 3,
+     "years_pred": 3
+    },
+    {
+     "key": "remoteok:1137537",
+     "gold": [
+      "Agentic Development",
+      "Collaboration",
+      "ETL",
+      "Elixir",
+      "Embedded Systems",
+      "Firmware",
+      "IoT",
+      "LLM Evals",
+      "Leadership",
+      "Next.js",
+      "Open Source",
+      "Phoenix",
+      "PostgreSQL",
+      "React",
+      "Redis",
+      "Ruby on Rails",
+      "Sanity",
+      "System Design"
+     ],
+     "pred_req": [
+      "Collaboration",
+      "Communication",
+      "ETL",
+      "Leadership",
+      "Next.js",
+      "PostgreSQL",
+      "React",
+      "Redis"
+     ],
+     "tp": 7,
+     "fp": [
+      "Communication"
+     ],
+     "fn_in_taxonomy": [
+      "System Design"
+     ],
+     "years_gold": 12,
+     "years_pred": 12
+    },
+    {
+     "key": "arbeitnow:system-architect-zurich-244383",
+     "gold": [
+      "Certification Processes",
+      "Communication",
+      "Data Center Power",
+      "Design for Manufacturing",
+      "Medium-voltage Converters",
+      "Power Electronics",
+      "System Architecture",
+      "Systems Engineering",
+      "Thermal Management"
+     ],
+     "pred_req": [
+      "Communication",
+      "Leadership",
+      "Transformers"
+     ],
+     "tp": 1,
+     "fp": [
+      "Leadership",
+      "Transformers"
+     ],
+     "fn_in_taxonomy": [],
+     "years_gold": 8,
+     "years_pred": 8
+    },
+    {
+     "key": "arbeitnow:manager-i-engineering-security-libraries-paris-303597",
+     "gold": [
+      ".NET",
+      "Communication",
+      "Go",
+      "Java",
+      "Leadership",
+      "Monitoring",
+      "Node.js",
+      "PHP",
+      "Python",
+      "Ruby",
+      "SDK Development",
+      "Security",
+      "Stakeholder Management"
+     ],
+     "pred_req": [
+      ".NET",
+      "Communication",
+      "Go",
+      "Java",
+      "Monitoring",
+      "Node.js",
+      "Python",
+      "Security"
+     ],
+     "tp": 8,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Leadership",
+      "Stakeholder Management"
+     ],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "arbeitnow:senior-generative-ai-engineer-zurich-404030",
+     "gold": [
+      "APIs",
+      "Azure",
+      "Azure AI Services",
+      "CI/CD",
+      "Cloud Computing",
+      "Communication",
+      "Java",
+      "LLMs",
+      "LangChain",
+      "LangFuse",
+      "NeMo Guardrails",
+      "OpenTelemetry",
+      "Python",
+      "Spring AI"
+     ],
+     "pred_req": [
+      "Azure",
+      "CI/CD",
+      "Communication",
+      "Java",
+      "LLMs",
+      "Python"
+     ],
+     "tp": 6,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Cloud Computing"
+     ],
+     "years_gold": 5,
+     "years_pred": 5
+    },
+    {
+     "key": "arbeitnow:it-internship-fullstack-engineer-cloud-native-platform-engineering-developer-experience-rotterdam-477686",
+     "gold": [
+      "AWS",
+      "Agile",
+      "Angular",
+      "CSS",
+      "Docker",
+      "Git",
+      "Kubernetes",
+      "TypeScript",
+      "UX/UI Design"
+     ],
+     "pred_req": [
+      "AWS",
+      "Agile",
+      "Angular",
+      "CSS",
+      "Docker",
+      "Git",
+      "Kubernetes",
+      "TypeScript"
+     ],
+     "tp": 8,
+     "fp": [],
+     "fn_in_taxonomy": [],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "arbeitnow:solution-architect-zurich-474625",
+     "gold": [
+      "Agile",
+      "Domain-Driven Design",
+      "SAFe",
+      "Software Architecture",
+      "Temenos",
+      "arc42"
+     ],
+     "pred_req": [
+      "Agile"
+     ],
+     "tp": 1,
+     "fp": [],
+     "fn_in_taxonomy": [],
+     "years_gold": 8,
+     "years_pred": 8
+    },
+    {
+     "key": "remoteok:1137622",
+     "gold": [
+      "CCH Axcess",
+      "CPA",
+      "Communication",
+      "Enrolled Agent",
+      "Financial Planning",
+      "GoSystem Tax RS",
+      "Leadership",
+      "Tax Compliance",
+      "Tax Planning"
+     ],
+     "pred_req": [
+      "Communication",
+      "Leadership"
+     ],
+     "tp": 2,
+     "fp": [],
+     "fn_in_taxonomy": [],
+     "years_gold": 5,
+     "years_pred": 5
+    },
+    {
+     "key": "arbeitnow:remote-head-of-gtm-systems-ai-121843",
+     "gold": [
+      "A/B Testing",
+      "AI Agents",
+      "Agent Evals",
+      "Change Management",
+      "Communication",
+      "KPI Definition",
+      "LLMs",
+      "Leadership",
+      "Marketing Automation",
+      "Product Management",
+      "Salesforce",
+      "Vendor Management"
+     ],
+     "pred_req": [
+      "Security"
+     ],
+     "tp": 0,
+     "fp": [
+      "Security"
+     ],
+     "fn_in_taxonomy": [
+      "A/B Testing",
+      "Communication",
+      "LLMs",
+      "Leadership"
+     ],
+     "years_gold": 5,
+     "years_pred": null
+    },
+    {
+     "key": "remotive:2091135",
+     "gold": [
+      "AI-assisted Coding",
+      "Communication",
+      "Go",
+      "Kubernetes",
+      "Linux",
+      "Python",
+      "System Design"
+     ],
+     "pred_req": [
+      "Go",
+      "Kubernetes",
+      "Linux",
+      "Python",
+      "System Design"
+     ],
+     "tp": 5,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Communication"
+     ],
+     "years_gold": 5,
+     "years_pred": 5
+    },
+    {
+     "key": "arbeitnow:front-end-design-engineer-london-255575",
+     "gold": [
+      "Design Systems",
+      "Figma",
+      "Frontend Development",
+      "React",
+      "Svelte",
+      "Typography",
+      "UI Design",
+      "Vue.js"
+     ],
+     "pred_req": [
+      "React",
+      "Vue.js"
+     ],
+     "tp": 2,
+     "fp": [],
+     "fn_in_taxonomy": [],
+     "years_gold": null,
+     "years_pred": 3
+    },
+    {
+     "key": "arbeitnow:senior-bookkeeper-greater-manchester-part-time-self-employed-358648",
+     "gold": [
+      "Attention to Detail",
+      "Bookkeeping",
+      "Credit Control",
+      "Organisation",
+      "VAT Returns"
+     ],
+     "pred_req": [
+      "Leadership"
+     ],
+     "tp": 0,
+     "fp": [
+      "Leadership"
+     ],
+     "fn_in_taxonomy": [],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "remoteok:1137538",
+     "gold": [
+      "AI Coding Tools",
+      "C++",
+      "Communication",
+      "Compilers",
+      "Databases",
+      "Docker",
+      "Evaluation Design",
+      "Git",
+      "Go",
+      "Infrastructure",
+      "Java",
+      "Linux",
+      "Open Source",
+      "Python",
+      "Reinforcement Learning",
+      "Rust",
+      "Security",
+      "System Design",
+      "Test Automation",
+      "TypeScript"
+     ],
+     "pred_req": [
+      "C++",
+      "Docker",
+      "Git",
+      "Go",
+      "Java",
+      "Linux",
+      "Python",
+      "Rust",
+      "Security",
+      "System Design",
+      "Test Automation",
+      "TypeScript"
+     ],
+     "tp": 12,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Communication"
+     ],
+     "years_gold": 2,
+     "years_pred": 2
+    },
+    {
+     "key": "arbeitnow:senior-scrum-master-utrecht-398767",
+     "gold": [
+      "Agile",
+      "Coaching",
+      "Communication",
+      "LeSS",
+      "SAFe",
+      "Scrum Certification",
+      "Stakeholder Management",
+      "Team Development"
+     ],
+     "pred_req": [
+      "Agile",
+      "Java",
+      "Kotlin"
+     ],
+     "tp": 1,
+     "fp": [
+      "Java",
+      "Kotlin"
+     ],
+     "fn_in_taxonomy": [
+      "Communication",
+      "Stakeholder Management"
+     ],
+     "years_gold": 7,
+     "years_pred": null
+    },
+    {
+     "key": "arbeitnow:responsable-sirh-et-paie-cdd-36-mois-palaiseau-422773",
+     "gold": [
+      "Collaboration",
+      "Excel",
+      "HR Access",
+      "Leadership",
+      "Organisation",
+      "Payroll Regulations",
+      "Project Management",
+      "SAP BusinessObjects"
+     ],
+     "pred_req": [],
+     "tp": 0,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Collaboration",
+      "Excel",
+      "Leadership",
+      "Project Management"
+     ],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "remoteok:1137607",
+     "gold": [
+      "Communication",
+      "Full-cycle Recruiting",
+      "GMP",
+      "Lever",
+      "LinkedIn Recruiter",
+      "Sourcing",
+      "Stakeholder Management"
+     ],
+     "pred_req": [
+      "Communication",
+      "Stakeholder Management"
+     ],
+     "tp": 2,
+     "fp": [],
+     "fn_in_taxonomy": [],
+     "years_gold": 3,
+     "years_pred": 3
+    },
+    {
+     "key": "arbeitnow:sales-development-representative-veiligheidssoftware-den-haag-296967",
+     "gold": [
+      "Business Development",
+      "Commercial Awareness",
+      "Lead Generation",
+      "Sales"
+     ],
+     "pred_req": [],
+     "tp": 0,
+     "fp": [],
+     "fn_in_taxonomy": [],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "remoteok:1136213",
+     "gold": [
+      "Adobe Creative Suite",
+      "Communication",
+      "Graphic Design",
+      "Motion Design"
+     ],
+     "pred_req": [
+      "Collaboration",
+      "Communication"
+     ],
+     "tp": 1,
+     "fp": [
+      "Collaboration"
+     ],
+     "fn_in_taxonomy": [],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "arbeitnow:research-and-development-engineer-in-formal-methods-12-months-contract-palaiseau-434482",
+     "gold": [
+      "Attack Graphs",
+      "C++",
+      "Collaboration",
+      "Communication",
+      "Docker",
+      "Formal Methods",
+      "Model Checking",
+      "Multi-agent Systems",
+      "Organisation",
+      "Problem Solving",
+      "Python",
+      "SAT/SMT",
+      "Security",
+      "Software Development",
+      "Symbolic Methods",
+      "System Design",
+      "Technical Writing",
+      "Temporal Logic",
+      "Transition Systems",
+      "Verification Algorithms"
+     ],
+     "pred_req": [
+      "C++",
+      "Communication",
+      "Docker",
+      "Problem Solving",
+      "Python",
+      "Security",
+      "System Design"
+     ],
+     "tp": 7,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Collaboration"
+     ],
+     "years_gold": null,
+     "years_pred": 4
+    },
+    {
+     "key": "arbeitnow:software-lead-engineer-nts-eindhoven-291937",
+     "gold": [
+      ".NET",
+      "Agile",
+      "Azure DevOps",
+      "C",
+      "C#",
+      "C++",
+      "Collaboration",
+      "Communication",
+      "Computer Vision",
+      "Databases",
+      "DevOps",
+      "Leadership",
+      "Mechatronics",
+      "OOP",
+      "Test Strategy",
+      "UI Development",
+      "UML",
+      "WPF"
+     ],
+     "pred_req": [
+      ".NET",
+      "Agile",
+      "Azure",
+      "C#",
+      "C++",
+      "Communication",
+      "Computer Vision",
+      "Leadership"
+     ],
+     "tp": 7,
+     "fp": [
+      "Azure"
+     ],
+     "fn_in_taxonomy": [
+      "C",
+      "Collaboration"
+     ],
+     "years_gold": 8,
+     "years_pred": 8
+    },
+    {
+     "key": "arbeitnow:presales-engineer-paris-29937",
+     "gold": [
+      "Communication",
+      "Data Protection",
+      "GRC",
+      "Integrations",
+      "Presales",
+      "SaaS Architecture",
+      "Sales",
+      "Security"
+     ],
+     "pred_req": [
+      "Collaboration",
+      "Communication"
+     ],
+     "tp": 1,
+     "fp": [
+      "Collaboration"
+     ],
+     "fn_in_taxonomy": [
+      "Security"
+     ],
+     "years_gold": 3,
+     "years_pred": null
+    },
+    {
+     "key": "remoteok:1136987",
+     "gold": [
+      "Deployment Methodologies",
+      "Intapp",
+      "Leadership",
+      "Systems Integration"
+     ],
+     "pred_req": [
+      "Leadership"
+     ],
+     "tp": 1,
+     "fp": [],
+     "fn_in_taxonomy": [],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "remoteok:1136797",
+     "gold": [
+      "Account Management",
+      "Account Planning",
+      "Collaboration",
+      "Communication",
+      "Customer Success",
+      "Executive Relationship Management",
+      "Lodging Industry",
+      "Payments"
+     ],
+     "pred_req": [
+      "Communication"
+     ],
+     "tp": 1,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Collaboration"
+     ],
+     "years_gold": 10,
+     "years_pred": 10
+    },
+    {
+     "key": "arbeitnow:principle-software-engineer-87856",
+     "gold": [
+      "AI Coding Tools",
+      "API Design",
+      "AWS",
+      "Agile",
+      "Azure",
+      "Bamboo",
+      "CI/CD",
+      "Code Review",
+      "Data Modelling",
+      "DevOps",
+      "Docker",
+      "GCP",
+      "Git",
+      "Java",
+      "Job Scheduling",
+      "Kubernetes",
+      "LLMs",
+      "Microservices",
+      "MobX",
+      "NoSQL",
+      "Orchestration",
+      "Playwright",
+      "REST APIs",
+      "React",
+      "SQL",
+      "Static Analysis",
+      "System Design",
+      "Test Automation",
+      "TypeScript",
+      "Unit Testing",
+      "Workload Automation"
+     ],
+     "pred_req": [
+      "AWS",
+      "Agile",
+      "Azure",
+      "CI/CD",
+      "Docker",
+      "GCP",
+      "Git",
+      "Java",
+      "Kubernetes",
+      "Microservices",
+      "NoSQL",
+      "Playwright",
+      "REST APIs",
+      "React",
+      "SQL",
+      "Security",
+      "TypeScript",
+      "Unit Testing"
+     ],
+     "tp": 17,
+     "fp": [
+      "Security"
+     ],
+     "fn_in_taxonomy": [
+      "API Design",
+      "LLMs",
+      "System Design",
+      "Test Automation"
+     ],
+     "years_gold": 8,
+     "years_pred": 8
+    },
+    {
+     "key": "remoteok:1137521",
+     "gold": [
+      "8(a) Contracting",
+      "AI Tools",
+      "Account Management",
+      "Federal Contracting",
+      "Program Management",
+      "Relationship Management"
+     ],
+     "pred_req": [],
+     "tp": 0,
+     "fp": [],
+     "fn_in_taxonomy": [],
+     "years_gold": 5,
+     "years_pred": 5
+    },
+    {
+     "key": "remoteok:1137542",
+     "gold": [
+      "Civil Engineering",
+      "Problem Solving",
+      "Transport Planning",
+      "Urban Planning"
+     ],
+     "pred_req": [],
+     "tp": 0,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Problem Solving"
+     ],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "arbeitnow:distinguished-engineer-paris-france-145150",
+     "gold": [
+      "CI/CD",
+      "ClickHouse",
+      "Code Review",
+      "Developer Platforms",
+      "Distributed Databases",
+      "Kafka",
+      "Kubernetes",
+      "Leadership",
+      "Migration Planning",
+      "Monitoring",
+      "OpenTelemetry",
+      "System Design"
+     ],
+     "pred_req": [
+      "CI/CD",
+      "Communication",
+      "Kafka",
+      "Kubernetes",
+      "Monitoring",
+      "System Design"
+     ],
+     "tp": 5,
+     "fp": [
+      "Communication"
+     ],
+     "fn_in_taxonomy": [
+      "Leadership"
+     ],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "arbeitnow:principal-machine-learning-scientist-recommender-systems-london-170318",
+     "gold": [
+      "A/B Testing",
+      "Collaboration",
+      "Communication",
+      "LLMs",
+      "Machine Learning",
+      "Recommender Systems",
+      "Reinforcement Learning"
+     ],
+     "pred_req": [
+      "A/B Testing"
+     ],
+     "tp": 1,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Collaboration",
+      "Communication",
+      "LLMs",
+      "Machine Learning"
+     ],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "remoteok:1137608",
+     "gold": [
+      "Account Management",
+      "Assay Design",
+      "Binding Kinetics",
+      "Biochemistry",
+      "Biophysics",
+      "Communication",
+      "Expression Systems",
+      "Protein Engineering",
+      "Technical Sales"
+     ],
+     "pred_req": [],
+     "tp": 0,
+     "fp": [],
+     "fn_in_taxonomy": [
+      "Communication"
+     ],
+     "years_gold": null,
+     "years_pred": null
+    },
+    {
+     "key": "arbeitnow:business-development-representative-customers-paris-7950",
+     "gold": [
+      "Account Management",
+      "Collaboration",
+      "Communication",
+      "Legal Knowledge",
+      "Organisation",
+      "Sales",
+      "Salesforce"
+     ],
+     "pred_req": [
+      "Collaboration",
+      "Communication"
+     ],
+     "tp": 2,
+     "fp": [],
+     "fn_in_taxonomy": [],
+     "years_gold": null,
+     "years_pred": null
+    }
+   ]
+  }
+ },
+ "recommend": {
+  "dataset": "ahmedheakl/resume-atlas",
+  "category_sizes": {
+   "Accountant": 350,
+   "Advocate": 291,
+   "Agriculture": 293,
+   "Apparel": 320,
+   "Architecture": 344,
+   "Arts": 332,
+   "Automobile": 313,
+   "Aviation": 340,
+   "Banking": 314,
+   "Blockchain": 47,
+   "BPO": 203,
+   "Building and Construction": 345,
+   "Business Analyst": 340,
+   "Civil Engineer": 364,
+   "Consultant": 368,
+   "Data Science": 299,
+   "Database": 257,
+   "Designing": 258,
+   "DevOps": 289,
+   "Digital Media": 358,
+   "DotNet Developer": 329,
+   "Education": 410,
+   "Electrical Engineering": 384,
+   "ETL Developer": 294,
+   "Finance": 339,
+   "Food and Beverages": 162,
+   "Health and Fitness": 332,
+   "Human Resources": 360,
+   "Information Technology": 274,
+   "Java Developer": 348,
+   "Management": 361,
+   "Mechanical Engineer": 384,
+   "Network Security Engineer": 330,
+   "Operations Manager": 345,
+   "PMO": 286,
+   "Public Relations": 337,
+   "Python Developer": 248,
+   "React Developer": 182,
+   "Sales": 364,
+   "SAP Developer": 304,
+   "SQL Developer": 338,
+   "Testing": 344,
+   "Web Designing": 309
+  },
+  "mapping": {
+   "Java Developer": [
+    "backend_developer",
+    "fullstack_developer"
+   ],
+   "Python Developer": [
+    "backend_developer",
+    "fullstack_developer"
+   ],
+   "DotNet Developer": [
+    "backend_developer",
+    "fullstack_developer"
+   ],
+   "React Developer": [
+    "frontend_developer",
+    "fullstack_developer"
+   ],
+   "Web Designing": [
+    "frontend_developer"
+   ],
+   "Data Science": [
+    "data_scientist",
+    "ml_engineer"
+   ],
+   "DevOps": [
+    "devops_engineer"
+   ],
+   "Testing": [
+    "qa_automation_engineer"
+   ],
+   "ETL Developer": [
+    "data_engineer"
+   ],
+   "Business Analyst": [
+    "data_analyst"
+   ]
+  },
+  "not_mapped_technical": [
+   "SQL Developer",
+   "Database",
+   "Information Technology",
+   "Network Security Engineer",
+   "SAP Developer",
+   "Blockchain"
+  ],
+  "out_of_scope_controls": [
+   "Accountant",
+   "Advocate",
+   "Agriculture",
+   "Apparel",
+   "Arts",
+   "Automobile",
+   "Aviation",
+   "Banking",
+   "BPO",
+   "Building and Construction",
+   "Civil Engineer",
+   "Food and Beverages",
+   "Health and Fitness",
+   "Human Resources",
+   "Public Relations",
+   "Sales"
+  ],
+  "sampling": "up to 100 per mapped category and 20 per out-of-scope category, seed 20261110, de-duplicated texts",
+  "n_in_scope": 1000,
+  "n_out_of_scope": 320,
+  "overall": {
+   "pipeline": {
+    "n": 1000,
+    "insufficient_evidence_rate": 1.0,
+    "hit@1": 0.0,
+    "hit@3": 0.0,
+    "ndcg@5": 0.0,
+    "n_ok": 0,
+    "hit@1_given_ok": null,
+    "hit@3_given_ok": null,
+    "ndcg@5_given_ok": null,
+    "ungated_hit@1": 0.68,
+    "ungated_hit@3": 0.872
+   },
+   "lenient": {
+    "n": 1000,
+    "insufficient_evidence_rate": 0.148,
+    "hit@1": 0.566,
+    "hit@3": 0.767,
+    "ndcg@5": 0.69,
+    "n_ok": 852,
+    "hit@1_given_ok": 0.664,
+    "hit@3_given_ok": 0.9,
+    "ndcg@5_given_ok": 0.809,
+    "ungated_hit@1": 0.635,
+    "ungated_hit@3": 0.862
+   },
+   "tfidf": {
+    "n": 1000,
+    "insufficient_evidence_rate": 0.0,
+    "hit@1": 0.611,
+    "hit@3": 0.869,
+    "ndcg@5": 0.776,
+    "n_ok": 1000,
+    "hit@1_given_ok": 0.611,
+    "hit@3_given_ok": 0.869,
+    "ndcg@5_given_ok": 0.776,
+    "ungated_hit@1": 0.611,
+    "ungated_hit@3": 0.869
+   }
+  },
+  "ci95": {
+   "pipeline.hit@1": [
+    0,
+    0
+   ],
+   "pipeline.hit@3": [
+    0,
+    0
+   ],
+   "pipeline.ndcg@5": [
+    0.0,
+    0.0
+   ],
+   "pipeline.ungated_hit@1": [
+    0.652,
+    0.707
+   ],
+   "pipeline.ungated_hit@3": [
+    0.852,
+    0.891
+   ],
+   "lenient.hit@1": [
+    0.535,
+    0.593
+   ],
+   "lenient.hit@3": [
+    0.74,
+    0.792
+   ],
+   "lenient.ndcg@5": [
+    0.666,
+    0.713
+   ],
+   "lenient.ungated_hit@1": [
+    0.606,
+    0.664
+   ],
+   "lenient.ungated_hit@3": [
+    0.839,
+    0.883
+   ],
+   "tfidf.hit@1": [
+    0.58,
+    0.64
+   ],
+   "tfidf.hit@3": [
+    0.849,
+    0.889
+   ],
+   "tfidf.ndcg@5": [
+    0.758,
+    0.794
+   ],
+   "tfidf.ungated_hit@1": [
+    0.58,
+    0.64
+   ],
+   "tfidf.ungated_hit@3": [
+    0.849,
+    0.889
+   ]
+  },
+  "per_category": {
+   "Java Developer": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.9,
+     "ungated_hit@3": 0.99
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.04,
+     "hit@1": 0.72,
+     "hit@3": 0.95,
+     "ndcg@5": 0.856,
+     "n_ok": 96,
+     "hit@1_given_ok": 0.75,
+     "hit@3_given_ok": 0.99,
+     "ndcg@5_given_ok": 0.892,
+     "ungated_hit@1": 0.73,
+     "ungated_hit@3": 0.99
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.79,
+     "hit@3": 0.99,
+     "ndcg@5": 0.882,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.79,
+     "hit@3_given_ok": 0.99,
+     "ndcg@5_given_ok": 0.882,
+     "ungated_hit@1": 0.79,
+     "ungated_hit@3": 0.99
+    }
+   },
+   "Python Developer": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.56,
+     "ungated_hit@3": 0.82
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.02,
+     "hit@1": 0.46,
+     "hit@3": 0.72,
+     "ndcg@5": 0.609,
+     "n_ok": 98,
+     "hit@1_given_ok": 0.469,
+     "hit@3_given_ok": 0.735,
+     "ndcg@5_given_ok": 0.621,
+     "ungated_hit@1": 0.47,
+     "ungated_hit@3": 0.73
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.57,
+     "hit@3": 0.89,
+     "ndcg@5": 0.76,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.57,
+     "hit@3_given_ok": 0.89,
+     "ndcg@5_given_ok": 0.76,
+     "ungated_hit@1": 0.57,
+     "ungated_hit@3": 0.89
+    }
+   },
+   "DotNet Developer": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.63,
+     "ungated_hit@3": 0.96
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.08,
+     "hit@1": 0.45,
+     "hit@3": 0.88,
+     "ndcg@5": 0.726,
+     "n_ok": 92,
+     "hit@1_given_ok": 0.489,
+     "hit@3_given_ok": 0.957,
+     "ndcg@5_given_ok": 0.79,
+     "ungated_hit@1": 0.47,
+     "ungated_hit@3": 0.96
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.62,
+     "hit@3": 0.94,
+     "ndcg@5": 0.799,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.62,
+     "hit@3_given_ok": 0.94,
+     "ndcg@5_given_ok": 0.799,
+     "ungated_hit@1": 0.62,
+     "ungated_hit@3": 0.94
+    }
+   },
+   "React Developer": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.59,
+     "ungated_hit@3": 0.84
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.06,
+     "hit@1": 0.56,
+     "hit@3": 0.76,
+     "ndcg@5": 0.681,
+     "n_ok": 94,
+     "hit@1_given_ok": 0.596,
+     "hit@3_given_ok": 0.809,
+     "ndcg@5_given_ok": 0.724,
+     "ungated_hit@1": 0.58,
+     "ungated_hit@3": 0.79
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.55,
+     "hit@3": 0.75,
+     "ndcg@5": 0.672,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.55,
+     "hit@3_given_ok": 0.75,
+     "ndcg@5_given_ok": 0.672,
+     "ungated_hit@1": 0.55,
+     "ungated_hit@3": 0.75
+    }
+   },
+   "Web Designing": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.58,
+     "ungated_hit@3": 0.76
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.16,
+     "hit@1": 0.56,
+     "hit@3": 0.69,
+     "ndcg@5": 0.653,
+     "n_ok": 84,
+     "hit@1_given_ok": 0.667,
+     "hit@3_given_ok": 0.821,
+     "ndcg@5_given_ok": 0.778,
+     "ungated_hit@1": 0.6,
+     "ungated_hit@3": 0.75
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.16,
+     "hit@3": 0.64,
+     "ndcg@5": 0.484,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.16,
+     "hit@3_given_ok": 0.64,
+     "ndcg@5_given_ok": 0.484,
+     "ungated_hit@1": 0.16,
+     "ungated_hit@3": 0.64
+    }
+   },
+   "Data Science": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.48,
+     "ungated_hit@3": 0.88
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.37,
+     "hit@1": 0.28,
+     "hit@3": 0.6,
+     "ndcg@5": 0.434,
+     "n_ok": 63,
+     "hit@1_given_ok": 0.444,
+     "hit@3_given_ok": 0.952,
+     "ndcg@5_given_ok": 0.689,
+     "ungated_hit@1": 0.47,
+     "ungated_hit@3": 0.9
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.71,
+     "hit@3": 0.91,
+     "ndcg@5": 0.801,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.71,
+     "hit@3_given_ok": 0.91,
+     "ndcg@5_given_ok": 0.801,
+     "ungated_hit@1": 0.71,
+     "ungated_hit@3": 0.91
+    }
+   },
+   "DevOps": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.94,
+     "ungated_hit@3": 0.95
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.93,
+     "hit@3": 0.96,
+     "ndcg@5": 0.965,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.93,
+     "hit@3_given_ok": 0.96,
+     "ndcg@5_given_ok": 0.965,
+     "ungated_hit@1": 0.93,
+     "ungated_hit@3": 0.96
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.94,
+     "hit@3": 0.97,
+     "ndcg@5": 0.969,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.94,
+     "hit@3_given_ok": 0.97,
+     "ndcg@5_given_ok": 0.969,
+     "ungated_hit@1": 0.94,
+     "ungated_hit@3": 0.97
+    }
+   },
+   "Testing": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.49,
+     "ungated_hit@3": 0.55
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.46,
+     "hit@1": 0.38,
+     "hit@3": 0.44,
+     "ndcg@5": 0.425,
+     "n_ok": 54,
+     "hit@1_given_ok": 0.704,
+     "hit@3_given_ok": 0.815,
+     "ndcg@5_given_ok": 0.787,
+     "ungated_hit@1": 0.51,
+     "ungated_hit@3": 0.59
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.83,
+     "hit@3": 0.91,
+     "ndcg@5": 0.902,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.83,
+     "hit@3_given_ok": 0.91,
+     "ndcg@5_given_ok": 0.902,
+     "ungated_hit@1": 0.83,
+     "ungated_hit@3": 0.91
+    }
+   },
+   "ETL Developer": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.82,
+     "ungated_hit@3": 0.99
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.06,
+     "hit@1": 0.66,
+     "hit@3": 0.93,
+     "ndcg@5": 0.825,
+     "n_ok": 94,
+     "hit@1_given_ok": 0.702,
+     "hit@3_given_ok": 0.989,
+     "ndcg@5_given_ok": 0.878,
+     "ungated_hit@1": 0.71,
+     "ungated_hit@3": 0.99
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.33,
+     "hit@3": 0.76,
+     "ndcg@5": 0.657,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.33,
+     "hit@3_given_ok": 0.76,
+     "ndcg@5_given_ok": 0.657,
+     "ungated_hit@1": 0.33,
+     "ungated_hit@3": 0.76
+    }
+   },
+   "Business Analyst": {
+    "pipeline": {
+     "n": 100,
+     "insufficient_evidence_rate": 1.0,
+     "hit@1": 0.0,
+     "hit@3": 0.0,
+     "ndcg@5": 0.0,
+     "n_ok": 0,
+     "hit@1_given_ok": null,
+     "hit@3_given_ok": null,
+     "ndcg@5_given_ok": null,
+     "ungated_hit@1": 0.81,
+     "ungated_hit@3": 0.98
+    },
+    "lenient": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.23,
+     "hit@1": 0.66,
+     "hit@3": 0.74,
+     "ndcg@5": 0.72,
+     "n_ok": 77,
+     "hit@1_given_ok": 0.857,
+     "hit@3_given_ok": 0.961,
+     "ndcg@5_given_ok": 0.936,
+     "ungated_hit@1": 0.88,
+     "ungated_hit@3": 0.96
+    },
+    "tfidf": {
+     "n": 100,
+     "insufficient_evidence_rate": 0.0,
+     "hit@1": 0.61,
+     "hit@3": 0.93,
+     "ndcg@5": 0.831,
+     "n_ok": 100,
+     "hit@1_given_ok": 0.61,
+     "hit@3_given_ok": 0.93,
+     "ndcg@5_given_ok": 0.831,
+     "ungated_hit@1": 0.61,
+     "ungated_hit@3": 0.93
+    }
+   }
+  },
+  "random_baseline": {
+   "hit@1": 0.125,
+   "hit@3": 0.352
+  },
+  "top1_confusions_lenient": {
+   "Java Developer": [
+    [
+     "frontend_developer",
+     14
+    ],
+    [
+     "mobile_developer",
+     5
+    ],
+    [
+     "devops_engineer",
+     4
+    ]
+   ],
+   "Python Developer": [
+    [
+     "data_analyst",
+     15
+    ],
+    [
+     "data_engineer",
+     14
+    ],
+    [
+     "frontend_developer",
+     9
+    ]
+   ],
+   "DotNet Developer": [
+    [
+     "frontend_developer",
+     34
+    ],
+    [
+     "data_engineer",
+     6
+    ],
+    [
+     "data_analyst",
+     5
+    ]
+   ],
+   "React Developer": [
+    [
+     "backend_developer",
+     14
+    ],
+    [
+     "data_engineer",
+     11
+    ],
+    [
+     "data_analyst",
+     9
+    ]
+   ],
+   "Web Designing": [
+    [
+     "fullstack_developer",
+     18
+    ],
+    [
+     "data_analyst",
+     9
+    ],
+    [
+     "data_engineer",
+     4
+    ]
+   ],
+   "Data Science": [
+    [
+     "data_analyst",
+     29
+    ],
+    [
+     "data_engineer",
+     10
+    ],
+    [
+     "nlp_llm_engineer",
+     5
+    ]
+   ],
+   "DevOps": [
+    [
+     "backend_developer",
+     2
+    ],
+    [
+     "mlops_engineer",
+     1
+    ],
+    [
+     "data_analyst",
+     1
+    ]
+   ],
+   "Testing": [
+    [
+     "data_scientist",
+     16
+    ],
+    [
+     "data_analyst",
+     12
+    ],
+    [
+     "data_engineer",
+     10
+    ]
+   ],
+   "ETL Developer": [
+    [
+     "data_analyst",
+     25
+    ],
+    [
+     "backend_developer",
+     3
+    ],
+    [
+     "qa_automation_engineer",
+     1
+    ]
+   ],
+   "Business Analyst": [
+    [
+     "qa_automation_engineer",
+     4
+    ],
+    [
+     "backend_developer",
+     3
+    ],
+    [
+     "data_engineer",
+     2
+    ]
+   ]
+  },
+  "scope_control": {
+   "pipeline": {
+    "n_in_scope": 1000,
+    "n_out_of_scope": 320,
+    "mean_top_fit_in_scope": 27.788,
+    "mean_top_fit_out_of_scope": 8.615,
+    "auc_top_fit_in_vs_out": 0.93,
+    "insufficient_rate_out_of_scope": 1.0,
+    "out_of_scope_top1_counts": {
+     "data_analyst": 139,
+     "data_engineer": 46,
+     "data_scientist": 35,
+     "devops_engineer": 32,
+     "fullstack_developer": 23,
+     "nlp_llm_engineer": 16,
+     "backend_developer": 12,
+     "ml_engineer": 6,
+     "mlops_engineer": 5,
+     "qa_automation_engineer": 5,
+     "frontend_developer": 1
+    }
+   },
+   "lenient": {
+    "n_in_scope": 1000,
+    "n_out_of_scope": 320,
+    "mean_top_fit_in_scope": 43.732,
+    "mean_top_fit_out_of_scope": 11.351,
+    "auc_top_fit_in_vs_out": 0.927,
+    "insufficient_rate_out_of_scope": 0.781,
+    "out_of_scope_top1_counts": {
+     "data_analyst": 148,
+     "data_scientist": 53,
+     "devops_engineer": 37,
+     "data_engineer": 34,
+     "nlp_llm_engineer": 14,
+     "fullstack_developer": 13,
+     "backend_developer": 9,
+     "ml_engineer": 4,
+     "mlops_engineer": 3,
+     "qa_automation_engineer": 3,
+     "frontend_developer": 2
+    }
+   }
+  },
+  "pipeline_content_schema_repairs": 0,
+  "errors": [],
+  "n_errors": 0,
+  "seconds": 871.7
+ },
+ "fit": {
+  "dataset": "cnamuangtoun/resume-job-description-fit (test.csv)",
+  "n_pairs": 1000,
+  "n_unique_resumes": 390,
+  "n_unique_jds": 71,
+  "label_counts": {
+   "No Fit": 487,
+   "Potential Fit": 244,
+   "Good Fit": 269
+  },
+  "split": {
+   "rule": "job descriptions shuffled (seed) and halved; all pairs of a JD go to one half",
+   "dev_pairs": 434,
+   "heldout_pairs": 566,
+   "dev_jds": 35,
+   "heldout_jds": 36
+  },
+  "bootstrap": "1000 resamples of job descriptions (cluster bootstrap), percentile 95% CI",
+  "ranking_all_pairs": {
+   "system": {
+    "auc_good_vs_no": 0.531,
+    "auc_good_vs_no_ci95": [
+     0.431,
+     0.612
+    ],
+    "auc_fit_vs_no": 0.544,
+    "auc_fit_vs_no_ci95": [
+     0.487,
+     0.6
+    ],
+    "spearman": 0.059,
+    "spearman_ci95": [
+     -0.064,
+     0.163
+    ]
+   },
+   "system_lenient": {
+    "auc_good_vs_no": 0.519,
+    "auc_good_vs_no_ci95": [
+     0.402,
+     0.618
+    ],
+    "auc_fit_vs_no": 0.513,
+    "auc_fit_vs_no_ci95": [
+     0.456,
+     0.573
+    ],
+    "spearman": 0.027,
+    "spearman_ci95": [
+     -0.111,
+     0.157
+    ]
+   },
+   "tfidf_cosine": {
+    "auc_good_vs_no": 0.574,
+    "auc_good_vs_no_ci95": [
+     0.502,
+     0.657
+    ],
+    "auc_fit_vs_no": 0.56,
+    "auc_fit_vs_no_ci95": [
+     0.509,
+     0.618
+    ],
+    "spearman": 0.109,
+    "spearman_ci95": [
+     0.014,
+     0.221
+    ]
+   },
+   "embedding_cosine": {
+    "auc_good_vs_no": 0.542,
+    "auc_good_vs_no_ci95": [
+     0.464,
+     0.633
+    ],
+    "auc_fit_vs_no": 0.564,
+    "auc_fit_vs_no_ci95": [
+     0.511,
+     0.626
+    ],
+    "spearman": 0.083,
+    "spearman_ci95": [
+     -0.014,
+     0.205
+    ]
+   },
+   "c_requirement": {
+    "auc_good_vs_no": 0.515,
+    "auc_good_vs_no_ci95": [
+     0.422,
+     0.6
+    ],
+    "auc_fit_vs_no": 0.534,
+    "auc_fit_vs_no_ci95": [
+     0.482,
+     0.582
+    ],
+    "spearman": 0.039,
+    "spearman_ci95": [
+     -0.069,
+     0.138
+    ]
+   },
+   "c_keyword": {
+    "auc_good_vs_no": 0.562,
+    "auc_good_vs_no_ci95": [
+     0.49,
+     0.631
+    ],
+    "auc_fit_vs_no": 0.538,
+    "auc_fit_vs_no_ci95": [
+     0.486,
+     0.591
+    ],
+    "spearman": 0.086,
+    "spearman_ci95": [
+     -0.015,
+     0.187
+    ]
+   },
+   "c_semantic": {
+    "auc_good_vs_no": 0.584,
+    "auc_good_vs_no_ci95": [
+     0.45,
+     0.7
+    ],
+    "auc_fit_vs_no": 0.571,
+    "auc_fit_vs_no_ci95": [
+     0.495,
+     0.645
+    ],
+    "spearman": 0.128,
+    "spearman_ci95": [
+     -0.043,
+     0.281
+    ]
+   }
+  },
+  "classification_heldout": {
+   "system": {
+    "threshold_from_dev": 0.0,
+    "accuracy": 0.482,
+    "precision": 0.482,
+    "recall": 1.0,
+    "f1": 0.651,
+    "accuracy_ci95": [
+     0.394,
+     0.573
+    ],
+    "f1_ci95": [
+     0.565,
+     0.729
+    ],
+    "three_class": {
+     "thresholds_from_dev": [
+      36.0,
+      51.0
+     ],
+     "accuracy": 0.406,
+     "macro_f1": 0.347,
+     "confusion_rows_true_cols_pred": {
+      "No Fit": {
+       "No Fit": 165,
+       "Potential Fit": 62,
+       "Good Fit": 66
+      },
+      "Potential Fit": {
+       "No Fit": 58,
+       "Potential Fit": 35,
+       "Good Fit": 57
+      },
+      "Good Fit": {
+       "No Fit": 66,
+       "Potential Fit": 27,
+       "Good Fit": 30
+      }
+     }
+    }
+   },
+   "system_lenient": {
+    "threshold_from_dev": 0.0,
+    "accuracy": 0.482,
+    "precision": 0.482,
+    "recall": 1.0,
+    "f1": 0.651,
+    "accuracy_ci95": [
+     0.394,
+     0.573
+    ],
+    "f1_ci95": [
+     0.565,
+     0.729
+    ],
+    "three_class": {
+     "thresholds_from_dev": [
+      36.0,
+      45.0
+     ],
+     "accuracy": 0.378,
+     "macro_f1": 0.328,
+     "confusion_rows_true_cols_pred": {
+      "No Fit": {
+       "No Fit": 148,
+       "Potential Fit": 56,
+       "Good Fit": 89
+      },
+      "Potential Fit": {
+       "No Fit": 74,
+       "Potential Fit": 27,
+       "Good Fit": 49
+      },
+      "Good Fit": {
+       "No Fit": 78,
+       "Potential Fit": 6,
+       "Good Fit": 39
+      }
+     }
+    }
+   },
+   "tfidf_cosine": {
+    "threshold_from_dev": 0.021,
+    "accuracy": 0.493,
+    "precision": 0.486,
+    "recall": 0.879,
+    "f1": 0.626,
+    "accuracy_ci95": [
+     0.413,
+     0.576
+    ],
+    "f1_ci95": [
+     0.537,
+     0.708
+    ],
+    "three_class": {
+     "thresholds_from_dev": [
+      0.038,
+      0.042
+     ],
+     "accuracy": 0.364,
+     "macro_f1": 0.306,
+     "confusion_rows_true_cols_pred": {
+      "No Fit": {
+       "No Fit": 116,
+       "Potential Fit": 24,
+       "Good Fit": 153
+      },
+      "Potential Fit": {
+       "No Fit": 57,
+       "Potential Fit": 8,
+       "Good Fit": 85
+      },
+      "Good Fit": {
+       "No Fit": 34,
+       "Potential Fit": 7,
+       "Good Fit": 82
+      }
+     }
+    }
+   },
+   "embedding_cosine": {
+    "threshold_from_dev": 0.161,
+    "accuracy": 0.486,
+    "precision": 0.484,
+    "recall": 0.985,
+    "f1": 0.649,
+    "accuracy_ci95": [
+     0.396,
+     0.576
+    ],
+    "f1_ci95": [
+     0.56,
+     0.728
+    ],
+    "three_class": {
+     "thresholds_from_dev": [
+      0.386,
+      0.464
+     ],
+     "accuracy": 0.355,
+     "macro_f1": 0.33,
+     "confusion_rows_true_cols_pred": {
+      "No Fit": {
+       "No Fit": 118,
+       "Potential Fit": 77,
+       "Good Fit": 98
+      },
+      "Potential Fit": {
+       "No Fit": 58,
+       "Potential Fit": 31,
+       "Good Fit": 61
+      },
+      "Good Fit": {
+       "No Fit": 32,
+       "Potential Fit": 39,
+       "Good Fit": 52
+      }
+     }
+    }
+   }
+  },
+  "majority_baseline_heldout": {
+   "majority_class_from_dev": "No Fit",
+   "binary_accuracy": 0.518,
+   "binary_f1_fit": 0.0,
+   "three_class_accuracy": 0.518,
+   "three_class_macro_f1": 0.227
+  },
+  "mean_score_by_label": {
+   "No Fit": {
+    "system": 34.694,
+    "system_lenient": 33.468,
+    "tfidf_cosine": 0.045
+   },
+   "Potential Fit": {
+    "system": 39.914,
+    "system_lenient": 33.693,
+    "tfidf_cosine": 0.05
+   },
+   "Good Fit": {
+    "system": 36.818,
+    "system_lenient": 35.714,
+    "tfidf_cosine": 0.052
+   }
+  },
+  "resume_extraction": {
+   "n_resumes": 390,
+   "share_ge1_experience": 0.992,
+   "mean_experience_entries": 2.523,
+   "share_ge1_bullet": 0.979,
+   "mean_bullets": 23.208,
+   "mean_recognised_skills": 6.987,
+   "mean_demonstrated_skills": 4.887,
+   "share_ge1_education": 0.877
+  },
+  "jd_extraction": {
+   "n": 71,
+   "mean_requirements": 9.394,
+   "share_zero_requirements": 0.113,
+   "requirement_kinds": {
+    "other": 395,
+    "experience": 46,
+    "certification": 4,
+    "education": 69,
+    "skill": 147,
+    "unassessable": 6
+   }
+  },
+  "requirement_status_counts_over_pairs": {
+   "matched": 915,
+   "partial": 1220,
+   "missing": 2175,
+   "unknown": 5096
+  },
+  "highest_scored_no_fit": [
+   {
+    "jd_title": null,
+    "label": "No Fit",
+    "score": 94.0,
+    "counts": {
+     "matched": 3,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 0
+    }
+   },
+   {
+    "jd_title": "Shifts: Mon  Fri 8-5 (HYBRID onsite)3 month contract (No extensions)Start Date: 952023",
+    "label": "No Fit",
+    "score": 90.0,
+    "counts": {
+     "matched": 1,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 0
+    }
+   },
+   {
+    "jd_title": null,
+    "label": "No Fit",
+    "score": 90.0,
+    "counts": {
+     "matched": 1,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 2
+    }
+   },
+   {
+    "jd_title": null,
+    "label": "No Fit",
+    "score": 90.0,
+    "counts": {
+     "matched": 4,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 0
+    }
+   },
+   {
+    "jd_title": null,
+    "label": "No Fit",
+    "score": 88.0,
+    "counts": {
+     "matched": 1,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 0
+    }
+   }
+  ],
+  "lowest_scored_good_fit": [
+   {
+    "jd_title": "Itd Be Great If You Also Had These",
+    "label": "Good Fit",
+    "score": 0.0,
+    "counts": {
+     "matched": 0,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 0
+    }
+   },
+   {
+    "jd_title": "Itd Be Great If You Also Had These",
+    "label": "Good Fit",
+    "score": 0.0,
+    "counts": {
+     "matched": 0,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 0
+    }
+   },
+   {
+    "jd_title": null,
+    "label": "Good Fit",
+    "score": 0.0,
+    "counts": {
+     "matched": 0,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 0
+    }
+   },
+   {
+    "jd_title": "Itd Be Great If You Also Had These",
+    "label": "Good Fit",
+    "score": 0.0,
+    "counts": {
+     "matched": 0,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 0
+    }
+   },
+   {
+    "jd_title": "Itd Be Great If You Also Had These",
+    "label": "Good Fit",
+    "score": 0.0,
+    "counts": {
+     "matched": 0,
+     "partial": 0,
+     "missing": 0,
+     "unknown": 0
+    }
+   }
+  ],
+  "extracted_content_failing_schema": {
+   "n_resumes": 0,
+   "of": 390,
+   "fields": {}
+  },
+  "errors": [],
+  "seconds_extract": 37.8,
+  "seconds_match": 511.4
+ },
+ "bugs": [
+  "**`extract()` returns content that fails `ResumeContent` validation.** The extractor assigns fields without validation, so an education line longer than 160 characters becomes `degree`/`field_of_study` > 160 chars. Any later `ResumeContent.model_validate` on that content raises (`PUT /resumes/{id}/review` with the unchanged extraction \u2192 422; `openings.candidate_facts` after `parse_uploaded_resume` \u2192 unhandled ValidationError). Repro: `extract(t, [{'page':1,'char_start':0,'char_end':len(t)}])` with `t = 'Jane Doe\\nEDUCATION\\nBachelor of Science in Computer Science with a minor in mathematics where I completed coursework in algorithms, operating systems, databases, networking, compilers and graphics, University of Somewhere\\n'`, then `ResumeContent.model_validate(content)` \u2192 `string_too_long` on education.0.degree / field_of_study."
+ ],
+ "patterns": [
+  "**Extraction needs line structure.** On both resume datasets the extractor finds 0 experience entries and 0 recognised skills for almost every resume (headings glued to text, or one lower-cased line), so `match` marks nearly every requirement missing/unknown and `recommend` returns insufficient evidence for 100% of resume-atlas inputs, in-scope and out-of-scope alike.",
+  "**Fit score does not track the fit labels.** With empty extraction the score is 60% requirement coverage (\u22480) + 20% keyword coverage (0) + 20% semantic; mean score is \u22489 for every label. Plain TF-IDF cosine is slightly better but still weak, so the labels themselves are hard to predict from text similarity.",
+  "**JD section headings with a leading word are not recognised** (`_section_of` needs the heading to start with a known word): 'Job Requirements', 'Candidate Qualifications', 'YOUR EXPERIENCE', 'What you bring', 'About You' all return None. Requirements under them become responsibilities (Aprio tax manager, Akicita account manager) or the whole posting falls back to one requirement per skill (NTS lead engineer, Redwood principal engineer), and the years requirement is lost.",
+  "**Years: minimum across all experience lines.** `years_required` takes the minimum of every experience requirement, so skill-specific or secondary lines win: '5+ years Golang \u2026 1+ year AI-assisted coding' \u2192 1; '10+ years customer-facing \u2026 at least 5 years lodging' \u2192 5; 'Client onboarding experience within the last three years' (nice-to-have) \u2192 3. Phrases without 'experience' ('12+ years building software') are classified as `other`, not experience.",
+  "**Title = first short line.** Extracted titles are often a section heading or sentence: 'About the Role', 'How it works', 'Our Technology Stack', '5+ years of commercial experience with Python'. Many postings never state the title in the body.",
+  "**Non-English postings.** German postings: 53% have zero taxonomy skills, 0% years extracted, median 2 requirements.",
+  "**Soft-skill aliases fire on perks/company prose** (SkillSpan and postings): 'mentoring programs & trainings' (a benefit) \u2192 Leadership; 'teamwork' in a culture blurb \u2192 Collaboration; 'experimentation' \u2192 A/B Testing; 'agile feature team' \u2192 Agile.",
+  "**Recruiter-page boilerplate becomes requirements**: a Lemon.io posting lists ~60 stacks under 'NOT YOUR TECH STACK?', producing 20 false-positive requirement skills (Swift, iOS, Vue.js, React Native, \u2026).",
+  "**Alias collapses**: 'Flutter' \u2192 React Native, 'Cypress' \u2192 Playwright, 'Jira' \u2192 Agile, 'Datadog' \u2192 Monitoring; on SkillSpan, 'amazon-web-services' and tokenised '. NET' are missed.",
+  "**Role ranking (diagnostic, lenient content)** is below a plain TF-IDF profile baseline overall; Testing resumes are ranked as data roles, Data Science resumes as data_analyst, DotNet resumes as frontend_developer. Out-of-scope resumes (accountants, HR, sales) most often get data_analyst as top role, though their fit scores are much lower (AUC in-vs-out 0.93)."
+ ],
+ "limits": [
+  "**Label noise / provenance (fit).** `resume-job-description-fit` has no dataset card: who assigned No/Potential/Good Fit, how, and whether resumes or JDs were generated by a language model are undocumented. Its JDs are few (71 in test) and reused across many pairs, so CIs use a JD-level cluster bootstrap; they are wide for that reason. Treat AUCs as agreement with these labels, not with hiring decisions.",
+  "**Input format (fit, atlas).** Both resume datasets are plain text that lost its layout: the fit set glues headings to content (\"Summary7+ years\u2026\", \"SkillsData/Business\u2026\"), and resume-atlas is lower-cased, punctuation-free and on a single line. The extractor relies on headings on their own lines, so on these datasets it extracts almost nothing; the system numbers therefore measure mostly the semantic component and the insufficient-evidence gate. Real uploads go through the PDF/DOCX parser, which keeps line structure \u2014 these results do not transfer to them in either direction. The 'lenient content' rows are a diagnostic that bypasses extraction; they are not product behaviour.",
+  "**Category labels (atlas).** A category is a coarse proxy for the right role (a 'Python Developer' may be a data engineer). Only clear mappings were used and relevance is binary. resume-atlas merges several public resume collections, and a visible share of entries are resume-builder sample templates (recurring placeholder names and addresses), i.e. not real job seekers; some may be machine-generated. The dataset card does not say.",
+  "**SkillSpan.** Annotations follow the SkillSpan guidelines (skills are often long verb phrases; knowledge spans are nouns), not this product's notion of a skill, so recall against all gold spans measures coverage, not correctness. Annotators did not tag every technology mention (e.g. job titles), so precision is a lower bound: in a spot check of 12 unmatched predictions, about 8 were genuine technology mentions in the text. Postings are 2016\u20132021-era and partly masked; '.NET' is tokenised as '. NET', which the matcher cannot see.",
+  "**Live postings.** A one-day snapshot of three remote/EU job boards (Arbeitnow is mostly German-language and Germany/EU-based); not representative of any labour market. The 30-posting sample was labelled by an AI assistant as a single annotator, without adjudication or agreement measurement; 5 of the 30 are French or Dutch because the language filter used to draw the sample only excluded German. Gold skills include many items outside the 110-skill taxonomy by design (coverage).",
+  "**No tuning.** Nothing under `backend/app` was changed for this report; thresholds for the classification rows were fitted on the dev half only. The default embedding backend was used (see meta)."
+ ]
+}

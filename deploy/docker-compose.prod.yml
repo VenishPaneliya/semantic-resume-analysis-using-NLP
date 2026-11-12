@@ -1,0 +1,270 @@
+# Production stack on a single Docker host: Caddy (automatic HTTPS) -> Next.js -> FastAPI, Celery worker +
+# beat, PostgreSQL with scheduled backups, Redis (password), SeaweedFS (private S3). Setup, secrets, backups
+# and restore: docs/DEPLOYMENT.md.
+#
+#   cp deploy/env.production.example deploy/.env        # fill in; never commit it (.gitignore covers it)
+#   mkdir -p deploy/secrets && <generate the S3 admin secret into deploy/secrets/s3_admin_secret_access_key>
+#   docker compose -f deploy/docker-compose.prod.yml up -d --build
+#
+# deploy/.env is read twice: by Compose to fill ${...} below, and as env_file for api/worker/beat (every
+# app setting). Values under x-app-env are fixed for production and override the env file.
+# Images are pinned by digest; refresh with `docker buildx imagetools inspect <image:tag>`.
+name: resume-intelligence-prod
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+x-app-env: &app-env
+  ENV: production
+  DATABASE_URL: postgresql+psycopg://ri:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@postgres:5432/ri
+  REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in deploy/.env}@redis:6379/0
+  TASK_ALWAYS_EAGER: "false"
+  RATE_LIMIT_BACKEND: redis
+  STORAGE_BACKEND: s3
+  # the bundled SeaweedFS; set S3_ENDPOINT_URL= (empty) in deploy/.env for AWS S3, or another endpoint
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL-http://s3:8333}
+  S3_BUCKET: ${S3_BUCKET:-resume-intelligence-private}
+  EMAIL_BACKEND: smtp
+  COOKIE_SECURE: "true"
+  # Caddy overwrites X-Forwarded-For with the client address; Next.js passes it through unchanged
+  TRUSTED_PROXIES: "1"
+  WORKER_METRICS_PORT: "9100"
+
+x-app: &app
+  image: ${BACKEND_IMAGE:-resume-intelligence-backend:prod}
+  env_file:
+    - path: ${APP_ENV_FILE:-.env}
+      required: true
+  environment: *app-env
+  restart: unless-stopped
+  logging: *logging
+  read_only: true
+  # the only writable path: scratch space and PROMETHEUS_MULTIPROC_DIR (/tmp/ri-metrics), empty on every start
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  networks: [app, data]
+
+services:
+  caddy:
+    image: caddy:2.11-alpine@sha256:78bd35025c7ba85961dd149ae670315129954e77abe2383ac47c89106b35ade9
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN (e.g. resumes.example.com) in deploy/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/.env (certificate expiry notices)}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # certificates and ACME account: keep this volume
+      - caddy_config:/config
+    depends_on:
+      frontend: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      retries: 3
+    restart: unless-stopped
+    logging: *logging
+    networks: [edge]
+    deploy: { resources: { limits: { cpus: "1", memory: 256M } } }
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-resume-intelligence-frontend:prod}
+    build:
+      context: ../frontend
+      args: { BACKEND_URL: "http://api:8000" }
+    environment:
+      BACKEND_URL: http://api:8000
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+    logging: *logging
+    read_only: true
+    tmpfs: [/tmp, /app/.next/cache]
+    security_opt: [no-new-privileges:true]
+    networks: [edge, app]
+    deploy: { resources: { limits: { cpus: "1", memory: 512M } } }
+
+  api:
+    <<: *app
+    build:
+      context: ../backend
+      args: { INSTALL_ML: "${INSTALL_ML:-true}", INSTALL_OCR: "${OCR_ENABLED:-false}" }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      s3-init: { condition: service_completed_successfully }
+    # no host port: reached through Caddy -> frontend; Prometheus scrapes api:8000/api/metrics on `app`
+    deploy: { resources: { limits: { cpus: "2", memory: 3G } } }
+
+  worker:
+    <<: *app
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2", "-O", "fair"]
+    expose: ["9100"]   # worker metrics: GET worker:9100/metrics with the METRICS_TOKEN bearer
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 || exit 1"]
+      interval: 30s
+      # the CLI imports the app before pinging; the image default (5 s) is too short for that
+      timeout: 30s
+      start_period: 60s
+      retries: 3
+    depends_on:
+      api: { condition: service_healthy }
+    deploy: { resources: { limits: { cpus: "2", memory: 3G } } }
+
+  beat:
+    <<: *app
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=INFO", "--schedule", "/tmp/celerybeat-schedule"]
+    healthcheck: { disable: true }
+    depends_on:
+      api: { condition: service_healthy }
+    deploy: { resources: { limits: { cpus: "0.5", memory: 512M } } }
+
+  postgres:
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
+    environment:
+      POSTGRES_USER: ri
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ri
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ri -d ri"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+    shm_size: 256m
+    networks: [data]
+    deploy: { resources: { limits: { cpus: "2", memory: 2G } } }
+
+  db-backup:
+    # pg_dump -Fc daily at BACKUP_TIME (UTC) into the pgbackups volume, verified, BACKUP_KEEP_DAYS retention.
+    # Restore: docs/DEPLOYMENT.md. Copy the volume off this host (profile `offsite` below, or your own job).
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
+    entrypoint: ["sh", "/scripts/pg-backup.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: ri
+      PGDATABASE: ri
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_TIME: ${BACKUP_TIME:-02:30}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - pgbackups:/backups
+      - ./backup:/scripts:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/pg-backup.sh", "check"]
+      interval: 5m
+      start_period: 10m
+      retries: 1
+    restart: unless-stopped
+    logging: *logging
+    networks: [data]
+    deploy: { resources: { limits: { cpus: "1", memory: 512M } } }
+
+  backup-offsite:
+    # optional: `docker compose --profile offsite ...` mirrors the dump directory to another S3 bucket
+    # (a different provider/region than this host) every BACKUP_OFFSITE_INTERVAL seconds.
+    profiles: [offsite]
+    image: amazon/aws-cli:2.22.0@sha256:de60944022e023e69cc50e3cfc91766d0788c27586b01fb77806bc435b484a35
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eu
+        ep=""; [ -n "$${BACKUP_S3_ENDPOINT_URL:-}" ] && ep="--endpoint-url $$BACKUP_S3_ENDPOINT_URL"
+        while :; do
+          aws $$ep s3 sync /backups "$$BACKUP_S3_URI" --exclude '.*' --delete && echo "offsite sync ok $$(date -u +%FT%TZ)"
+          sleep "$${BACKUP_OFFSITE_INTERVAL:-3600}"
+        done
+    environment:
+      BACKUP_S3_URI: ${BACKUP_S3_URI:-}
+      BACKUP_S3_ENDPOINT_URL: ${BACKUP_S3_ENDPOINT_URL:-}
+      AWS_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${BACKUP_S3_REGION:-us-east-1}
+      BACKUP_OFFSITE_INTERVAL: ${BACKUP_OFFSITE_INTERVAL:-3600}
+    volumes: [pgbackups:/backups:ro]
+    restart: unless-stopped
+    logging: *logging
+    networks: [app]
+    deploy: { resources: { limits: { cpus: "0.5", memory: 256M } } }
+
+  redis:
+    image: redis:7-alpine@sha256:7b1753b4c5ad8458906c272a8132b8c15f5557b000379eb115fb239706a384b7
+    command: ["sh", "-c", "exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+    networks: [data]
+    deploy: { resources: { limits: { cpus: "0.5", memory: 384M } } }
+
+  s3:
+    # Self-hosted S3 (SeaweedFS). For managed S3 instead, remove s3/s3-init and set S3_* in deploy/.env.
+    image: chrislusf/seaweedfs:3.80@sha256:1055999e08eed1789b0ae45d235126e4495e23d3fb9d6396293fd42539b1ae6a
+    entrypoint: ["sh", "/etc/seaweedfs/entrypoint.sh"]
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-s3.config=/tmp/s3.json", "-master.volumeSizeLimitMB=1024"]
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-resume-intelligence-private}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in deploy/.env}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in deploy/.env}
+      S3_ADMIN_ACCESS_KEY_ID: ${S3_ADMIN_ACCESS_KEY_ID:-ri-admin}
+      S3_ADMIN_SECRET_ACCESS_KEY_FILE: /run/secrets/s3_admin_secret_access_key
+    secrets: [s3_admin_secret_access_key]
+    volumes:
+      - s3data:/data
+      - ./seaweedfs/entrypoint.sh:/etc/seaweedfs/entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8333"]
+      interval: 5s
+      retries: 30
+    restart: unless-stopped
+    logging: *logging
+    networks: [data]
+    deploy: { resources: { limits: { cpus: "1", memory: 1G } } }
+
+  s3-init:
+    image: amazon/aws-cli:2.22.0@sha256:de60944022e023e69cc50e3cfc91766d0788c27586b01fb77806bc435b484a35
+    depends_on: { s3: { condition: service_healthy } }
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ADMIN_ACCESS_KEY_ID:-ri-admin}
+      AWS_DEFAULT_REGION: us-east-1
+      BUCKET: ${S3_BUCKET:-resume-intelligence-private}
+    secrets: [s3_admin_secret_access_key]
+    entrypoint:
+      - sh
+      - -c
+      - |
+        export AWS_SECRET_ACCESS_KEY="$$(tr -d '\r\n' < /run/secrets/s3_admin_secret_access_key)"
+        aws --endpoint-url http://s3:8333 s3api head-bucket --bucket "$$BUCKET" 2>/dev/null \
+          || aws --endpoint-url http://s3:8333 s3 mb "s3://$$BUCKET"
+    logging: *logging
+    networks: [data]
+
+secrets:
+  s3_admin_secret_access_key:
+    file: ${S3_ADMIN_SECRET_FILE:-./secrets/s3_admin_secret_access_key}
+
+networks:
+  edge: {}          # Caddy <-> frontend
+  app: {}           # frontend <-> api; api/worker egress (SMTP, LLM provider); Prometheus joins here
+  data:
+    internal: true  # databases and object storage: no internet access, no published ports
+
+volumes:
+  pgdata:
+  pgbackups:
+  redisdata:
+  s3data:
+  caddy_data:
+  caddy_config:

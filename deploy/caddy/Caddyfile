@@ -1,0 +1,37 @@
+# TLS edge for the production compose stack (deploy/docker-compose.prod.yml).
+# Caddy obtains and renews certificates automatically (Let's Encrypt / ZeroSSL) for {$DOMAIN};
+# DNS for the domain must point at this host and ports 80 + 443 must be reachable.
+# DOMAIN=localhost (local testing) uses Caddy's internal CA instead.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# metrics are for the monitoring system on the internal network, never the public site
+	@metrics path /api/metrics /api/metrics/*
+	respond @metrics 404
+
+	# uploads are capped by the API (MAX_UPLOAD_BYTES, 5 MB by default); reject anything far larger here
+	request_body {
+		max_size 20MB
+	}
+
+	reverse_proxy frontend:3000 {
+		# Overwrite (never append to) whatever X-Forwarded-For the client sent: the API trusts exactly one
+		# proxy hop (TRUSTED_PROXIES=1) and uses this value for per-IP rate limits.
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

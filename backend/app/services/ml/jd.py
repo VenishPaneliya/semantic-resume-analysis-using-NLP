@@ -20,16 +20,44 @@ from app.schemas.resume import ResumeContent, short_id
 from app.services.analysis.experience import build_timeline
 from app.services.extraction.extractor import BULLET_RE, DEGREE_RE, INJECTION_RE
 from app.services.ml.embeddings import get_embedder
-from app.services.ml.features import evidence_text, evidence_units, resume_skill_evidence
+from app.services.ml.features import LISTED_CREDIT, evidence_text, evidence_units, resume_skill_evidence
 from app.services.taxonomy import get_taxonomy
 from app.versions import JD_MATCHER_VERSION
 
 SECTION_PATTERNS = {
-    "responsibilities": r"(responsibilities|what you('| wi)ll do|the role|your role|duties|you will|key responsibilities|day to day)",
-    "required": r"(requirements|qualifications|what you('| wi)ll need|must have|required|minimum qualifications|who you are|what we('re| are) looking for|skills required|basic qualifications)",
-    "preferred": r"(preferred|nice to have|bonus|good to have|desired|plus|preferred qualifications|additional qualifications)",
-    "about": r"(about (us|the company|the team)|who we are|benefits|perks|what we offer|compensation|equal opportunity)",
+    "responsibilities": r"(responsibilities|what you('| wi)ll do|the role|your role|duties|you will|key responsibilities|day to day|"
+                        r"your (mission|tasks|impact)|what the job involves|in this role|role overview)",
+    "required": r"(requirements|qualifications|what you('| wi)ll need|must[- ]haves?|required|minimum qualifications|who you are|"
+                r"what we('re| are) looking for|skills required|basic qualifications|what you('ll)? bring|about you|"
+                r"(the )?ideal candidate|your (experience|profile|skills|background|qualifications|expertise)|you (have|bring|are)|"
+                r"skills (and|&) experience|experience (and|&) skills|essential( skills| criteria)?|you should have|we('d| would) love)",
+    "preferred": r"(preferred|nice[- ]to[- ]haves?|bonus( points)?|good to have|desired|plus|preferred qualifications|"
+                 r"additional qualifications|great to have|even better|extra credit|it('s| is| would be) a plus)",
+    # not requirements: company blurb, benefits, hiring boilerplate ("Not your tech stack? We also hire …")
+    "about": r"(about (us|the company|the team|our company)|who we are|benefits|perks|what we offer|compensation|"
+             r"equal opportunit(y|ies)|eeo|why (join|work)|our (offer|benefits|culture|values|mission|story)|"
+             r"not your (tech )?stack|other (roles|positions|openings)|we also hire|how to apply|application process|"
+             r"interview process|salary|diversity|life at)",
 }
+# "Job Requirements", "Candidate Qualifications", "Key Skills": a leading qualifier before a known heading
+_HEADING_PREFIX = re.compile(r"^\W*(job|the|key|candidate|core|role|position|technical|your|our|main|general|primary)\s+", re.I)
+
+
+def _next_section(bare: str, current: str) -> str:
+    """Section after a short non-bullet line: a known heading switches to it; an unknown heading-like line
+    ("Your main responsibilities will include:", "Profile?") ends a boilerplate section, so "About us" can't
+    swallow the rest of the posting."""
+    known = _section_of(bare)
+    if known:
+        return known
+    if current == "about" and re.search(r"[:?]\s*$", bare):
+        return "intro"
+    return current
+_PREFERRED_CUE = re.compile(r"\b(preferred|nice[- ]to[- ]have|bonus|a plus|ideally|is a plus|would be great|great to have|advantage|desirable)\b", re.I)
+_RECENT_WINDOW = re.compile(r"\b(within|in|during|over) the (last|past)\b", re.I)
+_EXPERIENCE_WORDS = re.compile(
+    r"experience|exp\b|working|industry|professional|building|developing|designing|managing|leading|writing|"
+    r"delivering|hands[- ]on|background|track record|as an?\b|in (an?|the) .{0,30}role", re.I)
 _NUM_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 YEARS_RE = re.compile(
     r"\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:\+|plus)?\s*(?:-|–|to)?\s*(\d{1,2})?\s*\+?\s*(?:years?|yrs?)\b",
@@ -55,10 +83,11 @@ ALTERNATIVE = re.compile(r"\b(or|one of|any of|such as|e\.g\.|similar)\b", re.I)
 _MS_PRODUCT = r"(?!\s*(?:office|excel|word|sql|teams|project|access|azure|dynamics|outlook|powerpoint)\b)"
 DEGREE_LEVELS = [
     (5, r"\bph\.?\s?d\b|\bdoctorate\b|\bdoctoral\b"),
-    (4, rf"\bmaster|\bm\.\s?s\b\.?|(?-i:\bMS\b){_MS_PRODUCT}|\bm\.?\s?sc\b|\bm\.?\s?tech\b|\bmba\b|\bm\.\s?e\b\.?|(?-i:\bME\b)|\bmca\b|\bpost[- ]?graduate\b"),
+    (4, rf"\bmaster|\bm\.\s?s\b\.?|(?-i:\bMS\b){_MS_PRODUCT}|\bm\.?\s?sc\b|\bm\.?\s?tech\b|\bmba\b|\bm\.\s?e\b\.?|(?-i:\bME\b)|\bmca\b|\bpost[- ]?graduate\b"
+        r"|\bm\.?\s?ed\b|\bm\.?\s?des\b|\bm\.?\s?pharm\b|\bm\.?\s?arch\b|\bllm\b"),
     (2, r"\bassociate'?s?\s+degree\b|\bassociate\s+of\b"),
     (3, r"\bbachelor|\bb\.\s?s\b\.?|(?-i:\bBS\b)|\bb\.?\s?sc\b|\bb\.?\s?tech\b|\bb\.\s?e\b\.?|(?-i:\bBE\b)|\bb\.\s?a\b\.?|(?-i:\bBA\b)"
-        r"|\bbca\b|\bbba\b|\bb\.?\s?com\b|\bdegree in\b|\bundergraduate\b|\bgraduate degree\b"),
+        r"|\bbca\b|\bbba\b|\bb\.?\s?com\b|\bb\.?\s?ed\b|\bb\.?\s?des\b|\bb\.?\s?pharm\b|\bb\.?\s?arch\b|\bmbbs\b|\bllb\b|\bbds\b|\bdegree in\b|\bundergraduate\b|\bgraduate degree\b"),
     (1, r"\bhigh school\b|\bsecondary school\b|\bhsc\b|\bssc\b"),
     (2, r"\bdiploma\b"),
 ]
@@ -81,9 +110,13 @@ _SENTENCE_END = re.compile(r"(?<!e\.g\.)(?<!i\.e\.)(?<=[.;])\s+(?=[A-Z0-9])")
 
 
 def _section_of(heading: str) -> str | None:
-    for key, pat in SECTION_PATTERNS.items():
-        if re.fullmatch(rf"\W*{pat}\W*.*", heading, re.I) and len(heading.split()) <= 7:
-            return key
+    if len(heading.split()) > 7:
+        return None
+    once = _HEADING_PREFIX.sub("", heading)
+    for cand in (heading, once, _HEADING_PREFIX.sub("", once)):  # "Your main responsibilities"
+        for key, pat in SECTION_PATTERNS.items():
+            if re.fullmatch(rf"\W*{pat}\W*.*", cand, re.I):
+                return key
     return None
 
 
@@ -105,13 +138,28 @@ def _items(text: str) -> list[str]:
     return out
 
 
+_NOT_TITLE = re.compile(
+    r"^\W*(about|how|our|why|what|who|we|join|overview|description|summary|introduction|company|location|salary|"
+    r"apply|the (role|team|company|position|opportunity)|this (role|is)|you|your|hi|hello|welcome)\b", re.I)
+_JOB_WORD = re.compile(
+    r"\b(engineer|developer|analyst|scientist|manager|lead|consultant|architect|designer|specialist|administrator|"
+    r"intern|director|head of|officer|coordinator|associate|technician|writer|copywriter|editor|accountant|nurse|"
+    r"teacher|representative|executive|recruiter|sdet|tester|programmer|devops|sre|researcher|agent|advisor|"
+    r"strategist|marketer|support)\b", re.I)
+
+
 def _clean_title(line: str) -> str:
     return line.strip().rstrip(".:;-–— ").strip()[:150]
 
 
 def extract_jd(text: str) -> dict:
     tax = get_taxonomy()
-    text = _INLINE_HEADING.sub("\n", text.replace("\r", ""))
+    text = text.replace("\r", "")
+    # flattened text: "Requirements:Demonstrate", "equipment.Conduct" -> restore the spaces so headings and
+    # sentences can be found ("Node.js", "ASP.NET" and URLs are left alone)
+    text = re.sub(r"(?<=[a-z0-9%)\]])([.;!?])(?=[A-Z][a-z])", r"\1 ", text)
+    text = re.sub(r"(?<=[A-Za-z)]):(?=[A-Za-z(])", ": ", text)
+    text = _INLINE_HEADING.sub("\n", text)
     lines = [ln.strip() for ln in text.split("\n")]
     title = None
     m = re.search(r"(?:job title|position|role)\s*[:\-]\s*(.+)", text, re.I)
@@ -124,10 +172,15 @@ def extract_jd(text: str) -> dict:
                 return False
             if _section_of(re.sub(r"[:\-–—*#]+$", "", ln).strip()):
                 return False
+            if _NOT_TITLE.match(ln) or YEARS_RE.search(ln) or ln.rstrip().endswith((":", "?")) or (
+                    ln.rstrip().endswith(".") and len(ln.split()) > 8):
+                return False
             lead = _LEADING_HEADING.match(ln)
             return not (lead and _section_of(lead.group("head")))
 
-        first = next((ln for ln in lines if can_be_title(ln)), None)
+        cands = [ln for ln in lines[:40] if can_be_title(ln)][:8]
+        # prefer a line that names a job ("Senior Back-end Developer") over a tagline or heading
+        first = next((ln for ln in cands if _JOB_WORD.search(ln)), cands[0] if cands else None)
         title = _clean_title(first) if first else None
     company = None
     cm = re.search(r"(?:company|employer)\s*[:\-]\s*(.+)", text, re.I)
@@ -137,6 +190,7 @@ def extract_jd(text: str) -> dict:
     section = "intro"
     reqs: list[dict] = []
     responsibilities: list[str] = []
+    about_text: list[str] = []   # intro prose, used when the JD has no requirement section at all
     for ln in lines:
         if not ln:
             continue
@@ -149,7 +203,7 @@ def extract_jd(text: str) -> dict:
         else:
             bare = re.sub(r"[:\-–—*#]+$", "", ln).strip()
             if len(bare) < 60 and not is_bullet:
-                section = _section_of(bare) or section
+                section = _next_section(ln.strip(), section) if not _section_of(bare) else _section_of(bare)
                 if re.fullmatch(rf"\W*({_HEADINGS})\W*", bare, re.I):
                     continue
             item = BULLET_RE.sub("", ln).strip()
@@ -160,21 +214,38 @@ def extract_jd(text: str) -> dict:
                 continue
             if section == "responsibilities":
                 responsibilities.append(item)
+                about_text.append(item)  # a posting with no requirement section lists its stack under duties
                 continue
             if section in ("required", "preferred") or (section == "intro" and is_bullet):
-                importance = "preferred" if section == "preferred" or re.search(r"\b(preferred|nice to have|bonus|plus|ideally)\b", item, re.I) else "required"
+                importance = "preferred" if section == "preferred" or _PREFERRED_CUE.search(item) else "required"
                 reqs.append(_classify_requirement(item, importance, tax))
+            elif section == "intro":
+                about_text.append(item)
 
-    # skills mentioned anywhere count toward keyword coverage
-    all_skills = list(dict.fromkeys(h.skill for h in tax.find_skills(text)))
+    # skills mentioned anywhere outside boilerplate count toward keyword coverage
+    all_skills = list(dict.fromkeys(h.skill for h in tax.find_skills(_strip_about(text))))
     if not reqs:
-        # unstructured JD: fall back to one requirement per recognised skill
-        for s in all_skills:
-            reqs.append({"id": short_id(), "text": s, "kind": "skill", "importance": "required", "skills": [s], "any_of": False})
-    years = None
-    for r in reqs:
-        if r["kind"] == "experience" and r.get("years_min") is not None:
-            years = r["years_min"] if years is None else min(years, r["years_min"])
+        # unstructured JD (prose): read it sentence by sentence. A skill becomes a requirement whose importance
+        # follows its sentence ("It is a plus if you know Kafka" -> preferred); years and degree sentences
+        # become experience/education requirements.
+        seen: set[str] = set()
+        for sent in _SENTENCE_END.split("\n".join(about_text)):
+            sent = sent.strip()
+            if not sent:
+                continue
+            importance = "preferred" if _PREFERRED_CUE.search(sent) else "required"
+            ym = YEARS_RE.search(sent)
+            if (ym and _EXPERIENCE_WORDS.search(sent)) or DEGREE_RE.search(sent):
+                r = _classify_requirement(sent, importance, tax)
+                if r["kind"] in ("experience", "education"):
+                    if r["kind"] == "experience":
+                        r["skills"] = []  # years in a prose sentence are about overall experience
+                    reqs.append(r)
+            for s in dict.fromkeys(h.skill for h in tax.find_skills(sent)):
+                if s not in seen:
+                    seen.add(s)
+                    reqs.append({"id": short_id(), "text": s, "kind": "skill", "importance": importance, "skills": [s], "any_of": False})
+    years = _main_years(reqs)
     arrangement = "remote" if REMOTE_RE.search(text) else "hybrid" if HYBRID_RE.search(text) else "onsite" if ONSITE_RE.search(text) else None
     if HYBRID_RE.search(text) and REMOTE_RE.search(text):
         arrangement = "hybrid"
@@ -194,13 +265,34 @@ def extract_jd(text: str) -> dict:
     }
 
 
+def _strip_about(text: str) -> str:
+    """The JD text without its boilerplate sections (benefits, about us, "we also hire …")."""
+    keep, section = [], "intro"
+    for ln in text.split("\n"):
+        bare = re.sub(r"[:\-–—*#]+$", "", ln.strip()).strip()
+        if bare and len(bare) < 60 and not BULLET_RE.match(ln.strip()):
+            section = _section_of(bare) or _next_section(ln.strip(), section)
+        if section != "about":
+            keep.append(ln)
+    return "\n".join(keep)
+
+
+def _main_years(reqs: list[dict]) -> int | None:
+    """The headline years requirement: the largest *required* one ("5+ years Go … 1+ year with AI tools" -> 5),
+    falling back to preferred ones. Recency windows ("within the last three years") are not requirements."""
+    exp = [r for r in reqs if r["kind"] == "experience" and r.get("years_min") is not None]
+    req = [r["years_min"] for r in exp if r["importance"] == "required"]
+    pref = [r["years_min"] for r in exp if r["importance"] != "required"]
+    return max(req) if req else (max(pref) if pref else None)
+
+
 def _classify_requirement(item: str, importance: str, tax) -> dict:
     skills = list(dict.fromkeys(h.skill for h in tax.find_skills(item)))
     req = {"id": short_id(), "text": item[:400], "importance": importance, "skills": skills, "any_of": False}
     ym = YEARS_RE.search(item)
     if UNASSESSABLE.search(item):
         req["kind"] = "unassessable"
-    elif ym and (skills or re.search(r"experience|exp\b|working|industry|professional", item, re.I)):
+    elif ym and not _RECENT_WINDOW.search(item[max(0, ym.start() - 25):ym.end()]) and (skills or _EXPERIENCE_WORDS.search(item)):
         # "5+ years Python" / "at least five years of Python": a years requirement tied to the skills named
         req["kind"] = "experience"
         req["years_min"] = _years_value(ym.group(1))
@@ -348,7 +440,7 @@ def match(content: dict | ResumeContent, jd: dict, as_of: str | None = None, pre
         rows.append(row)
 
     def score(rs):
-        pts = {"matched": 1.0, "partial": 0.5, "missing": 0.0}
+        pts = {"matched": 1.0, "partial": LISTED_CREDIT, "missing": 0.0}
         num = den = 0.0
         for x in rs:
             if x["status"] == "unknown":
@@ -390,5 +482,8 @@ def match(content: dict | ResumeContent, jd: dict, as_of: str | None = None, pre
         "possibly_unlisted": [x["text"] for x in rows if x["gap_type"] == "possibly_unlisted"],
         "guidance": ("Address genuine gaps through learning or projects. For 'possibly unlisted' items, add them only if "
                      "you have real experience, and describe where you used them. Do not add keywords you cannot support."),
-        "jd_warnings": jd.get("warnings", []),
+        # "requirements": scored mainly on checkable requirements; "similarity_only": nothing in the JD could be
+        # checked against the resume (no recognised skills, years or degree), so the number is text similarity alone
+        "basis": "requirements" if req_score is not None else "similarity_only",
+        "jd_warnings": jd.get("warnings", []) + ([] if req_score is not None else ["no_assessable_requirements"]),
     }

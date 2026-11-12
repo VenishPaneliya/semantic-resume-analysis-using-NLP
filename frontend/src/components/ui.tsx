@@ -1,8 +1,9 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, FlaskConical, Info, Languages, Loader2, RotateCcw, Sparkles, XCircle } from "lucide-react";
-import type { ReactNode } from "react";
-import { useI18n, useT, type MessageKey } from "@/lib/i18n";
+import Link from "next/link";
+import { useCallback, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { currentLocale, useI18n, useT, type Locale, type MessageKey } from "@/lib/i18n";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -75,11 +76,28 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   );
 }
 
-export function Empty({ icon, title, children, action }: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
+/** Empty / placeholder state. `level` keeps the heading outline intact: 2 when it sits directly under the
+    page's h1, 3 (default) inside a section that already has an h2. */
+/** "Not found" page body for a wrong or stale link (instead of an error with a pointless Retry). */
+export function NotFoundState({ title, body, backHref, backLabel }: { title: string; body?: string; backHref: string; backLabel: string }) {
+  return (
+    <div className="card flex flex-col items-center gap-3 px-6 py-12 text-center" data-testid="not-found">
+      <p className="eyebrow">404</p>
+      <h1 className="text-2xl">{title}</h1>
+      {body && <p className="max-w-md text-sm text-ink-2">{body}</p>}
+      <Link href={backHref} className="btn btn-primary btn-sm">
+        {backLabel}
+      </Link>
+    </div>
+  );
+}
+
+export function Empty({ icon, title, children, action, level = 3 }: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode; level?: 2 | 3 }) {
+  const H = level === 2 ? "h2" : "h3";
   return (
     <div className="card flex flex-col items-center gap-3 px-6 py-12 text-center">
       {icon && <div className="text-muted">{icon}</div>}
-      <h3 className="text-lg">{title}</h3>
+      <H className="text-lg">{title}</H>
       {children && <p className="max-w-md text-sm text-muted">{children}</p>}
       {action}
     </div>
@@ -96,7 +114,8 @@ export function Badge({ tone = "neutral", children, className }: { tone?: Tone |
   return <span className={cx("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold", cls, className)}>{children}</span>;
 }
 
-/** Mandatory label whenever a result comes from the development fixture provider. */
+/** Shown whenever a result comes from the built-in sample provider instead of a live AI model (test and
+    demo environments). Worded for end users; the technical name stays out of the interface. */
 export function FixtureBadge({ show = true }: { show?: boolean }) {
   const t = useT();
   if (!show) return null;
@@ -201,6 +220,46 @@ export function Section({ title, children, aside, id }: { title: string; childre
   );
 }
 
+/* WAI-ARIA tabs (automatic activation): Left/Right (and Up/Down) move between tabs and select them,
+   Home/End jump to the first/last, only the selected tab is in the Tab order.
+     const tabs = useTabs(["a", "b"], active, setActive, "editor");
+     <div role="tablist">{keys.map(k => <button {...tabs.tab(k)}>…</button>)}</div>
+     <div {...tabs.panel(active)}>…</div> */
+export function useTabs<K extends string>(keys: readonly K[], active: K, onSelect: (k: K) => void, idPrefix: string) {
+  const refs = useRef<Partial<Record<K, HTMLButtonElement | null>>>({});
+  const onKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLButtonElement>) => {
+      const i = keys.indexOf(active);
+      let next = -1;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (i + 1) % keys.length;
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (i - 1 + keys.length) % keys.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = keys.length - 1;
+      if (next < 0) return;
+      e.preventDefault();
+      onSelect(keys[next]);
+      refs.current[keys[next]]?.focus();
+    },
+    [keys, active, onSelect],
+  );
+  return {
+    tab: (k: K) => ({
+      ref: (el: HTMLButtonElement | null) => {
+        refs.current[k] = el;
+      },
+      role: "tab" as const,
+      type: "button" as const,
+      id: `${idPrefix}-tab-${k}`,
+      "aria-selected": active === k,
+      "aria-controls": `${idPrefix}-panel-${k}`,
+      tabIndex: active === k ? 0 : -1,
+      onClick: () => onSelect(k),
+      onKeyDown,
+    }),
+    panel: (k: K) => ({ role: "tabpanel" as const, id: `${idPrefix}-panel-${k}`, "aria-labelledby": `${idPrefix}-tab-${k}`, tabIndex: 0 }),
+  };
+}
+
 export function LiveRegion({ message }: { message: string }) {
   return (
     <p className="sr-only" aria-live="polite" role="status">
@@ -222,12 +281,26 @@ export function EnglishNote({ kind = "analysis", className }: { kind?: "analysis
   );
 }
 
+/* Dates and numbers follow the active interface language (Intl with an Indian region: "10 Nov 2026",
+   "10 नव॰ 2026", "10 નવે, 2026"). Digits stay Western in every language, as elsewhere in the app. */
+const INTL_TAG: Record<Locale, string> = { en: "en-IN", hi: "hi-IN", gu: "gu-IN" };
+function intlTag(): string | undefined {
+  const l = currentLocale();
+  return l ? INTL_TAG[l] : undefined;
+}
+
 export function fmtDate(iso: string | null | undefined) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(intlTag(), { year: "numeric", month: "short", day: "numeric" });
+}
+
+export function fmtNumber(n: number | null | undefined, maxFractionDigits = 0) {
+  if (n == null || Number.isNaN(n)) return "—";
+  return new Intl.NumberFormat(intlTag(), { maximumFractionDigits: maxFractionDigits }).format(n);
 }
 
 export function pct(v: number | null | undefined) {
-  return v == null ? "—" : `${Math.round(v * 100)}%`;
+  return v == null ? "—" : new Intl.NumberFormat(intlTag(), { style: "percent", maximumFractionDigits: 0 }).format(v);
 }

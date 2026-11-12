@@ -2,11 +2,12 @@
 
 import { Check, HelpCircle, PencilLine, ShieldAlert, X } from "lucide-react";
 import { useState } from "react";
+import { useIsStaff } from "./shell";
+import { DiffView, WithPlaceholders } from "./preview";
+import { AIBadge, Alert, Badge, FixtureBadge, Spinner } from "./ui";
 import { api, errMsg } from "@/lib/api";
 import { useT, type MessageKey } from "@/lib/i18n";
 import type { Suggestion } from "@/lib/types";
-import { DiffView, WithPlaceholders } from "./preview";
-import { AIBadge, Alert, Badge, FixtureBadge, Spinner } from "./ui";
 
 const OP_LABEL: Record<string, MessageKey> = {
   rewrite_bullet: "suggest.op.rewrite_bullet",
@@ -24,6 +25,7 @@ const STATUS_LABEL: Record<string, MessageKey> = {
 
 export function SuggestionCard({ s, onResolved }: { s: Suggestion; onResolved: (r: { accepted: boolean; versionId?: string }) => void }) {
   const t = useT();
+  const staff = useIsStaff();
   const opLabel = OP_LABEL[s.operation] ? t(OP_LABEL[s.operation]) : s.operation;
   const [editing, setEditing] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>(Object.fromEntries(s.items.map((i) => [i.target_id, i.after])));
@@ -173,9 +175,11 @@ export function SuggestionCard({ s, onResolved }: { s: Suggestion; onResolved: (
       {open && needsConfirm.length > 0 && !editedAny && (
         <p className="mt-2 text-xs text-muted">{t("suggest.acceptDisabled")}</p>
       )}
-      <p className="mt-3 num text-[10px] text-muted">
-        {s.provider} · {s.model} · {s.prompt_version}
-      </p>
+      {staff && (
+        <p className="mt-3 num text-[10px] text-muted">
+          {s.provider} · {s.model} · {s.prompt_version}
+        </p>
+      )}
     </article>
   );
 }

@@ -73,8 +73,22 @@ class LocalStorage:
         return self._path(key).exists()
 
 
-class S3Storage:  # pragma: no cover - exercised against MinIO in docker compose
-    def __init__(self) -> None:
+_S3_MISSING = {"NoSuchKey", "404", "NotFound", "NoSuchObject"}
+
+
+def _is_missing(exc: Exception) -> bool:
+    """True when a botocore error means "this object does not exist"."""
+    response = getattr(exc, "response", None) or {}
+    code = str((response.get("Error") or {}).get("Code", ""))
+    status = (response.get("ResponseMetadata") or {}).get("HTTPStatusCode")
+    return code in _S3_MISSING or status == 404
+
+
+class S3Storage:
+    """S3-compatible backend (AWS S3, SeaweedFS). Missing objects raise FileNotFoundError, like
+    LocalStorage, so callers handle both backends the same way."""
+
+    def __init__(self) -> None:  # pragma: no cover - needs an S3 endpoint
         import boto3
 
         s = get_settings()
@@ -100,11 +114,21 @@ class S3Storage:  # pragma: no cover - exercised against MinIO in docker compose
         )
 
     def get(self, key: str) -> bytes:
-        obj = self.client.get_object(Bucket=self.bucket, Key=_safe_key(key))
+        try:
+            obj = self.client.get_object(Bucket=self.bucket, Key=_safe_key(key))
+        except Exception as exc:
+            if _is_missing(exc):
+                raise FileNotFoundError(key) from exc
+            raise
         return decrypt_bytes(obj["Body"].read())
 
     def delete(self, key: str) -> None:
-        self.client.delete_object(Bucket=self.bucket, Key=_safe_key(key))
+        # S3 treats deleting a missing key as success; some compatible stores answer 404 instead
+        try:
+            self.client.delete_object(Bucket=self.bucket, Key=_safe_key(key))
+        except Exception as exc:
+            if not _is_missing(exc):
+                raise
 
     def delete_prefix(self, prefix: str) -> int:
         n = 0
@@ -120,8 +144,10 @@ class S3Storage:  # pragma: no cover - exercised against MinIO in docker compose
         try:
             self.client.head_object(Bucket=self.bucket, Key=_safe_key(key))
             return True
-        except Exception:
-            return False
+        except Exception as exc:
+            if _is_missing(exc):
+                return False
+            raise  # auth or network errors must not look like "no such file"
 
 
 _storage: Storage | None = None

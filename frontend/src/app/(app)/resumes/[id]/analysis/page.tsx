@@ -2,10 +2,12 @@
 
 import { ChevronDown, Quote } from "lucide-react";
 import { useState } from "react";
+import { useIsStaff } from "@/components/shell";
 import { Alert, Badge, Bar, Empty, EnglishNote, ErrorState, LoadingBlock, pct, ScoreDial, Section } from "@/components/ui";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
-import type { AnalysisResult, Category, Role, Rubric } from "@/lib/types";
+import { categoryName, effortLabel, isKnownRole, roleTitle } from "@/lib/labels";
+import type { AnalysisResult, Category, Improvement, Role, Rubric } from "@/lib/types";
 import { useResume } from "../context";
 
 const PRIORITY_TONE = { high: "bad", medium: "warn", low: "neutral" } as const;
@@ -16,18 +18,29 @@ const SKILL_STATUS_KEY: Record<string, MessageKey> = {
   missing: "analysis.skill.missing",
 };
 
+/** Findings are English text from the API; fix its one number-agreement slip ("1 of 5 bullets are …")
+    until the backend words it per count. */
+function findingText(message: string) {
+  return message
+    .replace(/^1 of (\d+) bullets are\b/, "1 of $1 bullets is")
+    .replace(/^1 of (\d+) bullets (do|state|open)\b/, (_m, n: string, v: string) => `1 of ${n} bullets ${v === "do" ? "does" : v + "s"}`);
+}
+
 export default function AnalysisPage() {
   const t = useT();
+  const staff = useIsStaff();
   const { versionId } = useResume();
   const [role, setRole] = useState("");
-  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles");
-  const rubric = useApi<Rubric>("/api/rubric");
+  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles", [], { static: true });
+  const rubric = useApi<Rubric>("/api/rubric", [], { static: true });
   const a = useApi<AnalysisResult>(versionId ? `/api/versions/${versionId}/analysis${role ? `?target_role=${role}` : ""}` : null);
 
-  if (!versionId) return <Empty title={t("resume.confirmFirst")}>{t("analysis.confirmBody")}</Empty>;
+  if (!versionId) return <Empty level={2} title={t("resume.confirmFirst")}>{t("analysis.confirmBody")}</Empty>;
   if (a.error) return <ErrorState message={a.error} onRetry={a.reload} />;
   if (!a.data) return <LoadingBlock label={t("analysis.loading")} />;
   const r = a.data;
+  // improvements carry the category's English name; map it back to the id to translate it
+  const catIdByName = new Map(r.categories.map((c) => [c.name, c.id]));
 
   return (
     <div className="space-y-6">
@@ -37,7 +50,7 @@ export default function AnalysisPage() {
           <p className="eyebrow">{t("analysis.overall")}</p>
           <ScoreDial value={r.overall} size={132} label={t("analysis.of100")} />
           <p className="text-xs text-muted">
-            {r.overall_label}. {t("analysis.weighted")}
+            {r.overall_label.startsWith("Advisory indicator") ? t("analysis.overallLabel") : r.overall_label}. {t("analysis.weighted")}
           </p>
           <div className="mt-2 grid w-full grid-cols-3 gap-2 text-center">
             <Stat k={t("analysis.stat.bullets")} v={r.stats.bullets} />
@@ -48,23 +61,26 @@ export default function AnalysisPage() {
         <div className="card rise rise-1 p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xl">{t("analysis.categoryScores")}</h2>
-            <span className="text-xs text-muted num">
-              {r.rubric_version} · {r.cached ? t("analysis.cachedResult") : t("analysis.freshResult")}
-            </span>
+            {staff && (
+              <span className="text-xs text-muted num">
+                {r.rubric_version} · {r.cached ? t("analysis.cachedResult") : t("analysis.freshResult")}
+              </span>
+            )}
           </div>
           <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
             {r.categories.map((c) => (
               <li key={c.id}>
                 <div className="flex items-baseline justify-between gap-2 text-sm">
                   <a href={`#cat-${c.id}`} className="min-w-0 font-medium hover:underline">
-                    <span lang="en">{c.name}</span>
+                    {categoryName(t, c.id, c.name)}
                   </a>
                   <span className="num shrink-0 text-xs text-muted">
-                    {c.status === "scored" ? `${c.score}/100` : c.status === "insufficient_data" ? t("analysis.insufficientShort") : t("analysis.na")} · w{c.weight}
+                    {c.status === "scored" ? `${c.score}/100` : c.status === "insufficient_data" ? t("analysis.insufficientShort") : t("analysis.na")}
+                    {staff && ` · w${c.weight}`}
                   </span>
                 </div>
                 <div className="mt-1">
-                  <Bar value={c.score ?? 0} max={100} tone={c.status === "scored" ? "teal" : "muted"} label={t("analysis.catScore", { name: c.name })} />
+                  <Bar value={c.score ?? 0} max={100} tone={c.status === "scored" ? "teal" : "muted"} label={t("analysis.catScore", { name: categoryName(t, c.id, c.name) })} />
                 </div>
               </li>
             ))}
@@ -87,49 +103,59 @@ export default function AnalysisPage() {
         {r.improvements.length === 0 ? (
           <p className="text-sm text-ink-2">{t("analysis.noDeductions")}</p>
         ) : (
-          <div className="-mx-5 overflow-x-auto sm:mx-0">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <caption className="sr-only">{t("analysis.tableCaption")}</caption>
-              <thead className="text-xs uppercase tracking-wide text-muted">
-                <tr className="border-b border-line">
-                  <th scope="col" className="px-3 py-2">{t("analysis.col.priority")}</th>
-                  <th scope="col" className="px-3 py-2">{t("analysis.col.issue")}</th>
-                  <th scope="col" className="px-3 py-2">{t("analysis.col.evidence")}</th>
-                  <th scope="col" className="px-3 py-2">{t("analysis.col.suggestion")}</th>
-                  <th scope="col" className="px-3 py-2">{t("analysis.col.effort")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {r.improvements.map((i, idx) => (
-                  <tr key={idx} className="border-b border-line align-top last:border-0">
-                    <td className="px-3 py-3">
-                      <Badge tone={PRIORITY_TONE[i.priority]}>{PRIORITY_KEY[i.priority] ? t(PRIORITY_KEY[i.priority]) : i.priority}</Badge>
-                    </td>
-                    <td className="px-3 py-3">
-                      <p className="font-medium">{i.issue}</p>
-                      <p className="mt-1 text-xs text-ink-2">{i.why}</p>
-                      <p className="mt-1 text-[11px] text-muted">{i.category}</p>
-                    </td>
-                    <td className="max-w-[240px] px-3 py-3">
-                      {i.evidence.length ? (
-                        i.evidence.map((e, k) => (
-                          <p key={k} className="mb-1 text-xs italic text-ink-2">
-                            “{e.text}”
-                          </p>
-                        ))
-                      ) : (
-                        <span className="text-xs text-muted">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-ink-2">{i.suggestion}</td>
-                    <td className="px-3 py-3">
-                      <Badge>{i.effort}</Badge>
-                    </td>
+          <>
+            {/* phones and small tablets: one card per improvement, nothing cut off */}
+            <ul className="space-y-3 md:hidden" data-testid="improvements-cards">
+              {r.improvements.map((i, idx) => (
+                <li key={idx} className="rounded-lg border border-line p-3">
+                  <ImprovementCard i={i} category={categoryName(t, catIdByName.get(i.category), i.category)} />
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-left text-sm">
+                <caption className="sr-only">{t("analysis.tableCaption")}</caption>
+                <thead className="text-xs uppercase tracking-wide text-muted">
+                  <tr className="border-b border-line">
+                    <th scope="col" className="px-3 py-2">{t("analysis.col.priority")}</th>
+                    <th scope="col" className="px-3 py-2">{t("analysis.col.issue")}</th>
+                    <th scope="col" className="px-3 py-2">{t("analysis.col.evidence")}</th>
+                    <th scope="col" className="px-3 py-2">{t("analysis.col.suggestion")}</th>
+                    <th scope="col" className="px-3 py-2">{t("analysis.col.effort")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {r.improvements.map((i, idx) => (
+                    <tr key={idx} className="border-b border-line align-top last:border-0">
+                      <td className="px-3 py-3">
+                        <Badge tone={PRIORITY_TONE[i.priority]}>{PRIORITY_KEY[i.priority] ? t(PRIORITY_KEY[i.priority]) : i.priority}</Badge>
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="font-medium">{findingText(i.issue)}</p>
+                        <p className="mt-1 text-xs text-ink-2">{i.why}</p>
+                        <p className="mt-1 text-[11px] text-muted">{categoryName(t, catIdByName.get(i.category), i.category)}</p>
+                      </td>
+                      <td className="max-w-[240px] px-3 py-3">
+                        {i.evidence.length ? (
+                          i.evidence.map((e, k) => (
+                            <p key={k} className="mb-1 text-xs italic text-ink-2 [overflow-wrap:anywhere]">
+                              “{e.text}”
+                            </p>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-ink-2">{i.suggestion}</td>
+                      <td className="px-3 py-3">
+                        <Badge>{effortLabel(t, i.effort)}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Section>
 
@@ -144,8 +170,8 @@ export default function AnalysisPage() {
             <select id="role" className="input w-auto max-w-full" value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="">{t("common.none")}</option>
               {roles.data?.roles.map((x) => (
-                <option key={x.id} value={x.id} lang="en">
-                  {x.title}
+                <option key={x.id} value={x.id} lang={isKnownRole(x.id) ? undefined : "en"}>
+                  {roleTitle(t, x.id, x.title)}
                 </option>
               ))}
             </select>
@@ -188,17 +214,19 @@ export default function AnalysisPage() {
       </div>
 
       <details className="card p-5">
-        <summary className="cursor-pointer text-lg font-display">{t("analysis.rubric")} {rubric.data && <span className="num text-xs text-muted">({rubric.data.version})</span>}</summary>
+        <summary className="cursor-pointer text-lg font-display">
+          {t("analysis.rubric")} {staff && rubric.data && <span className="num text-xs text-muted">({rubric.data.version})</span>}
+        </summary>
         {rubric.error && <ErrorState message={rubric.error} onRetry={rubric.reload} />}
         {rubric.data && (
           <div className="mt-4 space-y-3 text-sm">
             <Alert tone="info">{rubric.data.disclaimer}</Alert>
             <p className="text-ink-2">{rubric.data.scoring}</p>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-xs">
+              <table className="w-full min-w-[560px] text-left text-xs">
                 <thead className="text-muted">
                   <tr className="border-b border-line">
-                    <th className="py-2 pr-3">{t("analysis.col.rule")}</th>
+                    {staff && <th className="py-2 pr-3">{t("analysis.col.rule")}</th>}
                     <th className="py-2 pr-3">{t("analysis.col.category")}</th>
                     <th className="py-2 pr-3">{t("analysis.col.maxPoints")}</th>
                     <th className="py-2">{t("analysis.col.rationale")}</th>
@@ -207,9 +235,9 @@ export default function AnalysisPage() {
                 <tbody>
                   {rubric.data.rules.map((x) => (
                     <tr key={x.id} className="border-b border-line align-top">
-                      <td className="num py-2 pr-3">{x.id}</td>
-                      <td className="py-2 pr-3">{x.category}</td>
-                      <td className="num py-2 pr-3">{x.max_points}</td>
+                      {staff && <td className="num py-2 pr-3">{x.id}</td>}
+                      <td className="py-2 pr-3">{categoryName(t, x.category)}</td>
+                      <td className="num py-2 pr-3">{typeof x.max_points === "number" ? x.max_points : t("analysis.proportional")}</td>
                       <td className="py-2 text-ink-2">{x.why}</td>
                     </tr>
                   ))}
@@ -232,17 +260,46 @@ function Stat({ k, v }: { k: string; v: number | undefined }) {
   );
 }
 
+function ImprovementCard({ i, category }: { i: Improvement; category: string }) {
+  const t = useT();
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge tone={PRIORITY_TONE[i.priority]}>{PRIORITY_KEY[i.priority] ? t(PRIORITY_KEY[i.priority]) : i.priority}</Badge>
+        <Badge>{effortLabel(t, i.effort)}</Badge>
+        <span className="text-[11px] text-muted">{category}</span>
+      </div>
+      <p className="mt-2 text-sm font-medium">{findingText(i.issue)}</p>
+      <p className="mt-1 text-xs text-ink-2">{i.why}</p>
+      {i.evidence.length > 0 && (
+        <div className="mt-2 border-l-2 border-line pl-2">
+          <p className="text-[11px] font-semibold text-muted">{t("analysis.col.evidence")}</p>
+          {i.evidence.map((e, k) => (
+            <p key={k} className="mt-0.5 text-xs italic text-ink-2 [overflow-wrap:anywhere]">
+              “{e.text}”
+            </p>
+          ))}
+        </div>
+      )}
+      <p className="mt-2 text-sm text-ink-2">
+        <strong className="text-ink">{t("analysis.col.suggestion")}:</strong> {i.suggestion}
+      </p>
+    </>
+  );
+}
+
 function CategoryCard({ c }: { c: Category }) {
   const t = useT();
+  const staff = useIsStaff();
   const [open, setOpen] = useState(c.findings.length > 0 && (c.score ?? 100) < 70);
   return (
     <section id={`cat-${c.id}`} className="card">
       <button className="flex w-full items-center gap-4 p-4 text-left" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <ScoreDial value={c.score} size={56} />
         <div className="min-w-0 flex-1">
-          <h3 className="text-base" lang="en">{c.name}</h3>
+          <h3 className="text-base">{categoryName(t, c.id, c.name)}</h3>
           <p className="text-xs text-muted">
-            {t("analysis.weight", { weight: c.weight })} ·{" "}
+            {staff && `${t("analysis.weight", { weight: c.weight })} · `}
             {c.status === "scored"
               ? t("analysis.findings", { count: c.findings.length })
               : c.status === "insufficient_data"
@@ -264,7 +321,7 @@ function CategoryCard({ c }: { c: Category }) {
             {c.findings.map((f, i) => (
               <li key={i} className="rounded-md border border-line bg-paper/60 p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-sm font-medium">{f.message}</p>
+                  <p className="text-sm font-medium">{findingText(f.message)}</p>
                   <span className="num text-xs text-bad">{f.points > 0 ? `−${f.points}` : t("analysis.info")}</span>
                 </div>
                 <p className="mt-1 text-xs text-ink-2">

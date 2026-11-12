@@ -17,7 +17,8 @@ from app.services.ml.embeddings import get_embedder
 from app.services.ml.jd import extract_jd, match
 from app.services.parsing.parsers import ParseError
 from app.services.parsing.sandbox import parse_isolated
-from app.services.upload_validation import validate_upload
+from app.services.taxonomy import get_taxonomy
+from app.services.upload_validation import check_parsed_limits, refine_parse_error, validate_upload
 from app.versions import JD_MATCHER_VERSION
 
 router = APIRouter(prefix="/api/job-descriptions", tags=["job-descriptions"])
@@ -65,7 +66,9 @@ def upload(file: UploadFile = File(...), title: str | None = Form(default=None),
     try:
         parsed = parse_isolated(v.kind, data)
     except ParseError as exc:
+        exc = refine_parse_error(v.kind, data, exc)
         raise err(422, exc.code, exc.message) from exc
+    check_parsed_limits(parsed)
     db.add(UsageEvent(user_id=user.id, kind="upload", operation=f"jd_{v.kind}"))
     return jd_out(_create(db, user, parsed["text"][:30000], title, None, "upload"))
 
@@ -92,10 +95,14 @@ def match_jd(jd_id: str, version_id: str, user: User = Depends(verified_user), d
     j = get_owned(db, JobDescription, jd_id, user)
     v = get_owned(db, ResumeVersion, version_id, user)
     emb = get_embedder()
-    key = sha256_hex(json.dumps([v.content_hash, j.id, j.updated_at.isoformat(), JD_MATCHER_VERSION, emb.name]))
+    tax = get_taxonomy()
+    key = sha256_hex(json.dumps([v.content_hash, j.id, j.updated_at.isoformat(), JD_MATCHER_VERSION, emb.name,
+                                 tax.version]))
     cached = db.scalar(select(JDMatch).where(JDMatch.version_id == v.id, JDMatch.jd_id == j.id, JDMatch.cache_key == key))
     if cached:
         return {**cached.result, "cached": True, "jd": jd_out(j)}
+    if (j.extracted or {}).get("matcher_version") != JD_MATCHER_VERSION:
+        j.extracted = extract_jd(j.raw_text)  # parsed by an older matcher: read the description again
     result = match(v.content, j.extracted)
     db.add(JDMatch(user_id=user.id, version_id=v.id, jd_id=j.id, cache_key=key, matcher_version=JD_MATCHER_VERSION,
                    embedding_model=emb.name, result=result))

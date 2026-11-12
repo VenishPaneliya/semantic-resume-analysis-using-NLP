@@ -3,10 +3,12 @@
 import { Download, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { useIsStaff, useUser } from "@/components/shell";
+import { useConfirm } from "@/components/confirm";
 import { JobAlertsCard, SelfIdCard, TwoFactorCard } from "@/components/account-cards";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { useUser } from "@/components/shell";
-import { Alert, Badge, ErrorState, Field, FixtureBadge, fmtDate, LoadingBlock, PageHeader, Section, Spinner } from "@/components/ui";
+import { Alert, Badge, ErrorState, Field, FixtureBadge, fmtDate, fmtNumber, LoadingBlock, PageHeader, Section, Spinner } from "@/components/ui";
+import { deviceLabel, isKnownRole, roleTitle } from "@/lib/labels";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
@@ -114,7 +116,7 @@ const ARRANGEMENT_LABEL: Record<string, MessageKey> = { remote: "settings.arr.re
 function CareerPrefsCard() {
   const t = useT();
   const { user } = useUser();
-  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles");
+  const roles = useApi<{ roles: Role[] }>("/api/taxonomy/roles", [], { static: true });
   const s = useSave();
   const p = user.career_prefs;
   const [targets, setTargets] = useState<string[]>(p.target_roles ?? []);
@@ -136,7 +138,7 @@ function CareerPrefsCard() {
             {roles.data?.roles.map((r) => (
               <label key={r.id} className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={targets.includes(r.id)} onChange={(e) => setTargets(e.target.checked ? [...targets, r.id] : targets.filter((x) => x !== r.id))} />
-                <span lang="en">{r.title}</span>
+                <span lang={isKnownRole(r.id) ? undefined : "en"}>{roleTitle(t, r.id, r.title)}</span>
               </label>
             ))}
           </div>
@@ -168,8 +170,15 @@ function CareerPrefsCard() {
   );
 }
 
+/** Provider names as people know them; the API sends lowercase ids. */
+const PROVIDER_NAME: Record<string, string> = { openai: "OpenAI", anthropic: "Anthropic", azure: "Azure OpenAI", gemini: "Google Gemini", google: "Google" };
+function providerName(id: string) {
+  return PROVIDER_NAME[id] ?? id.charAt(0).toUpperCase() + id.slice(1);
+}
+
 function PrivacyCard() {
   const t = useT();
+  const staff = useIsStaff();
   const { setUser } = useUser();
   const p = useApi<Privacy>("/api/account/privacy");
   const [busy, setBusy] = useState(false);
@@ -197,9 +206,12 @@ function PrivacyCard() {
         <div className="space-y-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span>{t("settings.provider")}</span>
-            <Badge tone="teal">{p.data.ai_provider}</Badge>
-            <span className="num text-xs text-muted">{p.data.ai_model}</span>
-            <FixtureBadge show={p.data.ai_provider === "fixture"} />
+            {p.data.ai_provider === "fixture" ? (
+              <FixtureBadge />
+            ) : (
+              <Badge tone="teal">{providerName(p.data.ai_provider)}</Badge>
+            )}
+            {staff && <span className="num text-xs text-muted">{p.data.ai_provider} · {p.data.ai_model}</span>}
           </div>
           <p className="text-ink-2">
             <strong>{t("settings.whatSent")}</strong> {p.data.what_is_sent}
@@ -217,7 +229,7 @@ function PrivacyCard() {
                 {p.data.consented ? t("settings.consentedOn", { date: fmtDate(p.data.consented_at) }) : t("settings.aiOff")}
               </p>
               <button className={`btn btn-sm mt-2 ${p.data.consented ? "btn-secondary" : "btn-primary"}`} disabled={busy} onClick={() => set(!p.data!.consented)}>
-                {busy ? <Spinner label="" /> : p.data.consented ? t("settings.withdrawConsent") : t("settings.allowSending", { provider: p.data.ai_provider })}
+                {busy ? <Spinner label="" /> : p.data.consented ? t("settings.withdrawConsent") : t("settings.allowSending", { provider: providerName(p.data.ai_provider) })}
               </button>
             </div>
           ) : (
@@ -263,15 +275,17 @@ function Notifications() {
 
 function Usage() {
   const t = useT();
+  const staff = useIsStaff();
   const u = useApi<{ ai_requests_this_month: number; estimated_cost_usd: number; limits: Record<string, number> }>("/api/account/usage");
   return (
     <Section title={t("settings.usage")} id="usage">
       {u.error ? <ErrorState message={u.error} onRetry={u.reload} /> : !u.data ? <LoadingBlock /> : (
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div><dt className="text-muted">{t("settings.aiRequests")}</dt><dd className="num text-xl">{u.data.ai_requests_this_month}</dd></div>
-          <div><dt className="text-muted">{t("settings.aiCost")}</dt><dd className="num text-xl">${u.data.estimated_cost_usd.toFixed(4)}</dd></div>
-          <div><dt className="text-muted">{t("settings.aiLimit")}</dt><dd className="num">{u.data.limits.ai_requests_per_day}</dd></div>
-          <div><dt className="text-muted">{t("settings.uploadLimit")}</dt><dd className="num">{u.data.limits.uploads_per_day}</dd></div>
+          {/* what the AI provider charges us is an operating detail, not something a candidate pays */}
+          {staff && <div><dt className="text-muted">{t("settings.aiCost")}</dt><dd className="num text-xl">${fmtNumber(u.data.estimated_cost_usd, 2)}</dd></div>}
+          <div><dt className="text-muted">{t("settings.aiLimit")}</dt><dd className="num text-xl">{u.data.limits.ai_requests_per_day}</dd></div>
+          <div><dt className="text-muted">{t("settings.uploadLimit")}</dt><dd className="num text-xl">{u.data.limits.uploads_per_day}</dd></div>
         </dl>
       )}
     </Section>
@@ -288,7 +302,7 @@ function Sessions() {
           {s.data.map((x) => (
             <li key={x.id} className="flex items-center gap-2 rounded border border-line p-2 text-sm">
               <div className="min-w-0 flex-1">
-                <p className="truncate">{x.user_agent || t("settings.unknownDevice")}</p>
+                <p className="truncate" title={x.user_agent ?? undefined}>{deviceLabel(t, x.user_agent)}</p>
                 <p className="text-xs text-muted">{t("settings.lastActive", { date: fmtDate(x.last_seen_at) })}</p>
               </div>
               {x.current ? <Badge tone="teal" className="shrink-0">{t("settings.thisDevice")}</Badge> : (
@@ -342,6 +356,7 @@ function PasswordCard() {
 
 function DataCard() {
   const t = useT();
+  const confirm = useConfirm();
   const { user } = useUser();
   const router = useRouter();
   const [busy, setBusy] = useState<"export" | "delete" | null>(null);
@@ -367,7 +382,7 @@ function DataCard() {
     }
   }
   async function del() {
-    if (!window.confirm(t("settings.confirmDelete"))) return;
+    if (!(await confirm({ title: t("settings.confirmDelete"), confirmLabel: t("settings.deleteEverything") }))) return;
     setBusy("delete");
     setErr(null);
     try {

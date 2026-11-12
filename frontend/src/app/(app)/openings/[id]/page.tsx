@@ -4,10 +4,12 @@ import { BarChart3, ChevronLeft, LogOut, Send, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
+import { useConfirm } from "@/components/confirm";
 import { OpeningMeta, SampleBadge, StageBadge, TierBadge } from "@/components/leaderboard";
 import { MatchBreakdown } from "@/components/match-breakdown";
 import { TipsContent } from "@/components/tips-panel";
-import { Alert, Badge, Empty, EnglishNote, ErrorState, fmtDate, LoadingBlock, Section, Spinner } from "@/components/ui";
+import { Alert, Badge, Empty, EnglishNote, ErrorState, fmtDate, LoadingBlock, NotFoundState, Section, Spinner } from "@/components/ui";
+import { resumeTitle } from "@/lib/labels";
 import { api, errMsg } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
@@ -47,9 +49,13 @@ function OpeningView() {
 
   if (resumes.error) return <ErrorState message={resumes.error} onRetry={resumes.reload} />;
   if (!ready || (detail.loading && !detail.data)) return <LoadingBlock label={t("opening.loading")} />;
+  if (detail.errorCode === "not_found" || detail.errorCode === "http_404")
+    return <NotFoundState title={t("opening.notFoundTitle")} body={t("opening.notFoundBody")} backHref="/openings" backLabel={t("opening.all")} />;
   if (detail.error || !detail.data) return <ErrorState message={detail.error ?? t("opening.unavailable")} onRetry={detail.reload} />;
 
   const o = detail.data;
+  // a closed opening stays visible to people who applied (to follow their stage), but takes no applications
+  const closed = o.status === "closed";
   const app = o.application;
   const appliedResume = app ? usable.find((r) => r.latest_version_id === app.version_id) : undefined;
 
@@ -63,10 +69,18 @@ function OpeningView() {
           <h1 className="text-2xl sm:text-3xl" lang="en">{o.title}</h1>
           {o.is_demo && <SampleBadge />}
           {app && <Badge tone="teal">{t("openings.applied")}</Badge>}
+          {closed && <Badge tone="neutral">{t("opening.closedBadge")}</Badge>}
         </div>
         <OpeningMeta o={o} className="mt-1" />
         {o.is_demo && <p className="mt-2 text-xs text-muted">{t("opening.sampleNote")}</p>}
         <EnglishNote kind="generic" className="mt-2" />
+        {closed && (
+          <div className="mt-3">
+            <Alert tone="warn" title={t("opening.closedTitle")}>
+              {t("opening.closedBody")}
+            </Alert>
+          </div>
+        )}
       </div>
 
       <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
@@ -78,7 +92,7 @@ function OpeningView() {
             <select id="resume-pick" className="input" value={resume?.id ?? ""} onChange={(e) => pick(e.target.value)}>
               {usable.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.title} (v{r.latest_version_number})
+                  {resumeTitle(t, r)} (v{r.latest_version_number})
                 </option>
               ))}
             </select>
@@ -133,7 +147,7 @@ function OpeningView() {
           {o.match ? (
             <section aria-labelledby="your-match" className="space-y-3">
               <h2 id="your-match" className="text-2xl">
-                {resume ? t("opening.yourMatchWith", { title: resume.title }) : t("opening.yourMatch")}
+                {resume ? t("opening.yourMatchWith", { title: resumeTitle(t, resume) }) : t("opening.yourMatch")}
               </h2>
               <MatchBreakdown m={o.match} idPrefix="om" />
             </section>
@@ -141,7 +155,7 @@ function OpeningView() {
             <Empty title={t("opening.pickResume")} />
           )}
 
-          {versionId && (
+          {versionId && !closed && (
             <Section title={t("opening.improve")} id="tips">
               <TipsContent
                 key={versionId}
@@ -160,9 +174,10 @@ function OpeningView() {
           <ApplyCard
             openingId={o.id}
             versionId={versionId}
-            resumeTitle={resume?.title ?? null}
+            resumeTitle={resume ? resumeTitle(t, resume) : null}
             app={app}
-            appliedWithLabel={app ? (appliedResume ? `${appliedResume.title} (v${appliedResume.latest_version_number})` : t("opening.earlierVersion")) : null}
+            closed={closed}
+            appliedWithLabel={app ? (appliedResume ? `${resumeTitle(t, appliedResume)} (v${appliedResume.latest_version_number})` : t("opening.earlierVersion")) : null}
             onChange={detail.reload}
           />
           {app && <StandingCard app={app} />}
@@ -172,15 +187,17 @@ function OpeningView() {
   );
 }
 
-function ApplyCard({ openingId, versionId, resumeTitle, app, appliedWithLabel, onChange }: {
+function ApplyCard({ openingId, versionId, resumeTitle, app, closed, appliedWithLabel, onChange }: {
   openingId: string;
   versionId: string | null;
   resumeTitle: string | null;
   app: OpeningApplicationOut | null;
+  closed: boolean;
   appliedWithLabel: string | null;
   onChange: () => Promise<void>;
 }) {
   const t = useT();
+  const confirm = useConfirm();
   const [consent, setConsent] = useState(false);
   const [needConsent, setNeedConsent] = useState(false);
   const [pending, setPending] = useState<"apply" | "withdraw" | null>(null);
@@ -209,7 +226,7 @@ function ApplyCard({ openingId, versionId, resumeTitle, app, appliedWithLabel, o
   }
 
   async function withdraw() {
-    if (!window.confirm(t("opening.confirmWithdraw"))) return;
+    if (!(await confirm({ title: t("opening.confirmWithdraw"), confirmLabel: t("opening.withdraw") }))) return;
     setPending("withdraw");
     setError(null);
     try {
@@ -244,7 +261,9 @@ function ApplyCard({ openingId, versionId, resumeTitle, app, appliedWithLabel, o
           <p className="text-ink-2">{t.rich("opening.appliedWith", { b: (c) => <strong>{c}</strong> }, { label: appliedWithLabel ?? "" })}</p>
         </div>
       )}
-      {!versionId ? (
+      {closed ? (
+        <p className="text-sm text-ink-2" data-testid="closed-no-apply">{app ? t("opening.closedNoReapply") : t("opening.closedNoApply")}</p>
+      ) : !versionId ? (
         <p className="text-sm text-muted">{t("opening.confirmToApply")}</p>
       ) : app && sameVersion ? (
         <p className="text-sm text-ink-2">{t("opening.sameVersion")}</p>

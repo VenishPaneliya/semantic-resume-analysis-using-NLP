@@ -2,16 +2,20 @@
 
 ## TL;DR
 
-The repository ships a reproducible evaluation harness and a **small synthetic dataset**. The
-numbers below show the pipeline behaves as designed on fictional resumes. They **do not** show
-accuracy on real resumes, and must not be quoted as benchmark results.
+Three evaluation sets, all reproducible from `backend/`. Current results, synthetic vs real and before vs
+after the 2026-11 changes, are in **[EVALUATION_REPORT_2026-11.md](EVALUATION_REPORT_2026-11.md)**.
 
-```bash
-cd backend
-python -m eval.run_eval --split dev  --embedding tfidf
-python -m eval.run_eval --split test --embedding sentence-transformers
-# -> eval/reports/<date>_<embedding>_<split>.{md,json}
-```
+| Set | Command | What it measures | Trust |
+|---|---|---|---|
+| Synthetic v1 (12 hand-written personas) | `python -m eval.run_eval --split all` | regression check of the original pipeline | low: same author wrote data, rules and labels |
+| Synthetic v2 (108 generated resumes, 18 profiles incl. non-tech, 5 layouts, 36 JDs) | `python -m eval.run_eval_v2` | end to end from the PDF/DOCX file: parsing, skills, roles, seniority, JD parsing, requirement checks, ranking, score-band calibration, TF-IDF baseline | medium: optimistic upper bound |
+| Real (public labelled datasets + live job postings) | `python -m eval.real.run_real` | resume–job fit, role recommendation, skill extraction (SkillSpan), live JD parsing with 30 hand-labelled postings, baselines, bootstrap CIs | best available, with dataset caveats |
+
+Earlier versions of this page reported skill P/R 1.0 and role hit@1 1.0 from v1. Those numbers measured
+skills-section strings only and used ground-truth rather than extracted content; they are kept below for
+history and **must not** be quoted as accuracy. v2 measures extracted content, and the real set measures text
+written by other people. The score bands (Strong 60+, Good 40+, Stretch 25+) are now checked by v2's
+calibration table, which shows they need recalibration on real labels.
 
 ## Dataset (`backend/data/synthetic/personas_v1.json`)
 
@@ -28,7 +32,7 @@ python -m eval.run_eval --split test --embedding sentence-transformers
 - There is **no training data**: the system has no learned parameters beyond the pretrained embedding
   model. Taxonomy and thresholds were tuned on `dev` only.
 
-## Results (generated 2026-11-07; see `backend/eval/reports/`)
+## Historical v1 results (generated 2026-11-07; superseded, see the report above)
 
 | Metric | dev (TF-IDF) | dev (MiniLM) | test (TF-IDF) | test (MiniLM) |
 |---|---|---|---|---|

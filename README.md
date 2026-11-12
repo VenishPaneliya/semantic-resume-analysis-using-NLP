@@ -54,10 +54,12 @@ docker compose up --build
 ```
 
 - App: http://localhost:3000 · API docs: http://localhost:8000/api/docs · Email catcher (verification emails): http://localhost:8025
-- **Only the variables listed in `docker-compose.yml` reach the containers**; other values in `.env`
-  are currently ignored (tracked below).
+- Values in `.env` reach the API, worker and beat containers (`env_file`); values written in
+  `docker-compose.yml` take precedence. Host ports: `FRONTEND_HOST_PORT`, `API_HOST_PORT`, `MAILPIT_HOST_PORT`.
 - `INSTALL_ML=false docker compose up --build` builds a ~0.9 GB API image with the TF-IDF fallback
-  instead of ~2.7 GB with Sentence Transformers.
+  instead of ~2.4 GB with Sentence Transformers.
+- Production: `deploy/docker-compose.prod.yml` (Caddy TLS proxy, daily database backups, restore script);
+  see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 - With no AI key configured, `LLM_PROVIDER=fixture` produces deterministic, rule-based edits that the
   UI labels **"Development fixture — not live AI"**. Set `LLM_PROVIDER=anthropic`,
   `ANTHROPIC_API_KEY` and `LLM_MODEL` (the provider's model ID), or the `openai` equivalents, to use a real model; users must consent before any resume text is sent.
@@ -89,16 +91,23 @@ Verification emails print to the API console when `EMAIL_BACKEND=console`.
 ```bash
 cd backend
 ruff check app eval tests
-pytest                                                  # SQLite — 212 tests
+pytest                                                  # SQLite — about 300 tests
 TEST_DATABASE_URL=postgresql+psycopg://ri:ri@localhost:<port>/ri pytest   # PostgreSQL
-python -m eval.run_eval --split all                     # synthetic evaluation report -> eval/reports/
+python -m eval.run_eval --split all                     # small hand-written synthetic set -> eval/reports/
+python -m eval.run_eval_v2                              # 108 generated resumes, 18 profiles, 5 layouts, 36 JDs
+python -m eval.real.run_real                            # public labelled datasets + live job postings (downloads to var/)
 cd ../frontend && npm run lint && npx tsc --noEmit && npm run build
 node e2e/overflow-check.mjs                             # no sideways scrolling on any page (needs the app running)
+node e2e/full-scenarios.mjs                             # 289 end-to-end scenarios (needs the app + Mailpit running)
 ```
 
 CI is defined in `.github/workflows/ci.yml` (lint, tests on SQLite and PostgreSQL, migration
-round-trip, evaluation, `pip-audit`, `npm audit`, image builds, Trivy scans). The causes of the
-earlier failures are fixed locally (see below); a green run is confirmed once these changes are pushed.
+round-trip, evaluation, `pip-audit`, `npm audit`, image builds, Trivy scans) and is green on `main`.
+
+**Model accuracy (2026-11, after improvements):** synthetic data: skill F1 0.998, correct role first 99%,
+job-ad skills F1 0.997, ranking nDCG@10 0.978. Real data: skill F1 0.83, correct role first 68% (was 40%),
+live job-ad required skills F1 0.83 (was 0.75) and years 83% (was 57%); resume–job fit AUC 0.53 on a
+noisy public dataset where even a trained model reaches 0.61. Details: [docs/EVALUATION_REPORT_2026-11.md](docs/EVALUATION_REPORT_2026-11.md).
 
 ## Documentation
 
@@ -108,6 +117,7 @@ earlier failures are fixed locally (see below); a green run is confirmed once th
 | [docs/SCORING.md](docs/SCORING.md) | Rubric, recommender and JD-matching formulas; what the numbers do and do not mean |
 | [docs/SECURITY_PRIVACY.md](docs/SECURITY_PRIVACY.md) | Threat model, controls, AI data disclosure, retention, deletion |
 | [docs/EVALUATION.md](docs/EVALUATION.md) | Evaluation workflow, current synthetic results, protocol for consented real data |
+| [docs/EVALUATION_REPORT_2026-11.md](docs/EVALUATION_REPORT_2026-11.md) | Synthetic vs real-data accuracy comparison, whole-system test results, weaknesses found |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production deployment, configuration, backup/restore, operations runbook |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Operational dependencies and known limitations |
 | [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) | Hindi/Gujarati interface: glossary, terms to review, adding a language |
@@ -181,62 +191,86 @@ Round 1 (2026-11-08) — text matching:
 
 ### Repository and CI
 
-- [ ] **H** All work is committed on branch `fix/review-round-1` but not yet pushed or merged into `main`; CI has not run on it yet.
-- [ ] **L** No LICENSE or CONTRIBUTING file; frontend dependencies use caret ranges.
+- [x] **H** Review rounds 1–4 merged into `main` (PR #1); CI green including both image scans.
+- [x] **L** `e2e/smoke.mjs` regex fixed; `e2e/features-v2.mjs` accepts a recruiter or admin account and no longer races the bulk-upload list.
+- [x] **L** Flaky AI-editor test: an item id made only of digits (about 1 in 110) was scrubbed as a phone number;
+  ids are now left alone and the test is deterministic.
+- [ ] **L** No LICENSE or CONTRIBUTING file (licence choice is the owner's); frontend dependencies use caret ranges.
 
 ### Security and privacy
 
-- [ ] **M** Resume content, AI suggestions, cover letters and bulk-upload results are stored unencrypted in the
-  database (only raw text and files are encrypted).
-- [ ] **M** Without `ENCRYPTION_KEYS`, the encryption key comes from `SECRET_KEY`, so changing `SECRET_KEY` makes
-  every stored file unreadable (docs say otherwise).
-- [ ] **L** PDF page counting runs inside the API process; bulk upload parses up to 25 files in one request.
-- [ ] **L** Registration says "email already in use" (account enumeration).
-- [ ] **L** Turning on 2FA doesn't sign out other sessions; Google login puts the 2FA token in the URL.
-- [ ] **L** Unverified accounts are never deleted (`UNVERIFIED_ACCOUNT_RETENTION_DAYS` is unused).
+- [x] **M** Resume content, extraction fields, AI suggestions, cover letters and application results are encrypted
+  at rest (migration 0005, safe to re-run; stop the app while it runs). Cached analysis/match results and tracker
+  notes are not encrypted yet (documented).
+- [x] **M** Production requires valid `ENCRYPTION_KEYS`; decryption also accepts the key derived from `SECRET_KEY`
+  and `ENCRYPTION_FALLBACK_SECRET_KEYS`, so changing keys no longer orphans data. Docs corrected.
+- [x] **L** The API process no longer opens PDFs (page counting runs in the sandbox/worker); bulk upload has a time budget.
+- [x] **L** Registration answers the same for new and existing emails; the existing owner gets an email instead.
+- [x] **L** Common-password check normalises the password ("P@ssw0rd2024!" → "password") and now rejects common ones.
+- [x] **L** Turning 2FA on/off or regenerating codes signs out other sessions; Google login passes the 2FA step in an HttpOnly cookie.
+- [x] **L** Unverified accounts are deleted after `UNVERIFIED_ACCOUNT_RETENTION_DAYS`.
 
 ### Scoring and backend logic
 
-- [ ] **M** Resume retention deletes the whole resume (versions, applications, recruiter notes) after 365 days
-  from upload, even if it is in active use.
-- [ ] **M** One Celery time limit (75 s) for every task; the nightly retention sweep commits once at the end, so a
-  large sweep can be killed and roll back every night.
-- [ ] **M** `docs/EVALUATION.md` overstates: skill P/R 1.0 only measures skills-section strings, role metrics use
-  ground-truth content rather than extracted content, and the tier thresholds have no script behind them.
-- [ ] **L** "Required coverage" is computed three different ways (rubric, recommender, openings); the role
-  leaderboard order includes a hidden +5/+3 preference adjustment.
-- [ ] **L** A prose-only JD is scored on semantic similarity alone; a missing score shows as "Not a match".
-- [ ] **L** Concurrent apply/save returns 500 instead of 409; recruiter candidate lists aren't paginated;
-  processing-job rows are never purged.
-- [ ] **L** JD-match cache key ignores the taxonomy version; applications aren't rescored when the matcher changes.
+- [x] **M** Retention counts from the resume's last activity and never deletes a resume with an open application.
+- [x] **M** Per-task Celery time limits; the retention sweep commits every 200 rows and stops cleanly.
+- [x] **M** `docs/EVALUATION.md` rewritten: three evaluation sets, v1's overstated numbers marked historical, score bands checked by a calibration table.
+- [x] **M** Downloading a deleted file returns 404 on S3/SeaweedFS (missing keys raise `FileNotFoundError`).
+- [x] **M** Extraction never exceeds schema limits (over-long fields are clipped and reported; bullets over 800
+  characters no longer crash extraction).
+- [x] **H** Text without line-separated headings: structure is recovered (glued headings, run-on sentences, dates)
+  and evidence still points at the original text; text with no sections at all keeps its skills as "mentioned".
+  Real resumes with jobs extracted: 0% → 99%; correct role first 40% → 68%.
+- [x] **M** JD parsing: many more headings, boilerplate skipped, headline years = main requirement, recency windows
+  ignored, better titles, prose sentences read for importance and years, flattened JDs repaired. Live postings:
+  required-skill F1 0.75 → 0.83, years accuracy 0.57 → 0.83.
+- [x] **M** Title/employer no longer swapped for non-tech titles; B.Ed, B.Des, MBBS, LLB, B.Pharm recognised.
+- [ ] **M** JD titles on real postings are still weak (matches the posting's own title 14% of the time).
+- [x] **L** Skill matcher finds "Dockerfiles", "ES6 and React", "to Spark", "R and Python" while everyday words stay prose.
+- [ ] **L** Non-English headings (Spanish, German) lose all structure; a text PDF under 40 characters is rejected as
+  unreadable; Wingdings-style bullets that come out of PDFs as "n " break entries.
+- [x] **L** One coverage rule everywhere (shown in work 1, listed only 0.5); the preference boost is shown as a badge.
+- [x] **L** A JD with nothing checkable is marked `basis: similarity_only`; a missing score shows "Not enough information".
+- [x] **L** Races return 409; recruiter candidate lists are paginated; finished processing jobs are purged after 30 days.
+- [x] **L** JD-match cache key includes the taxonomy version; stale openings and applications are re-read and rescored
+  nightly (and JDs parsed by an older matcher are re-read on match).
+- [ ] **M** Score bands: on synthetic data the "Good match" band (40–59) holds more unrelated pairs (55%) than
+  related ones; thresholds need recalibration on real labels.
 
 ### Screens and experience
 
-- [ ] **M** Developer details shown to users: AI cost "$0.0000", "Development fixture", raw browser strings,
-  rubric weights, "no job-listings provider is configured" (model names in role explanations: fixed).
-- [ ] **M** Hindi/Gujarati: analysis results, role names and dates stay in English; translations need native review.
-- [ ] **M** Phones: the active resume tab can be off-screen; the improvements table is cut off.
-- [ ] **M** Form errors only say "Some fields are invalid" without saying which field.
-- [ ] **M** Closed openings still show tips and a Re-apply button that fails.
-- [ ] **M** Every page has the same browser-tab title.
-- [ ] **M** Editor preview is squeezed into ~250 px under the section-order controls.
-- [ ] **L** A wrong resume link shows "Something went wrong" with Retry instead of "not found"; destructive actions
-  use the browser's plain confirm dialog; "Rank openings" is active when there are none.
-- [ ] **L** Copy: "Hello" without the user's name, titles taken from file names ("p02"), "1 of 5 bullets are",
-  landing page never mentions HR firms.
-- [ ] **L** Accessibility: skipped heading levels, editor tabs without arrow-key support, low-contrast disabled tabs.
-- [ ] **L** Code: all three language files load for every user; static data refetched on each tab switch;
-  saved cover letters can't be reopened; interview list shows sessions from all resumes.
+- [x] **M** Developer details hidden from candidates (AI cost, model/provider, rubric weights and versions, raw
+  browser strings, "provider not configured"); recruiters and admins still see them. Fixture badge: "Sample response — not live AI".
+- [x] **M** Hindi/Gujarati: dates and numbers follow the language; role names, seniority, rubric categories and other
+  fixed labels are translated (`messages/terms.ts`). Free text written by the backend stays English.
+- [ ] **M** Hindi/Gujarati translations still need review by native speakers (list in docs/TRANSLATIONS.md).
+- [x] **M** Phones: the active resume tab scrolls into view; improvements show as cards on small screens.
+- [x] **M** Form errors name the field and the problem ("Education 1 › Degree — …").
+- [x] **M** Closed openings: badge and explanation, no tips or re-apply; withdraw still works.
+- [x] **M** Every page has its own translated browser-tab title.
+- [x] **M** Editor: section order collapsed, preview gets the width.
+- [x] **L** Wrong links show "not found"; all destructive actions use an accessible in-app confirm dialog;
+  "Rank openings" is disabled with a reason when there are none.
+- [x] **L** Copy: greeting uses the first name, file-name titles ("p02") show "Untitled resume", correct singular/plural,
+  landing page has a section for HR and recruitment firms.
+- [x] **L** Accessibility: heading levels, arrow-key tabs, full-contrast disabled tabs with a lock icon.
+- [x] **L** Only the active language is sent to the browser; static data cached; saved cover letters reopen;
+  interview list filtered to the current resume.
 
 ### Deployment and operations
 
-- [ ] **M** No production deployment files: `deploy/` only has the SeaweedFS config; compose hard-codes
-  `ENV=development`; no TLS proxy, secret management or backup jobs.
-- [ ] **M** Compose ignores most of `.env` (no `env_file`); no restart policies or resource limits; the S3
-  identity has Admin rights and a dev secret.
-- [ ] **M** Metrics from Celery workers are never exposed, and the API's two workers each report their own counters.
-- [ ] **L** Settings `.env.example` is missing several variables; `LEARNING_RESOURCES_PROVIDER` default differs from code.
-- [ ] **L** API image is 2.7 GB and includes tests/eval; base images are not digest-pinned.
+- [x] **M** Production deployment files: `deploy/docker-compose.prod.yml` (ENV=production, Caddy with automatic
+  HTTPS, internal data network, read-only app containers, secrets from a git-ignored env file / Docker secret),
+  daily verified `pg_dump` backups with retention, and a checksum-verified restore script.
+- [x] **M** Compose reads `.env`; restart policies and resource limits everywhere; SeaweedFS identities built from
+  env, the app key limited to its bucket (it can still list bucket names).
+- [x] **M** Metrics: API workers report combined counters (multiprocess mode); the Celery worker has its own
+  token-protected exporter.
+- [x] **L** `.env.example` lists every setting with the code default; a test catches drift.
+- [x] **L** API image 2.64 → 2.35 GB (tests/eval excluded, torch build leftovers removed); all base images digest-pinned.
+- [ ] **L** Owner decisions before going live: domain and ACME email, an off-site backup bucket (dumps stay on
+  the host by default), whether to encrypt dumps, backup retention (14 days) in the privacy notice, managed S3 vs
+  self-hosted SeaweedFS (uploaded files are not backed up on a schedule yet).
 
 ### Already checked and sound
 

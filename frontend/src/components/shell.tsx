@@ -4,11 +4,12 @@ import { Briefcase, Building2, FileText, GraduationCap, KeyRound, LayoutDashboar
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { ConfirmProvider } from "./confirm";
+import { LanguageSwitcher } from "./language-switcher";
+import { Alert, cx, LoadingBlock } from "./ui";
 import { api, ApiError, MFA_REQUIRED_EVENT } from "@/lib/api";
 import { useI18n, useT, type MessageKey } from "@/lib/i18n";
 import type { User } from "@/lib/types";
-import { LanguageSwitcher } from "./language-switcher";
-import { Alert, cx, LoadingBlock } from "./ui";
 
 interface Ctx {
   user: User;
@@ -21,6 +22,13 @@ export function useUser() {
   const c = useContext(UserCtx);
   if (!c) throw new Error("useUser outside AppShell");
   return c;
+}
+
+/** HR staff and admins may see technical details (model names, costs, rubric versions) that candidates
+    don't need. */
+export function useIsStaff() {
+  const c = useContext(UserCtx);
+  return c?.user.role === "recruiter" || c?.user.role === "admin";
 }
 
 export function Logo({ className }: { className?: string }) {
@@ -93,6 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <UserCtx.Provider value={{ user, refreshUser, setUser }}>
+      <ConfirmProvider>
       <header className="sticky top-0 z-30 border-b border-line bg-paper/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
           <Logo />
@@ -146,6 +155,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden /> {t("shell.disclaimer")}
         </p>
       </footer>
+      </ConfirmProvider>
     </UserCtx.Provider>
   );
 }

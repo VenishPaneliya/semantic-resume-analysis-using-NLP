@@ -4,6 +4,7 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Empty, ErrorState, Field, fmtDate, LoadingBlock, Section } from "@/components/ui";
+import { isKnownRole, roleTitle as roleName } from "@/lib/labels";
 import { useApi } from "@/lib/hooks";
 import { useT, type MessageKey } from "@/lib/i18n";
 import type { HistoryPoint, ResumeHistory, RoleLeaderboard } from "@/lib/types";
@@ -29,8 +30,9 @@ export default function ProgressPage() {
   const roleId = role || defaultRole;
   const h = useApi<ResumeHistory>(versionId && roles.data ? `/api/resumes/${resume.id}/history${roleId ? `?role_id=${encodeURIComponent(roleId)}` : ""}` : null);
 
-  if (!versionId) return <Empty title={t("resume.confirmFirst")}>{t("progress.emptyBody")}</Empty>;
-  const roleTitle = roles.data?.rows.find((r) => r.role_id === roleId)?.title ?? t("progress.targetRole");
+  if (!versionId) return <Empty level={2} title={t("resume.confirmFirst")}>{t("progress.emptyBody")}</Empty>;
+  const roleRow = roles.data?.rows.find((r) => r.role_id === roleId);
+  const roleTitle = roleRow ? roleName(t, roleRow.role_id, roleRow.title) : t("progress.targetRole");
 
   return (
     <div className="space-y-6">
@@ -42,8 +44,8 @@ export default function ProgressPage() {
             <Field label={t("progress.targetRole")} id="hist-role">
               <select id="hist-role" className="input" value={roleId} onChange={(e) => setRole(e.target.value)}>
                 {roles.data?.rows.map((r) => (
-                  <option key={r.role_id} value={r.role_id} lang="en">
-                    {r.title}
+                  <option key={r.role_id} value={r.role_id} lang={isKnownRole(r.role_id) ? undefined : "en"}>
+                    {roleName(t, r.role_id, r.title)}
                   </option>
                 ))}
               </select>
@@ -82,7 +84,7 @@ export default function ProgressPage() {
                       <th scope="col" className="py-1.5 pr-3">{t("progress.col.version")}</th>
                       <th scope="col" className="py-1.5 pr-3">{t("progress.col.saved")}</th>
                       <th scope="col" className="py-1.5 pr-3 text-right">{t("progress.col.quality")}</th>
-                      <th scope="col" className="py-1.5 pr-3 text-right" lang="en">{roleTitle}</th>
+                      <th scope="col" className="py-1.5 pr-3 text-right">{roleTitle}</th>
                     </tr>
                   </thead>
                   <tbody>

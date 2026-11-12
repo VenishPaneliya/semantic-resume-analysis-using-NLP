@@ -22,8 +22,29 @@ Runbook entries:
 - **LLM outage:** `ri_llm_calls_total{outcome="error"}` rises; set `LLM_PROVIDER=disabled` to stop calls
   cleanly — the UI shows AI as unavailable and everything else keeps working.
 - **Cost spike:** lower `AI_REQUESTS_PER_DAY` / `AI_MONTHLY_COST_LIMIT_USD`; usage per provider is on the admin dashboard.
+- **Backups failing:** the `db-backup` container is unhealthy when no dump succeeded for 26 h;
+  `docker compose -f deploy/docker-compose.prod.yml logs db-backup` shows the error (database unreachable,
+  disk full). Restore procedure: DEPLOYMENT.md, "Restore (compose stack)".
+- **Certificate problems:** `docker compose -f deploy/docker-compose.prod.yml logs caddy`; DNS must point at the
+  host and ports 80/443 must be open. Certificates are kept in the `caddy_data` volume.
+- **Container restarted on its memory limit** (`docker inspect <container> --format '{{.State.OOMKilled}}'`):
+  raise the `deploy.resources.limits.memory` of that service, or lower `--concurrency` / `WEB_CONCURRENCY`.
 - **Key rotation:** prepend a new key to `ENCRYPTION_KEYS`, deploy; data is re-encrypted lazily on write
-  (old keys stay for reads). Session secret rotation (`SECRET_KEY`) invalidates download links and OAuth state only.
+  (old keys stay for reads, so never remove a key that still protects data). Rotating `SECRET_KEY` does not
+  touch encrypted data **when `ENCRYPTION_KEYS` is set** (always in production), but it invalidates download
+  links, Google sign-in state and everyone's 2FA **recovery codes** (keyed hashes; users must generate new
+  ones), and audit-log IP hashes stop matching older entries. To keep them (and, without `ENCRYPTION_KEYS`,
+  the data key derived from `SECRET_KEY`) working, put the old value in `ENCRYPTION_FALLBACK_SECRET_KEYS`.
+- **"Unable to decrypt stored data" after an upgrade (development):** the effective `SECRET_KEY` changed and
+  no `ENCRYPTION_KEYS` is set. The old compose default (`dev-insecure-change-me-dev-insecure-change-me`) and
+  the config default are accepted automatically outside production; any other earlier value must be listed
+  in `ENCRYPTION_FALLBACK_SECRET_KEYS`. Better: set `ENCRYPTION_KEYS` and keep `SECRET_KEY` fixed in `.env`.
+- **Retention sweep stopped by its time limit:** each batch of 200 rows is committed, so finished work stays
+  done and the next nightly run continues; `retention.time_limit` is logged. Run it by hand with
+  `celery -A app.worker.celery_app call ri.retention_sweep` if a backlog built up.
+- **Worker time limits:** parse/export jobs 75 s soft / 105 s hard (`PARSE_TIMEOUT_SECONDS` + 30 / + 60),
+  stale-job recovery 60/90 s, queue gauge 20/30 s, job alerts 10/11 min, retention sweep 55/60 min
+  (`app/worker/tasks.py`).
 
 ## Known limitations
 
@@ -62,7 +83,9 @@ Runbook entries:
 **Platform**
 - Resource limits for the parser child process (CPU, memory, file descriptors) are enforced on Linux/macOS;
   on Windows only the wall-clock timeout applies. Production containers run on Linux.
-- Prometheus metrics are per process.
+- Prometheus metrics are per container (all processes of one api or worker container are added up); with
+  several replicas, sum across scrape targets. The worker's metrics files grow by one per recycled pool child
+  until the container restarts (small sparse files; restarting clears them).
 - Google OAuth is implemented with Authlib but was not exercised end-to-end (requires real client credentials).
 - Job alerts are evaluated when an opening is posted or reopened, by scanning opted-in users; fine for
   thousands of users, but a large deployment should move this to a batched/indexed job.

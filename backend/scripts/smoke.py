@@ -56,6 +56,8 @@ def main() -> None:
         print("FAIL no verification email")
         sys.exit(1)
     call("POST", "/api/auth/verify-email", json={"token": token})
+    # registration never signs in (it must not reveal whether an address is registered)
+    call("POST", "/api/auth/login", json={"email": email, "password": "Smoke-test-pass-42"})
 
     persona = {p["id"]: p for p in load()["personas"]}["p03"]
     _, pdf = render(persona, "A")

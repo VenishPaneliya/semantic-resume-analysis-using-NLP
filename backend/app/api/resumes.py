@@ -129,6 +129,20 @@ class ReviewIn(BaseModel):
     label: str | None = Field(default="Confirmed extraction", max_length=120)
 
 
+def _title_from_filename(r: Resume) -> bool:
+    """True when the title is still the one made from the file name at upload ("p02.pdf" -> "p02")."""
+    stem = (r.original_filename or "").rsplit(".", 1)[0][:200]
+    return r.title in (stem, (r.original_filename or "")[:200])
+
+
+def suggested_title(content: ResumeContent) -> str | None:
+    """A readable title from the confirmed content: "Asha Rao — Backend Engineer", or either part."""
+    name = (content.contact.name or "").strip()
+    role = next(((e.title or "").strip() for e in content.experience if (e.title or "").strip()), "")
+    title = " — ".join(x for x in (name, role) if x)
+    return title[:200] or None
+
+
 @router.put("/resumes/{resume_id}/review")
 def confirm_review(resume_id: str, body: ReviewIn, user: User = Depends(verified_user), db: Session = Depends(get_db)):
     """User-reviewed (and possibly corrected) extraction becomes confirmed version 1.
@@ -140,6 +154,8 @@ def confirm_review(resume_id: str, body: ReviewIn, user: User = Depends(verified
         raise err(409, "already_confirmed", "This resume already has a confirmed version; edit it in the editor.")
     v = create_version(db, r, body.content, source="extracted", label=body.label)
     r.status = "ready"
+    if _title_from_filename(r):
+        r.title = suggested_title(body.content) or r.title
     audit(db, "resume.confirmed", user.id, "resume", r.id)
     db.commit()
     return {"version_id": v.id, "number": v.number}

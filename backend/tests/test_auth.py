@@ -3,17 +3,50 @@ from __future__ import annotations
 from conftest import PASSWORD, Api, _token_from_outbox
 
 
-def test_register_sets_httponly_session_and_requires_verification(app):
+def test_register_starts_no_session_and_login_sets_httponly_cookie(app):
     api = Api(app)
     r = api.post("/api/auth/register", json={"email": "a@example.com", "password": PASSWORD})
-    assert r.status_code == 201
-    cookies = r.headers.get_list("set-cookie")
-    session_cookie = next(c for c in cookies if c.startswith("ri_session="))
+    assert r.status_code == 201 and r.json()["status"] == "verification_sent"
+    assert not any(c.startswith("ri_session=") for c in r.headers.get_list("set-cookie"))
+    assert api.get("/api/auth/me").status_code == 401
+    r = api.post("/api/auth/login", json={"email": "a@example.com", "password": PASSWORD})
+    session_cookie = next(c for c in r.headers.get_list("set-cookie") if c.startswith("ri_session="))
     assert "HttpOnly" in session_cookie and "SameSite=lax" in session_cookie
     assert r.json()["email_verified"] is False
     # unverified users cannot upload
     r = api.post("/api/resumes", files={"file": ("r.pdf", b"%PDF-1.4", "application/pdf")})
     assert r.status_code == 403 and r.json()["detail"]["code"] == "email_not_verified"
+
+
+def test_register_does_not_reveal_existing_accounts(make_user, app):
+    from app.services import email as email_mod
+
+    make_user("taken@example.com")
+    email_mod.OUTBOX.clear()
+    new = Api(app).post("/api/auth/register", json={"email": "fresh@example.com", "password": PASSWORD})
+    dup = Api(app).post("/api/auth/register", json={"email": "Taken@Example.com", "password": "Different-pass-91"})
+    assert new.status_code == dup.status_code == 201 and new.json() == dup.json()
+    assert [c.split("=")[0] for c in new.headers.get_list("set-cookie")] == [c.split("=")[0] for c in dup.headers.get_list("set-cookie")]
+    # the owner is told by email instead; the account itself is untouched
+    notice = next(m for m in email_mod.OUTBOX if m.to == "taken@example.com")
+    assert "already has an account" in notice.body and "token=" not in notice.body
+    assert Api(app).post("/api/auth/login", json={"email": "taken@example.com", "password": PASSWORD}).status_code == 200
+    assert Api(app).post("/api/auth/login", json={"email": "taken@example.com", "password": "Different-pass-91"}).status_code == 401
+
+
+def test_common_passwords_are_rejected_even_when_long():
+    from app.security.passwords import password_problems
+
+    for pw in ("password123", "qwerty12345", "Password1234", "1234567890", "iloveyou123", "P@ssw0rd2024!", "Welcome@2025",
+               "passwordpassword1", "Admin1234567", "aaaaaaaaaa1"):
+        assert any("common" in p for p in password_problems(pw)), pw
+    for pw in (PASSWORD, "Another-strong-77", "Tr0ub4dor&3x-river", "blue-kettle-1987"):
+        assert password_problems(pw) == [], pw
+
+
+def test_register_rejects_common_password(app):
+    r = Api(app).post("/api/auth/register", json={"email": "c1@example.com", "password": "Password1234"})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "weak_password"
 
 
 def test_weak_password_rejected(app):

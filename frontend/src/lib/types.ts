@@ -277,7 +277,11 @@ export interface CandidateRow {
   years: number | null; notes: number; applied_at: string; updated_at: string; stage_changed_at: string | null; expires_at: string | null;
 }
 export interface CandidateFilters { must_have: string[]; min_years: number | null; min_score: number | null; stage: ApplicationStage[]; source: CandidateSource | null }
-export interface CandidateList { opening: Opening; candidates: CandidateRow[]; total: number; filters: CandidateFilters; stages: ApplicationStage[]; note: string }
+export interface CandidateList {
+  opening: Opening; candidates: CandidateRow[]; filters: CandidateFilters; stages: ApplicationStage[]; note: string;
+  /** all applicants for the opening; `matched` = those passing the filters; `candidates` is one page of them */
+  total: number; matched: number; limit: number; offset: number; has_more: boolean;
+}
 export interface Note { id: string; text: string; author: string; author_id: string | null; created_at: string }
 export interface RecruiterApplication {
   id: string; opening_id: string; name: string; email: string | null; source: CandidateSource; score: number; tier: Tier; stage: ApplicationStage;

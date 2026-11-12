@@ -1,18 +1,22 @@
 "use client";
 
-/* Client i18n: <I18nProvider> holds the current locale, useT() returns a typed `t`.
+/* Client i18n: <I18nProvider> holds the current locale and its messages, useT() returns a typed `t`.
    The interface is translated; resume content and every text that comes from the API stays in English.
 
    t("dash.title")                          -> string
    t("dash.pages", { count: 3 })            -> plural form picked by count, "{count}" filled in
    t.rich("landing.hero", { em: (c) => <em>{c}</em> })  -> ReactNode with <em>…</em> tags mapped to elements
 
-   The choice is stored in localStorage and in a cookie (so the server can render <html lang> and the
-   first paint in the right language). URLs do not change. */
+   Only the active language's messages reach the browser: the root layout (a server component) reads the
+   locale cookie and passes that one dictionary in as a prop. This file must never import the catalogs
+   themselves (only their types), or every language would be bundled for every visitor again.
+   Switching language stores the choice in a cookie and refreshes the server components, which send the
+   new dictionary. URLs do not change. */
 
-import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { dictionaries, type MessageKey } from "@/messages";
-import { DEFAULT_LOCALE, formatMessage, isLocale, LOCALE_COOKIE, LOCALE_STORAGE_KEY, type Locale, type Vars } from "./i18n-core";
+import { useRouter } from "next/navigation";
+import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useTransition, type ReactNode } from "react";
+import { formatMessage, isLocale, LOCALE_COOKIE, LOCALE_STORAGE_KEY, type Locale, type Vars } from "./i18n-core";
+import type { Dictionary, MessageKey } from "@/messages";
 
 export { LOCALES, LOCALE_NAMES, type Locale } from "./i18n-core";
 export type { MessageKey } from "@/messages";
@@ -23,10 +27,8 @@ export interface TFunction {
   rich: (key: MessageKey, tags: RichTags, vars?: Vars) => ReactNode;
 }
 
-function makeT(locale: Locale): TFunction {
-  const dict = dictionaries[locale];
-  const fallback = dictionaries[DEFAULT_LOCALE];
-  const t = ((key: MessageKey, vars?: Vars) => formatMessage(locale, dict[key] ?? fallback[key], vars)) as TFunction;
+function makeT(locale: Locale, dict: Dictionary): TFunction {
+  const t = ((key: MessageKey, vars?: Vars) => formatMessage(locale, dict[key] ?? key, vars)) as TFunction;
   t.rich = (key, tags, vars) => {
     const s = t(key, vars);
     const out: ReactNode[] = [];
@@ -46,12 +48,19 @@ function makeT(locale: Locale): TFunction {
   return t;
 }
 
-/* Module-level copy of the browser's current locale, for the few non-React places that produce
-   user-facing text (e.g. network errors in lib/api.ts). Only ever set in the browser. */
-let browserLocale: Locale = DEFAULT_LOCALE;
-/** Translate outside React (browser only; falls back to English on the server). */
+/* Module-level copy of the browser's current locale and translator, for the few non-React places that
+   produce user-facing text (network errors in lib/api.ts, dates in components/ui.tsx). Only set in the
+   browser; on the server these fall back to English / the browser default. */
+let browserLocale: Locale | null = null;
+let browserT: TFunction | null = null;
+
+/** Translate outside React (browser only). Returns the key itself before the provider has mounted. */
 export function translateNow(key: MessageKey, vars?: Vars): string {
-  return makeT(typeof window === "undefined" ? DEFAULT_LOCALE : browserLocale)(key, vars);
+  return browserT ? browserT(key, vars) : key;
+}
+/** The active locale outside React (browser only; null on the server). */
+export function currentLocale(): Locale | null {
+  return browserLocale;
 }
 
 function persist(locale: Locale) {
@@ -70,17 +79,24 @@ function persist(locale: Locale) {
 interface Ctx {
   locale: Locale;
   setLocale: (l: Locale) => void;
+  /** true while the newly chosen language's messages are being fetched */
+  switching: boolean;
   t: TFunction;
 }
 const I18nCtx = createContext<Ctx | null>(null);
 
-export function I18nProvider({ initialLocale, children }: { initialLocale: Locale; children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+export function I18nProvider({ locale, messages, children }: { locale: Locale; messages: Dictionary; children: ReactNode }) {
+  const router = useRouter();
+  const [switching, startTransition] = useTransition();
 
-  const setLocale = useCallback((l: Locale) => {
-    setLocaleState(l);
-    persist(l);
-  }, []);
+  const setLocale = useCallback(
+    (l: Locale) => {
+      persist(l);
+      // re-render the server components: the root layout reads the new cookie and sends that dictionary
+      startTransition(() => router.refresh());
+    },
+    [router],
+  );
 
   // The cookie decides the server render. If it was lost but localStorage still remembers a choice, restore it.
   useEffect(() => {
@@ -90,16 +106,24 @@ export function I18nProvider({ initialLocale, children }: { initialLocale: Local
     } catch {
       stored = null;
     }
-    if (isLocale(stored) && stored !== initialLocale) setLocale(stored);
-    else persist(initialLocale);
-  }, [initialLocale, setLocale]);
+    if (isLocale(stored) && stored !== locale) setLocale(stored);
+    else persist(locale);
+    // only on first mount: later changes come from setLocale itself
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const t = useMemo(() => makeT(locale, messages), [locale, messages]);
+  if (typeof window !== "undefined") {
+    // set during render so dates/errors formatted in this same render already use the new language
+    browserLocale = locale;
+    browserT = t;
+  }
 
   useEffect(() => {
-    browserLocale = locale;
     document.documentElement.lang = locale;
   }, [locale]);
 
-  const value = useMemo(() => ({ locale, setLocale, t: makeT(locale) }), [locale, setLocale]);
+  const value = useMemo(() => ({ locale, setLocale, switching, t }), [locale, setLocale, switching, t]);
   return <I18nCtx.Provider value={value}>{children}</I18nCtx.Provider>;
 }
 

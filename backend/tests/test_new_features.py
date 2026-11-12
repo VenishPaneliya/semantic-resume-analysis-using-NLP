@@ -279,6 +279,79 @@ def test_two_factor_login_replay_and_recovery(make_user, app):
     assert "mfa_required" not in plain
 
 
+def _second_login(app, email):
+    api = Api(app)
+    r = api.post("/api/auth/login", json={"email": email, "password": PASSWORD})
+    assert r.status_code == 200 and "mfa_required" not in r.json(), r.text
+    return api
+
+
+def test_two_factor_changes_sign_out_other_sessions(make_user, app):
+    import time
+
+    from app.security import totp
+    from app.security.ratelimit import reset_rate_limits
+
+    api = make_user("mfa-sessions@example.com")
+    other = _second_login(app, "mfa-sessions@example.com")
+    secret, codes = _enable_mfa(api)
+    assert api.get("/api/auth/me").status_code == 200, "the session that turned 2FA on stays signed in"
+    assert other.get("/api/auth/me").status_code == 401, "a password-only session is signed out"
+
+    # new recovery codes also sign out other sessions
+    third = Api(app)
+    t = third.post("/api/auth/login", json={"email": "mfa-sessions@example.com", "password": PASSWORD}).json()["mfa_token"]
+    assert third.post("/api/auth/login/mfa", json={"mfa_token": t, "code": codes[0]}).status_code == 200
+    step = int(time.time() // 30) + 1
+    r = api.post("/api/account/2fa/recovery-codes", json={"code": totp.code_at(secret, step)})
+    assert r.status_code == 200 and r.json()["other_sessions_signed_out"] is True
+    assert third.get("/api/auth/me").status_code == 401 and api.get("/api/auth/me").status_code == 200
+
+    # and so does turning it off
+    reset_rate_limits()
+    fourth = Api(app)
+    t = fourth.post("/api/auth/login", json={"email": "mfa-sessions@example.com", "password": PASSWORD}).json()["mfa_token"]
+    new_codes = r.json()["recovery_codes"]
+    assert fourth.post("/api/auth/login/mfa", json={"mfa_token": t, "code": new_codes[0]}).status_code == 200
+    assert api.post("/api/account/2fa/disable", json={"password": PASSWORD, "code": new_codes[1]}).status_code == 200
+    assert fourth.get("/api/auth/me").status_code == 401 and api.get("/api/auth/me").status_code == 200
+
+
+def test_google_sign_in_keeps_the_second_step_token_out_of_the_url(make_user, app, monkeypatch):
+    from app.api import auth as auth_api
+    from app.config import get_settings
+
+    api = make_user("g-mfa@example.com")
+    _, codes = _enable_mfa(api)
+    s = get_settings()
+    monkeypatch.setattr(s, "google_client_id", "cid")
+    monkeypatch.setattr(s, "google_client_secret", "csecret")
+
+    class FakeGoogle:
+        async def authorize_access_token(self, request):
+            return {"userinfo": {"sub": "google-sub-1", "email": "g-mfa@example.com", "email_verified": True}}
+
+    class FakeOAuth:
+        google = FakeGoogle()
+
+    monkeypatch.setattr(auth_api, "_oauth", lambda: FakeOAuth())
+    browser = Api(app)
+    r = browser.c.get("/api/auth/google/callback", follow_redirects=False)
+    assert r.status_code == 302
+    loc = r.headers["location"]
+    assert loc.endswith("/login?mfa=google") and "token" not in loc
+    cookie = next(c for c in r.headers.get_list("set-cookie") if c.startswith(f"{auth_api.MFA_COOKIE}="))
+    assert "HttpOnly" in cookie and f"Path={auth_api.MFA_COOKIE_PATH}" in cookie and "Max-Age=300" in cookie
+    assert browser.get("/api/auth/me").status_code == 401, "no session before the second factor"
+    # the login page sends only the code; the token comes from the cookie
+    ok = browser.post("/api/auth/login/mfa", json={"code": codes[0]})
+    assert ok.status_code == 200, ok.text
+    assert browser.get("/api/auth/me").json()["email"] == "g-mfa@example.com"
+    assert any(c.startswith(f"{auth_api.MFA_COOKIE}=") and "Max-Age=0" in c for c in ok.headers.get_list("set-cookie"))
+    # without a token in the body or a cookie, the step fails cleanly
+    assert Api(app).post("/api/auth/login/mfa", json={"code": codes[1]}).json()["detail"]["code"] == "invalid_token"
+
+
 def test_staff_need_two_factor_when_enforced(make_user, monkeypatch):
     from app.config import get_settings
 

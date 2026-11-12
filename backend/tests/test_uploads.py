@@ -24,7 +24,6 @@ def _zip(entries: dict[str, bytes], compression=zipfile.ZIP_DEFLATED) -> bytes:
     ("r.exe", b"MZ\x90\x00", "application/octet-stream", "unsupported_type"),
     ("r.doc", b"\xd0\xcf\x11\xe0", "application/msword", "unsupported_type"),
     ("r.pdf", b"PK\x03\x04 not a pdf", "application/pdf", "bad_signature"),
-    ("r.pdf", b"%PDF-1.4\nthis is garbage\n%%EOF", "application/pdf", "corrupted_pdf"),
     ("r.pdf", b"%PDF-1.4 fake", "text/html", "mime_mismatch"),
     ("r.docx", b"%PDF-1.4", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "bad_signature"),
     ("r.docx", b"PK\x03\x04garbage", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "corrupted_docx"),
@@ -59,7 +58,7 @@ def test_rejects_macro_and_traversal_docx(make_user):
     assert r.json()["detail"]["code"] == "corrupted_docx"
 
 
-def test_rejects_encrypted_pdf(make_user, pdf_bytes):
+def _encrypted(pdf_bytes: bytes) -> bytes:
     from pypdf import PdfReader, PdfWriter
 
     w = PdfWriter()
@@ -68,13 +67,58 @@ def test_rejects_encrypted_pdf(make_user, pdf_bytes):
     w.encrypt(user_password="secret", owner_password="owner")
     buf = io.BytesIO()
     w.write(buf)
-    r = upload(make_user(), buf.getvalue())
-    assert r.status_code == 422 and r.json()["detail"]["code"] == "encrypted_pdf"
+    return buf.getvalue()
 
 
-def test_rejects_too_many_pages(make_user):
-    r = upload(make_user(), text_to_pdf("line\n" * 60 * 12))
-    assert r.json()["detail"]["code"] == "too_many_pages"
+def _failed_with(api, r, code: str) -> None:
+    """PDFs are opened only by the sandboxed parser (in the worker), so these fail the job, not the request."""
+    assert r.status_code == 202, r.text
+    body = api.get(f"/api/resumes/{r.json()['id']}").json()
+    assert body["status"] == "failed" and body["error_code"] == code, body
+    assert body["job"]["status"] == "failed" and body["job"]["attempts"] == 1, "not retried: the file won't change"
+
+
+@pytest.mark.parametrize("make_pdf,code", [
+    (lambda pdf: _encrypted(pdf), "encrypted_pdf"),
+    (lambda pdf: text_to_pdf("line\n" * 60 * 12), "too_many_pages"),
+    (lambda pdf: b"%PDF-1.4\nthis is garbage\n%%EOF", "corrupted_pdf"),
+])
+def test_pdf_limits_are_checked_by_the_sandboxed_parser(make_user, pdf_bytes, make_pdf, code):
+    api = make_user()
+    _failed_with(api, upload(api, make_pdf(pdf_bytes)), code)
+
+
+def test_api_process_never_opens_pdfs(monkeypatch, pdf_bytes):
+    import pypdf
+
+    from app.services.upload_validation import validate_upload
+
+    def boom(*a, **k):
+        raise AssertionError("the API process must not parse untrusted PDFs")
+
+    data = _encrypted(pdf_bytes)
+    monkeypatch.setattr(pypdf, "PdfReader", boom)
+    v = validate_upload("r.pdf", "application/pdf", data)
+    assert v.kind == "pdf" and v.page_count is None
+
+
+def test_jd_upload_rejects_long_and_encrypted_pdfs(make_user, pdf_bytes):
+    api = make_user()
+    for data, code in ((text_to_pdf("line\n" * 60 * 12), "too_many_pages"), (_encrypted(pdf_bytes), "encrypted_pdf")):
+        r = api.post("/api/job-descriptions/upload", files={"file": ("jd.pdf", data, "application/pdf")})
+        assert r.status_code == 422 and r.json()["detail"]["code"] == code, r.text
+
+
+def test_page_limit_check_runs_in_the_real_sandbox(monkeypatch):
+    """With PARSE_SANDBOX on (production), the page count comes from the child process."""
+    from app.config import get_settings
+    from app.services.openings import parse_uploaded_resume
+    from app.services.upload_validation import UploadRejected
+
+    monkeypatch.setattr(get_settings(), "parse_sandbox", True)
+    with pytest.raises(UploadRejected) as e:
+        parse_uploaded_resume("pdf", text_to_pdf("line\n" * 60 * 12), timeout=60)
+    assert e.value.code == "too_many_pages"
 
 
 def test_scanned_pdf_without_ocr_fails_gracefully_and_is_retryable_state(make_user):
@@ -209,3 +253,33 @@ def test_stored_files_are_encrypted_at_rest(make_user, pdf_bytes):
     upload(api, pdf_bytes)
     files = [p for p in Path(get_settings().local_storage_path).rglob("original.pdf")]
     assert files and not files[0].read_bytes().startswith(b"%PDF")
+
+
+def test_review_replaces_a_file_name_title_but_keeps_a_user_title(make_user, pdf_bytes):
+    api = make_user()
+    rid, _ = confirmed_version(api, pdf_bytes, name="p02.pdf")
+    r = api.get(f"/api/resumes/{rid}").json()
+    content = api.get(f"/api/resumes/{rid}/extraction").json()["content"]
+    expected = " — ".join(x for x in (content["contact"]["name"], content["experience"][0]["title"]) if x)
+    assert r["title"] == expected and r["title"] != "p02", r["title"]
+    up = api.post("/api/resumes", files={"file": ("p02.pdf", pdf_bytes, "application/pdf")}, data={"title": "My data CV"}).json()
+    ex = api.get(f"/api/resumes/{up['id']}/extraction").json()
+    assert api.put(f"/api/resumes/{up['id']}/review", json={"content": ex["content"]}).status_code == 200
+    assert api.get(f"/api/resumes/{up['id']}").json()["title"] == "My data CV"
+
+
+def test_bullet_findings_use_singular_and_plural_correctly():
+    from app.schemas.resume import ResumeContent
+    from app.services.analysis.rubric import analyse
+
+    def findings(bullets):
+        c = ResumeContent.model_validate({"contact": {"name": "A B", "email": "a@b.co"}, "experience": [
+            {"title": "Engineer", "organization": "Acme", "start": "2020-01", "end": "2022-01",
+             "bullets": [{"text": t} for t in bullets]}]})
+        return " ".join(f["message"] for cat in analyse(c)["categories"] for f in cat["findings"])
+
+    one = findings(["Did it", "Built a payment API in Python serving 2,000 merchants daily",
+                    "Reduced build time by 40% by caching Docker layers in CI"])
+    assert "1 of 3 bullets is very short" in one and "bullets are very short" not in one
+    two = findings(["Did it", "Ran it", "Reduced build time by 40% by caching Docker layers in CI"])
+    assert "2 of 3 bullets are very short" in two

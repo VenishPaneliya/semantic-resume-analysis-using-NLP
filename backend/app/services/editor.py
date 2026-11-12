@@ -7,11 +7,13 @@ from __future__ import annotations
 import difflib
 import json
 import re
+from datetime import timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Resume, ResumeVersion
+from app.config import get_settings
+from app.models import Resume, ResumeVersion, utcnow
 from app.schemas.resume import ResumeContent
 from app.security.crypto import sha256_hex
 
@@ -40,6 +42,8 @@ def create_version(
         content=data, content_hash=content_hash(data), target_role=target_role or resume.target_role, target_jd_id=target_jd_id,
     )
     db.add(v)
+    # retention counts from the last activity, so a resume in use is not deleted a year after upload
+    resume.retention_until = utcnow() + timedelta(days=get_settings().file_retention_days)
     db.flush()
     return v
 

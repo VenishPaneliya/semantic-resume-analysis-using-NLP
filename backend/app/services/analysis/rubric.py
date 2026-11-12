@@ -285,14 +285,18 @@ def analyse(content: dict | ResumeContent, extraction: dict | None = None, targe
             if not _is_action_verb(v) and not WEAK_OPENINGS.match(text.strip()):
                 weakverb.append(_ev(path, text))
 
-        def prop(rule, items, weight, label):
+        def prop(rule, items, weight, one, many):
+            # "1 of 5 bullets is ...", "2 of 5 bullets are ..."
             if items:
-                add(rule, f"{len(items)} of {n} bullets {label}.", items, points=weight * len(items) / n)
+                add(rule, f"{len(items)} of {n} bullets {one if len(items) == 1 else many}.", items,
+                    points=weight * len(items) / n)
 
-        prop("bullet_too_short", short, 30, "are very short (under 6 words)")
-        prop("bullet_too_long", long_, 25, "are long (over 35 words)")
-        prop("bullet_weak_opening", weak, 35, "open with duty phrases such as 'responsible for'")
-        prop("bullet_no_outcome", no_outcome, 30, "state a task without a result or purpose")
+        prop("bullet_too_short", short, 30, "is very short (under 6 words)", "are very short (under 6 words)")
+        prop("bullet_too_long", long_, 25, "is long (over 35 words)", "are long (over 35 words)")
+        prop("bullet_weak_opening", weak, 35, "opens with a duty phrase such as 'responsible for'",
+             "open with duty phrases such as 'responsible for'")
+        prop("bullet_no_outcome", no_outcome, 30, "states a task without a result or purpose",
+             "state a task without a result or purpose")
         empty_entries = [e for e in c.experience if not e.bullets] + [p for p in c.projects if not p.bullets]
         if empty_entries:
             add("few_bullets", f"{len(empty_entries)} entr{'y has' if len(empty_entries) == 1 else 'ies have'} no bullet points.",
@@ -302,12 +306,15 @@ def analyse(content: dict | ResumeContent, extraction: dict | None = None, targe
         share = 1 - len(unquant) / n
         target = 0.5
         if share < target:
-            add("low_quantification", f"{n - len(unquant)} of {n} bullets ({share:.0%}) include a number; the rubric target is {target:.0%}.",
+            k = n - len(unquant)
+            add("low_quantification", f"{k} of {n} bullets ({share:.0%}) {'includes' if k == 1 else 'include'} a number; "
+                f"the rubric target is {target:.0%}.",
                 unquant, points=100 * (1 - share / target))
         else:
             notes["quantification"].append(f"{share:.0%} of bullets include a number (target {target:.0%}).")
 
-        prop("weak_action_verbs", weakverb, 50, "do not begin with a recognised action verb")
+        prop("weak_action_verbs", weakverb, 50, "does not begin with a recognised action verb",
+             "do not begin with a recognised action verb")
         starters = Counter(_first_verb(t) for _, _, t in bullets if _first_verb(t) in ACTION_VERBS)
         rep = [(v, k) for v, k in starters.items() if k >= 3 and k / n > 0.25]
         for v, k in rep:
@@ -324,7 +331,7 @@ def analyse(content: dict | ResumeContent, extraction: dict | None = None, targe
                 [_ev(p, t) for p, _, t in bullets if any(r in t.lower() for r in reps)])
         fp = [_ev(p, t) for p, _, t in bullets if FIRST_PERSON.search(t)]
         if fp:
-            add("first_person", f"{len(fp)} bullets use first-person pronouns.", fp)
+            add("first_person", f"{len(fp)} {'bullet uses' if len(fp) == 1 else 'bullets use'} first-person pronouns.", fp)
 
     # ---------------- clarity
     texts = [(p, t) for p, _, t in bullets]
@@ -475,7 +482,7 @@ def role_keyword_coverage(c: ResumeContent, role_id: str) -> dict | None:
     role = tax.roles.get(role_id)
     if not role:
         return None
-    from app.services.ml.features import resume_skill_evidence
+    from app.services.ml.features import coverage, resume_skill_evidence
 
     ev = resume_skill_evidence(c)
     def status_of(s):
@@ -486,11 +493,11 @@ def role_keyword_coverage(c: ResumeContent, role_id: str) -> dict | None:
         return "absent"
     req = [{"skill": s, "status": status_of(s)} for s in role.required_skills]
     pref = [{"skill": s, "status": status_of(s)} for s in role.preferred_skills]
-    present = sum(1 for x in req if x["status"] != "absent")
     return {
         "role_id": role.id, "role_title": role.title,
         "required": req, "preferred": pref,
-        "required_coverage": round(present / len(req), 2) if req else None,
-        "preferred_coverage": round(sum(1 for x in pref if x["status"] != "absent") / len(pref), 2) if pref else None,
+        # same rule as role fit and job matching: shown in work = 1, only listed = 0.5
+        "required_coverage": None if not req else round(coverage(role.required_skills, ev), 2),
+        "preferred_coverage": None if not pref else round(coverage(role.preferred_skills, ev), 2),
         "note": "Keyword coverage shows which role terms appear in your resume. Only add skills you genuinely have.",
     }
